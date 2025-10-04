@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Image,
+  ImageSourcePropType,
   Pressable,
   ScrollView,
   StatusBar,
@@ -11,8 +12,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 
 import Navigation from '../../src/components/Navigation';
+import LogoutConfirmation from '../../src/components/LogoutConfirmation';
+import ProfileMenu from '../../src/components/profile/ProfileMenu';
 import {
   SOCIAL_PLATFORMS,
   ensureSocialUrl,
@@ -28,10 +32,15 @@ const SOCIAL_ORDER: Array<'instagram' | 'linkedin' | 'twitter'> = [
   'twitter',
 ];
 
-const BANNER_URI =
+const FALLBACK_BANNER_URI =
   'https://images.unsplash.com/photo-1519669556878-619358287bf8?auto=format&fit=crop&w=1200&q=80';
+const bannerImg = require('@/assets/images/profile-banner.jpg');
 
 const ProfileScreen: React.FC = () => {
+  const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+
   const socialEntries = useMemo(() => {
     if (!ME.socialLinks) {
       return [];
@@ -51,44 +60,95 @@ const ProfileScreen: React.FC = () => {
     });
   }, []);
 
+  const bannerSource: ImageSourcePropType = bannerImg || { uri: FALLBACK_BANNER_URI };
+
+  const handleCloseMenu = useCallback(() => {
+    setMenuOpen(false);
+  }, []);
+
+  const handleEditProfile = useCallback(() => {
+    setMenuOpen(false);
+    router.push('/edit-profile');
+  }, []);
+
+  const handleFeedback = useCallback(() => {
+    setMenuOpen(false);
+    router.push('/feedback');
+  }, [router]);
+
+  const handleLogout = useCallback(() => {
+    setMenuOpen(false);
+    setLogoutOpen(true);
+  }, []);
+
+  const handleCancelLogout = useCallback(() => {
+    setLogoutOpen(false);
+  }, []);
+
+  const handleConfirmLogout = useCallback(() => {
+    setLogoutOpen(false);
+    router.replace('/');
+  }, [router]);
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
-          <Pressable style={styles.headerButton}>
+          <Pressable
+            style={styles.headerButton}
+            onPress={() => setMenuOpen(true)}
+            accessibilityRole='button'
+            accessibilityLabel='Open profile menu'>
             <Feather name="menu" size={22} color="#ffffff" />
           </Pressable>
         </View>
       </SafeAreaView>
+      <ProfileMenu
+        visible={menuOpen}
+        onClose={handleCloseMenu}
+        onEditProfile={handleEditProfile}
+        onFeedback={handleFeedback}
+        onLogout={handleLogout}
+      />
+      <LogoutConfirmation
+        visible={logoutOpen}
+        onCancel={handleCancelLogout}
+        onConfirm={handleConfirmLogout}
+      />
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.bannerWrapper}>
-          <Image source={{ uri: BANNER_URI }} style={styles.banner} />
+          <Image
+            source={bannerSource}
+            style={styles.bannerImage}
+            resizeMode='cover'
+          />
           <View style={styles.avatarWrapper}>
             <Image source={{ uri: ME.profilePhoto }} style={styles.avatar} />
           </View>
         </View>
 
-        <View style={styles.socialRow}>
-          {socialEntries.map(({ id, url }) => {
-            const meta = SOCIAL_PLATFORMS[id];
-            const icon = meta.renderIcon({ size: 18, color: '#ffffff' });
-            const disabled = !url;
-            return (
-              <Pressable
-                key={id}
-                style={[styles.socialButton, disabled ? styles.socialDisabled : null]}
-                accessibilityRole="button"
-                accessibilityLabel={meta.label}
-                onPress={() => {
-                  if (!url) {
-                    return;
-                  }
-                  console.log('social link', id, url);
+        <View style={styles.profileContent}>
+          <View style={styles.socialRow}>
+            {socialEntries.map(({ id, url }) => {
+              const meta = SOCIAL_PLATFORMS[id];
+              const icon = meta.renderIcon({ size: 18, color: '#ffffff' });
+              const disabled = !url;
+              return (
+                <Pressable
+                  key={id}
+                  style={[styles.socialButton, disabled ? styles.socialDisabled : null]}
+                  accessibilityRole="button"
+                  accessibilityLabel={meta.label}
+                  onPress={() => {
+                    if (!url) {
+                      return;
+                    }
+                    console.log('social link', id, url);
                 }}
               >
                 {id === 'instagram' ? (
@@ -136,6 +196,7 @@ const ProfileScreen: React.FC = () => {
           <Text style={styles.emptyTitle}>No posts yet</Text>
           <Text style={styles.emptySubtitle}>Share your first post to get started!</Text>
         </View>
+        </View>
       </ScrollView>
       <Navigation activePath="/profile" />
     </View>
@@ -171,32 +232,35 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(30, 41, 59, 0.6)',
   },
   content: {
-    paddingHorizontal: 20,
     paddingBottom: 160,
   },
   bannerWrapper: {
+    position: 'relative',
     marginBottom: 60,
   },
-  banner: {
+  bannerImage: {
     width: '100%',
-    height: 180,
-    borderRadius: 24,
+    height: 200,
+    borderRadius: 0,
   },
   avatarWrapper: {
     position: 'absolute',
     left: 20,
-    bottom: -40,
+    bottom: -50,
     borderRadius: 16,
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: '#000000',
     padding: 2,
     backgroundColor: '#000000',
   },
   avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 14,
+    width: 100,
+    height: 100,
+    borderRadius: 16,
     backgroundColor: '#111827',
+  },
+  profileContent: {
+    paddingHorizontal: 20,
   },
   socialRow: {
     flexDirection: 'row',
@@ -280,3 +344,4 @@ const styles = StyleSheet.create({
 });
 
 export default ProfileScreen;
+

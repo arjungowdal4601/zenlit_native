@@ -8,20 +8,23 @@ export type AppHeaderProps = {
   title?: string;
   onToggleSearch?: () => void;
   onOpenVisibility?: () => void;
+  onMenuPress?: () => void;
 };
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
   title = 'Zenlit',
   onToggleSearch,
   onOpenVisibility,
+  onMenuPress,
 }) => {
   const showSearch = typeof onToggleSearch === 'function';
-  const showMenu = typeof onOpenVisibility === 'function';
+  const menuHandler = onMenuPress ?? onOpenVisibility;
+  const showMenu = typeof menuHandler === 'function';
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
-      {(showSearch || showMenu) ? (
+      {showSearch || showMenu ? (
         <View style={styles.actions}>
           {showSearch ? (
             <Pressable
@@ -35,10 +38,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           ) : null}
           {showMenu ? (
             <Pressable
-              onPress={onOpenVisibility}
+              onPress={() => {
+                menuHandler?.();
+              }}
               style={[styles.iconButton, showSearch ? styles.iconSpacing : null]}
               accessibilityRole="button"
-              accessibilityLabel="Open visibility settings"
+              accessibilityLabel="Open menu"
             >
               <Feather name="menu" size={ICON_SIZE} color="#ffffff" />
             </Pressable>
