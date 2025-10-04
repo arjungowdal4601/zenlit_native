@@ -1,6 +1,7 @@
-import React from 'react';
-import { FontAwesome } from '@expo/vector-icons';
-import type { ColorValue, StyleProp, ViewStyle } from 'react-native';
+import React, { type ReactElement } from 'react';
+import { Feather } from '@expo/vector-icons';
+import { AntDesign } from '@expo/vector-icons';
+import { FontAwesome6 } from '@expo/vector-icons';
 
 export type SocialPlatformId = 'instagram' | 'linkedin' | 'twitter';
 
@@ -15,63 +16,67 @@ export const getTwitterHandle = (links?: SocialLinks | null) => {
   if (!links) {
     return null;
   }
-
   return links.twitter ?? links.x_twitter ?? null;
 };
 
-type IconRenderProps = {
-  size: number;
-  color: string;
-};
+type IconRenderer = (props?: { size?: number; color?: string }) => ReactElement;
 
-export type SocialPlatformMeta = {
+interface SocialPlatformMeta {
   id: SocialPlatformId;
   label: string;
-  gradient?: readonly [ColorValue, ColorValue, ...ColorValue[]];
-  backgroundColor?: ColorValue;
-  wrapperStyle: StyleProp<ViewStyle>;
-  iconName: React.ComponentProps<typeof FontAwesome>['name'];
-};
+  style: {
+    backgroundColor?: string;
+  };
+  renderIcon: IconRenderer;
+  wantsWhiteIcon?: boolean;
+}
 
 export const SOCIAL_PLATFORMS: Record<SocialPlatformId, SocialPlatformMeta> = {
   instagram: {
     id: 'instagram',
     label: 'Instagram',
-    gradient: [
-      '#f09433',
-      '#e6683c',
-      '#dc2743',
-      '#cc2366',
-      '#bc1888',
-    ] as const,
-    wrapperStyle: {
-      borderRadius: 12,
-    },
-    iconName: 'instagram',
+    style: {},
+    renderIcon: (props) =>
+      React.createElement(Feather, {
+        name: 'instagram',
+        size: props?.size ?? 16,
+        color: props?.color ?? '#ffffff',
+      }),
+    wantsWhiteIcon: true,
   },
   linkedin: {
     id: 'linkedin',
     label: 'LinkedIn',
-    backgroundColor: '#0077B5',
-    wrapperStyle: {
-      borderRadius: 6,
-    },
-    iconName: 'linkedin',
+    style: { backgroundColor: '#0077B5' },
+    renderIcon: (props) =>
+      React.createElement(AntDesign as any, {
+        name: 'linkedin-square',
+        size: props?.size ?? 16,
+        color: props?.color ?? '#ffffff',
+      }),
+    wantsWhiteIcon: true,
   },
   twitter: {
     id: 'twitter',
     label: 'X (Twitter)',
-    backgroundColor: '#000000',
-    wrapperStyle: {
-      borderRadius: 6,
-    },
-    iconName: 'twitter',
+    style: { backgroundColor: '#000000' },
+    renderIcon: (props) =>
+      React.createElement(FontAwesome6 as any, {
+        name: 'x-twitter',
+        size: props?.size ?? 16,
+        color: props?.color ?? '#ffffff',
+      }),
+    wantsWhiteIcon: true,
   },
 };
 
-export const SOCIAL_PLATFORM_IDS: SocialPlatformId[] = Object.keys(SOCIAL_PLATFORMS) as SocialPlatformId[];
+export const SOCIAL_PLATFORM_IDS = Object.keys(
+  SOCIAL_PLATFORMS,
+) as SocialPlatformId[];
 
-export const DEFAULT_VISIBLE_PLATFORMS: SocialPlatformId[] = [...SOCIAL_PLATFORM_IDS];
+export const DEFAULT_VISIBLE_PLATFORMS: SocialPlatformId[] = [
+  ...SOCIAL_PLATFORM_IDS,
+];
 
 const SOCIAL_URL_BASE: Record<SocialPlatformId, string> = {
   instagram: 'https://instagram.com/',

@@ -5,22 +5,48 @@ import { Feather } from '@expo/vector-icons';
 const ICON_SIZE = 24;
 
 export type AppHeaderProps = {
-  onToggleSearch: () => void;
-  onOpenVisibility: () => void;
+  title?: string;
+  onToggleSearch?: () => void;
+  onOpenVisibility?: () => void;
 };
 
-export const AppHeader: React.FC<AppHeaderProps> = ({ onToggleSearch, onOpenVisibility }) => {
+export const AppHeader: React.FC<AppHeaderProps> = ({
+  title = 'Zenlit',
+  onToggleSearch,
+  onOpenVisibility,
+}) => {
+  const showSearch = typeof onToggleSearch === 'function';
+  const showMenu = typeof onOpenVisibility === 'function';
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Zenlit</Text>
-      <View style={styles.actions}>
-        <Pressable onPress={onToggleSearch} style={styles.iconButton} accessibilityRole="button">
-          <Feather name="search" size={ICON_SIZE} color="#ffffff" />
-        </Pressable>
-        <Pressable onPress={onOpenVisibility} style={[styles.iconButton, styles.iconSpacing]} accessibilityRole="button">
-          <Feather name="menu" size={ICON_SIZE} color="#ffffff" />
-        </Pressable>
-      </View>
+      <Text style={styles.title}>{title}</Text>
+      {(showSearch || showMenu) ? (
+        <View style={styles.actions}>
+          {showSearch ? (
+            <Pressable
+              onPress={onToggleSearch}
+              style={styles.iconButton}
+              accessibilityRole="button"
+              accessibilityLabel="Toggle search"
+            >
+              <Feather name="search" size={ICON_SIZE} color="#ffffff" />
+            </Pressable>
+          ) : null}
+          {showMenu ? (
+            <Pressable
+              onPress={onOpenVisibility}
+              style={[styles.iconButton, showSearch ? styles.iconSpacing : null]}
+              accessibilityRole="button"
+              accessibilityLabel="Open visibility settings"
+            >
+              <Feather name="menu" size={ICON_SIZE} color="#ffffff" />
+            </Pressable>
+          ) : null}
+        </View>
+      ) : (
+        <View style={styles.spacer} />
+      )}
     </View>
   );
 };
@@ -53,6 +79,10 @@ const styles = StyleSheet.create({
   },
   iconSpacing: {
     marginLeft: 12,
+  },
+  spacer: {
+    width: 44,
+    height: 44,
   },
 });
 

@@ -2,14 +2,12 @@ import React, { useMemo } from 'react';
 import {
   Image,
   Linking,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FontAwesome } from '@expo/vector-icons';
 import { MessageSquare, User } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
@@ -22,15 +20,17 @@ import {
   type SocialLinks,
   type SocialPlatformId,
 } from '../constants/socialPlatforms';
-import { theme } from '../styles/theme';
-
-type SocialProfileCardProps = {
-  user: NearbyUser;
-  selectedAccounts?: SocialPlatformId[];
-};
 
 const FALLBACK_AVATAR =
   'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png';
+
+const INSTAGRAM_GRADIENT = [
+  '#f09433',
+  '#e6683c',
+  '#dc2743',
+  '#cc2366',
+  '#bc1888',
+] as const;
 
 const MAX_BIO_LENGTH = 120;
 
@@ -40,28 +40,38 @@ const sanitiseAvatarUrl = (value?: string | null) => {
 };
 
 const getVisiblePlatforms = (
-  links: SocialLinks,
+  links: SocialLinks | undefined,
   selected: SocialPlatformId[] | undefined,
 ): Array<{ id: SocialPlatformId; url: string }> => {
-  const active = selected?.length ? selected : DEFAULT_VISIBLE_PLATFORMS;
-  const instagram = ensureSocialUrl('instagram', links.instagram);
-  const linkedin = ensureSocialUrl('linkedin', links.linkedin);
-  const twitterHandle = getTwitterHandle(links);
-  const twitter = ensureSocialUrl('twitter', twitterHandle);
+  if (!links) {
+    return [];
+  }
 
+  const active = selected?.length ? selected : DEFAULT_VISIBLE_PLATFORMS;
   const results: Array<{ id: SocialPlatformId; url: string }> = [];
 
-  if (instagram && active.includes('instagram')) {
-    results.push({ id: 'instagram', url: instagram });
+  const instagramUrl = ensureSocialUrl('instagram', links.instagram);
+  if (instagramUrl && active.includes('instagram')) {
+    results.push({ id: 'instagram', url: instagramUrl });
   }
-  if (linkedin && active.includes('linkedin')) {
-    results.push({ id: 'linkedin', url: linkedin });
+
+  const linkedinUrl = ensureSocialUrl('linkedin', links.linkedin);
+  if (linkedinUrl && active.includes('linkedin')) {
+    results.push({ id: 'linkedin', url: linkedinUrl });
   }
-  if (twitter && active.includes('twitter')) {
-    results.push({ id: 'twitter', url: twitter });
+
+  const twitterHandle = getTwitterHandle(links);
+  const twitterUrl = ensureSocialUrl('twitter', twitterHandle);
+  if (twitterUrl && active.includes('twitter')) {
+    results.push({ id: 'twitter', url: twitterUrl });
   }
 
   return results;
+};
+
+export type SocialProfileCardProps = {
+  user: NearbyUser;
+  selectedAccounts?: SocialPlatformId[];
 };
 
 export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
@@ -69,17 +79,22 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
   selectedAccounts,
 }) => {
   const router = useRouter();
+
   const displayBio = useMemo(() => {
     return user.bio.length > MAX_BIO_LENGTH
       ? `${user.bio.slice(0, MAX_BIO_LENGTH)}...`
       : user.bio;
   }, [user.bio]);
 
-  const avatarSource = useMemo(() => ({ uri: sanitiseAvatarUrl(user.profilePhoto) }), [user.profilePhoto]);
-  const platforms = useMemo(() => getVisiblePlatforms(user.socialLinks, selectedAccounts), [
-    selectedAccounts,
-    user.socialLinks,
-  ]);
+  const avatarSource = useMemo(
+    () => ({ uri: sanitiseAvatarUrl(user.profilePhoto) }),
+    [user.profilePhoto],
+  );
+
+  const platforms = useMemo(
+    () => getVisiblePlatforms(user.socialLinks, selectedAccounts),
+    [selectedAccounts, user.socialLinks],
+  );
 
   const handleProfilePress = () => {
     router.push(`/profile/${user.id}`);
@@ -108,7 +123,7 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
         </Pressable>
 
         <View style={styles.topContent}>
-          <Pressable onPress={handleProfilePress} style={styles.nameWrapper}>
+          <Pressable style={styles.nameWrapper} onPress={handleProfilePress}>
             <Text style={styles.name} numberOfLines={1}>
               {user.name}
             </Text>
@@ -129,12 +144,7 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
         <View style={styles.socialRow}>
           {platforms.map(({ id, url }) => {
             const meta = SOCIAL_PLATFORMS[id];
-            const iconSize = Platform.select({ ios: 18, android: 18, default: 16 }) ?? 18;
-
-            const wrapperStyles = [styles.socialWrapper, meta.wrapperStyle];
-            const icon = (
-              <FontAwesome name={meta.iconName} size={iconSize} color={id === 'instagram' ? '#ffffff' : '#ffffff'} />
-            );
+            const icon = meta.renderIcon({ size: 18, color: meta.wantsWhiteIcon ? '#ffffff' : '#000000' });
 
             return (
               <Pressable
@@ -144,15 +154,22 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel={meta.label}
               >
-                {meta.gradient ? (
-                  <LinearGradient colors={meta.gradient} style={wrapperStyles as any}>
+                {id === 'instagram' ? (
+                  <LinearGradient
+                    colors={INSTAGRAM_GRADIENT}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.socialBadge}
+                  >
                     {icon}
                   </LinearGradient>
                 ) : (
                   <View
                     style={[
-                      wrapperStyles,
-                      meta.backgroundColor ? { backgroundColor: meta.backgroundColor } : null,
+                      styles.socialBadge,
+                      meta.style.backgroundColor
+                        ? { backgroundColor: meta.style.backgroundColor }
+                        : null,
                     ]}
                   >
                     {icon}
@@ -164,10 +181,20 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
         </View>
 
         <View style={styles.actionRow}>
-          <Pressable style={styles.actionButton} onPress={handleProfilePress} accessibilityRole="button">
+          <Pressable
+            style={styles.actionButton}
+            onPress={handleProfilePress}
+            accessibilityRole="button"
+            accessibilityLabel="View profile"
+          >
             <User size={22} color="#ffffff" strokeWidth={2} />
           </Pressable>
-          <Pressable style={styles.actionButton} onPress={handleMessagePress} accessibilityRole="button">
+          <Pressable
+            style={styles.actionButton}
+            onPress={handleMessagePress}
+            accessibilityRole="button"
+            accessibilityLabel="Send message"
+          >
             <MessageSquare size={22} color="#ffffff" strokeWidth={2} />
           </Pressable>
         </View>
@@ -201,7 +228,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 16,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: '#111827',
   },
   topContent: {
     flex: 1,
@@ -238,9 +265,10 @@ const styles = StyleSheet.create({
   socialButton: {
     marginRight: 10,
   },
-  socialWrapper: {
+  socialBadge: {
     width: 32,
     height: 32,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
