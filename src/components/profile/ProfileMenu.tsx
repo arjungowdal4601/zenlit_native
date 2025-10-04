@@ -31,7 +31,7 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
           accessibilityRole='button'
           accessibilityLabel='Close profile menu'
         />
-        <View style={styles.positioner} pointerEvents='box-none'>
+        <View style={styles.positioner}>
           <View style={styles.card}>
             <Pressable
               onPress={onClose}
@@ -91,6 +91,7 @@ const styles = StyleSheet.create({
   },
   positioner: {
     flex: 1,
+    pointerEvents: 'box-none',
     alignItems: 'flex-end',
     paddingTop: 60,
     paddingHorizontal: 20,
@@ -148,3 +149,5 @@ const styles = StyleSheet.create({
 });
 
 export default ProfileMenu;
+
+

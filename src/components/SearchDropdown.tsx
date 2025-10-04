@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import {
   Animated,
+  Platform,
   FlatList,
   Pressable,
   StyleSheet,
@@ -39,7 +40,7 @@ export const SearchDropdown: React.FC<SearchDropdownProps> = ({
     Animated.timing(opacity, {
       toValue: visible ? 1 : 0,
       duration: 200,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [opacity, visible]);
 
@@ -161,3 +162,4 @@ const styles = StyleSheet.create({
 });
 
 export default SearchDropdown;
+

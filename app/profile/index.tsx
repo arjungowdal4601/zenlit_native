@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+﻿import React, { useCallback, useMemo, useState } from 'react';
 import {
   Image,
   ImageSourcePropType,
@@ -87,7 +87,7 @@ const ProfileScreen: React.FC = () => {
 
   const handleConfirmLogout = useCallback(() => {
     setLogoutOpen(false);
-    router.replace('/');
+    router.replace('/auth/signin');
   }, [router]);
 
   return (

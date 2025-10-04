@@ -1,6 +1,5 @@
 import React, { type ReactElement } from 'react';
 import { Feather } from '@expo/vector-icons';
-import { AntDesign } from '@expo/vector-icons';
 import { FontAwesome6 } from '@expo/vector-icons';
 
 export type SocialPlatformId = 'instagram' | 'linkedin' | 'twitter';
@@ -49,8 +48,8 @@ export const SOCIAL_PLATFORMS: Record<SocialPlatformId, SocialPlatformMeta> = {
     label: 'LinkedIn',
     style: { backgroundColor: '#0077B5' },
     renderIcon: (props) =>
-      React.createElement(AntDesign as any, {
-        name: 'linkedin-square',
+      React.createElement(FontAwesome6 as any, {
+        name: 'linkedin',
         size: props?.size ?? 16,
         color: props?.color ?? '#ffffff',
       }),
@@ -106,3 +105,4 @@ export const ensureSocialUrl = (
   const normalised = trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
   return `${SOCIAL_URL_BASE[platform]}${normalised}`;
 };
+

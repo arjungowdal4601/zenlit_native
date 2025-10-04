@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -56,7 +56,7 @@ const GetStartedScreen: React.FC = () => {
     runContainerAnimation(true);
 
     setTimeout(() => {
-      router.push('/radar');
+      router.push('/auth/signup');
     }, 420);
   }, [isNavigating, router, runContainerAnimation]);
 
@@ -101,6 +101,14 @@ const GetStartedScreen: React.FC = () => {
               <Text style={styles.buttonLabel}>Get Started</Text>
             )}
           </LinearGradient>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push('/auth/signin')}
+          style={styles.secondaryLink}
+        >
+          <Text style={styles.secondaryText}>Already have an account? Sign in</Text>
         </Pressable>
       </Animated.View>
     </View>
@@ -159,6 +167,14 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginLeft: 8,
+  },
+  secondaryLink: {
+    marginTop: 28,
+  },
+  secondaryText: {
+    color: '#60a5fa',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
 
