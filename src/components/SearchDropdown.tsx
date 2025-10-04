@@ -8,11 +8,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 
-import { animations } from '../styles/animations';
-import { theme } from '../styles/theme';
-
-type SearchSuggestion = {
+type SearchDropdownItem = {
   id: string;
   title: string;
   subtitle?: string;
@@ -20,27 +18,27 @@ type SearchSuggestion = {
 
 type SearchDropdownProps = {
   visible: boolean;
-  query: string;
-  suggestions: SearchSuggestion[];
-  onQueryChange: (value: string) => void;
-  onSelect: (suggestion: SearchSuggestion) => void;
-  onDismiss: () => void;
+  value: string;
+  onChangeText: (text: string) => void;
+  onClose: () => void;
+  items: SearchDropdownItem[];
+  onSelect: (item: SearchDropdownItem) => void;
 };
 
 export const SearchDropdown: React.FC<SearchDropdownProps> = ({
   visible,
-  query,
-  suggestions,
-  onQueryChange,
+  value,
+  onChangeText,
+  onClose,
+  items,
   onSelect,
-  onDismiss,
 }) => {
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(opacity, {
       toValue: visible ? 1 : 0,
-      duration: animations.durations.dropdown,
+      duration: 200,
       useNativeDriver: true,
     }).start();
   }, [opacity, visible]);
@@ -51,30 +49,33 @@ export const SearchDropdown: React.FC<SearchDropdownProps> = ({
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      <Pressable style={styles.backdrop} onPress={onDismiss} />
+      <Pressable style={styles.backdrop} onPress={onClose} />
       <Animated.View style={[styles.dropdown, { opacity }]}> 
-        <TextInput
-          value={query}
-          onChangeText={onQueryChange}
-          placeholder="Search people"
-          placeholderTextColor={theme.colors.subtitle}
-          style={styles.input}
-          autoFocus
-        />
+        <View style={styles.inputRow}>
+          <TextInput
+            value={value}
+            onChangeText={onChangeText}
+            placeholder="Search people"
+            placeholderTextColor="#94a3b8"
+            style={styles.input}
+            autoFocus
+          />
+          <Pressable onPress={onClose} style={styles.closeButton} accessibilityLabel="Close search">
+            <Feather name="x" size={20} color="#ffffff" />
+          </Pressable>
+        </View>
+
         <FlatList
-          data={suggestions}
+          data={items}
           keyExtractor={(item) => item.id}
           keyboardShouldPersistTaps="handled"
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
           renderItem={({ item }) => (
-            <Pressable
-              style={styles.item}
-              onPress={() => onSelect(item)}
-            >
+            <Pressable style={styles.item} onPress={() => onSelect(item)}>
               <Text style={styles.itemTitle}>{item.title}</Text>
               {item.subtitle ? <Text style={styles.itemSubtitle}>{item.subtitle}</Text> : null}
             </Pressable>
           )}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={() => (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>No matches found</Text>
@@ -93,55 +94,70 @@ const styles = StyleSheet.create({
   },
   dropdown: {
     position: 'absolute',
-    top: 94,
-    left: theme.spacing.lg,
-    right: theme.spacing.lg,
-    backgroundColor: theme.colors.dropdown,
-    borderRadius: theme.radii.lg,
-    paddingHorizontal: theme.spacing.md,
-    paddingTop: theme.spacing.md,
-    paddingBottom: theme.spacing.xs,
+    top: 110,
+    left: 24,
+    right: 24,
+    borderRadius: 18,
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   input: {
+    flex: 1,
     height: 44,
-    borderRadius: theme.radii.md,
-    paddingHorizontal: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
-    backgroundColor: theme.colors.muted,
-    color: theme.colors.text,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+    color: '#ffffff',
     fontSize: 16,
   },
+  closeButton: {
+    marginLeft: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+  },
+  separator: {
+    height: 1,
+    backgroundColor: 'rgba(148, 163, 184, 0.35)',
+  },
   item: {
-    paddingVertical: theme.spacing.sm,
+    paddingVertical: 12,
   },
   itemTitle: {
-    color: theme.colors.text,
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
   },
   itemSubtitle: {
     marginTop: 2,
-    color: theme.colors.subtitle,
+    color: '#cbd5f5',
     fontSize: 14,
   },
-  separator: {
-    height: 1,
-    backgroundColor: theme.colors.divider,
-  },
   emptyState: {
-    paddingVertical: theme.spacing.lg,
+    paddingVertical: 24,
     alignItems: 'center',
   },
   emptyTitle: {
-    color: theme.colors.subtitle,
-    fontSize: 14,
+    color: '#e2e8f0',
+    fontSize: 15,
     fontWeight: '600',
   },
   emptySubtitle: {
-    color: theme.colors.subtitle,
-    fontSize: 12,
     marginTop: 4,
+    color: '#94a3b8',
+    fontSize: 13,
   },
 });
+
+export default SearchDropdown;

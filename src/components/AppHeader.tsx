@@ -2,34 +2,23 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import { theme } from '../styles/theme';
+const ICON_SIZE = 24;
 
-type AppHeaderProps = {
-  title: string;
-  onSearchPress?: () => void;
-  onMenuPress?: () => void;
+export type AppHeaderProps = {
+  onToggleSearch: () => void;
+  onOpenVisibility: () => void;
 };
 
-export const AppHeader: React.FC<AppHeaderProps> = ({ title, onSearchPress, onMenuPress }) => {
+export const AppHeader: React.FC<AppHeaderProps> = ({ onToggleSearch, onOpenVisibility }) => {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
+      <Text style={styles.title}>Zenlit</Text>
       <View style={styles.actions}>
-        <Pressable
-          style={styles.iconButton}
-          accessibilityRole="button"
-          accessibilityLabel="Search"
-          onPress={onSearchPress}
-        >
-          <Feather name="search" size={theme.iconSizes.lg} color={theme.colors.icon} />
+        <Pressable onPress={onToggleSearch} style={styles.iconButton} accessibilityRole="button">
+          <Feather name="search" size={ICON_SIZE} color="#ffffff" />
         </Pressable>
-        <Pressable
-          style={[styles.iconButton, styles.iconSpacing]}
-          accessibilityRole="button"
-          accessibilityLabel="Visibility settings"
-          onPress={onMenuPress}
-        >
-          <Feather name="sliders" size={theme.iconSizes.lg} color={theme.colors.icon} />
+        <Pressable onPress={onOpenVisibility} style={[styles.iconButton, styles.iconSpacing]} accessibilityRole="button">
+          <Feather name="menu" size={ICON_SIZE} color="#ffffff" />
         </Pressable>
       </View>
     </View>
@@ -41,14 +30,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    backgroundColor: 'transparent',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
   },
   title: {
-    color: theme.colors.icon,
-    fontSize: 28,
-    fontWeight: '700',
+    color: '#ffffff',
+    fontSize: 30,
+    fontWeight: '600',
     letterSpacing: -0.5,
   },
   actions: {
@@ -58,12 +46,14 @@ const styles = StyleSheet.create({
   iconButton: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.muted,
+    backgroundColor: 'rgba(148, 163, 184, 0.2)',
   },
   iconSpacing: {
-    marginLeft: theme.spacing.xs,
+    marginLeft: 12,
   },
 });
+
+export default AppHeader;

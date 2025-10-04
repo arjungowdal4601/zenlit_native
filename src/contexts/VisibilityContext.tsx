@@ -1,62 +1,66 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { PropsWithChildren } from 'react';
 
-import type { SocialPlatformId } from '../constants/nearbyUsers';
-import { orderedSocialPlatforms } from '../constants/socialPlatforms';
+import type { SocialPlatformId } from '../constants/socialPlatforms';
+import { DEFAULT_VISIBLE_PLATFORMS } from '../constants/socialPlatforms';
 
 type VisibilityContextValue = {
   isVisible: boolean;
-  selectedPlatforms: SocialPlatformId[];
-  toggleVisibility: () => void;
+  setIsVisible: (value: boolean) => void;
+  radiusKm: number;
+  setRadiusKm: (value: number) => void;
+  selectedAccounts: SocialPlatformId[];
+  toggleAccount: (platformId: SocialPlatformId) => void;
   selectAll: () => void;
   deselectAll: () => void;
-  togglePlatform: (id: SocialPlatformId) => void;
 };
 
 const VisibilityContext = createContext<VisibilityContextValue | undefined>(undefined);
 
-type VisibilityProviderProps = {
-  children: ReactNode;
-};
-
-export const VisibilityProvider: React.FC<VisibilityProviderProps> = ({ children }) => {
-  const [isVisible, setIsVisible] = useState(true);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatformId[]>(
-    orderedSocialPlatforms.map((platform) => platform.id)
-  );
-
-  const toggleVisibility = () => {
-    setIsVisible((prev) => !prev);
-  };
-
-  const selectAll = () => {
-    setSelectedPlatforms(orderedSocialPlatforms.map((platform) => platform.id));
-  };
-
-  const deselectAll = () => {
-    setSelectedPlatforms([]);
-  };
-
-  const togglePlatform = (id: SocialPlatformId) => {
-    setSelectedPlatforms((prev) =>
-      prev.includes(id) ? prev.filter((platformId) => platformId !== id) : [...prev, id]
-    );
-  };
-
-  const value = useMemo(
-    () => ({ isVisible, selectedPlatforms, toggleVisibility, selectAll, deselectAll, togglePlatform }),
-    [isVisible, selectedPlatforms]
-  );
-
-  return <VisibilityContext.Provider value={value}>{children}</VisibilityContext.Provider>;
-};
-
 export const useVisibility = () => {
   const context = useContext(VisibilityContext);
-
   if (!context) {
     throw new Error('useVisibility must be used within a VisibilityProvider');
   }
-
   return context;
+};
+
+export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) => {
+  const [isVisible, setIsVisible] = useState(true);
+  const [radiusKm, setRadiusKm] = useState(5);
+  const [selectedAccounts, setSelectedAccounts] = useState<SocialPlatformId[]>(
+    [...DEFAULT_VISIBLE_PLATFORMS],
+  );
+
+  const toggleAccount = (platformId: SocialPlatformId) => {
+    setSelectedAccounts((prev) =>
+      prev.includes(platformId)
+        ? prev.filter((id) => id !== platformId)
+        : [...prev, platformId],
+    );
+  };
+
+  const selectAll = () => {
+    setSelectedAccounts([...DEFAULT_VISIBLE_PLATFORMS]);
+  };
+
+  const deselectAll = () => {
+    setSelectedAccounts([]);
+  };
+
+  const value = useMemo(
+    () => ({
+      isVisible,
+      setIsVisible,
+      radiusKm,
+      setRadiusKm,
+      selectedAccounts,
+      toggleAccount,
+      selectAll,
+      deselectAll,
+    }),
+    [isVisible, radiusKm, selectedAccounts],
+  );
+
+  return <VisibilityContext.Provider value={value}>{children}</VisibilityContext.Provider>;
 };

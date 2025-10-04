@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import {
   Image,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -8,110 +9,167 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
+import { FontAwesome } from '@expo/vector-icons';
+import { MessageSquare, User } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 
-import type { NearbyUser, SocialLinks, SocialPlatformId } from '../constants/nearbyUsers';
-import { socialPlatforms } from '../constants/socialPlatforms';
+import type { NearbyUser } from '../constants/nearbyUsers';
+import {
+  DEFAULT_VISIBLE_PLATFORMS,
+  SOCIAL_PLATFORMS,
+  ensureSocialUrl,
+  getTwitterHandle,
+  type SocialLinks,
+  type SocialPlatformId,
+} from '../constants/socialPlatforms';
 import { theme } from '../styles/theme';
 
 type SocialProfileCardProps = {
   user: NearbyUser;
-  visiblePlatforms?: SocialPlatformId[];
-  onProfilePress?: (userId: string) => void;
-  onMessagePress?: (userId: string) => void;
-  onSocialPress?: (platformId: SocialPlatformId, url: string) => void;
+  selectedAccounts?: SocialPlatformId[];
 };
 
-const filterLinks = (links: SocialLinks, visiblePlatforms?: SocialPlatformId[]) => {
-  if (!visiblePlatforms || visiblePlatforms.length === 0) {
-    return [] as Array<[SocialPlatformId, string]>;
+const FALLBACK_AVATAR =
+  'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png';
+
+const MAX_BIO_LENGTH = 120;
+
+const sanitiseAvatarUrl = (value?: string | null) => {
+  const source = value && value.trim() ? value : FALLBACK_AVATAR;
+  return source.replace(/["'()]/g, '');
+};
+
+const getVisiblePlatforms = (
+  links: SocialLinks,
+  selected: SocialPlatformId[] | undefined,
+): Array<{ id: SocialPlatformId; url: string }> => {
+  const active = selected?.length ? selected : DEFAULT_VISIBLE_PLATFORMS;
+  const instagram = ensureSocialUrl('instagram', links.instagram);
+  const linkedin = ensureSocialUrl('linkedin', links.linkedin);
+  const twitterHandle = getTwitterHandle(links);
+  const twitter = ensureSocialUrl('twitter', twitterHandle);
+
+  const results: Array<{ id: SocialPlatformId; url: string }> = [];
+
+  if (instagram && active.includes('instagram')) {
+    results.push({ id: 'instagram', url: instagram });
+  }
+  if (linkedin && active.includes('linkedin')) {
+    results.push({ id: 'linkedin', url: linkedin });
+  }
+  if (twitter && active.includes('twitter')) {
+    results.push({ id: 'twitter', url: twitter });
   }
 
-  return (Object.entries(links) as Array<[SocialPlatformId, string]>).filter(
-    (entry): entry is [SocialPlatformId, string] =>
-      Boolean(entry[1]) && visiblePlatforms.includes(entry[0])
-  );
+  return results;
 };
 
 export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
   user,
-  visiblePlatforms,
-  onProfilePress,
-  onMessagePress,
-  onSocialPress,
+  selectedAccounts,
 }) => {
-  const platforms = useMemo(
-    () => (visiblePlatforms ? filterLinks(user.links, visiblePlatforms) : Object.entries(user.links) as Array<[SocialPlatformId, string]>),
-    [user.links, visiblePlatforms]
-  );
+  const router = useRouter();
+  const displayBio = useMemo(() => {
+    return user.bio.length > MAX_BIO_LENGTH
+      ? `${user.bio.slice(0, MAX_BIO_LENGTH)}...`
+      : user.bio;
+  }, [user.bio]);
+
+  const avatarSource = useMemo(() => ({ uri: sanitiseAvatarUrl(user.profilePhoto) }), [user.profilePhoto]);
+  const platforms = useMemo(() => getVisiblePlatforms(user.socialLinks, selectedAccounts), [
+    selectedAccounts,
+    user.socialLinks,
+  ]);
+
+  const handleProfilePress = () => {
+    router.push(`/profile/${user.id}`);
+  };
+
+  const handleMessagePress = () => {
+    router.push(`/messages/${user.id}`);
+  };
+
+  const handleLinkPress = async (url: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      }
+    } catch (error) {
+      console.warn('Unable to open url', error);
+    }
+  };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
-        <View style={styles.details}>
-          <Text style={styles.name} numberOfLines={1}>
-            {user.name}
-          </Text>
-          <Text style={styles.handle} numberOfLines={1}>
-            {user.handle}
-          </Text>
+    <View style={styles.card}>
+      <View style={styles.topRow}>
+        <Pressable style={styles.avatarWrapper} onPress={handleProfilePress}>
+          <Image source={avatarSource} style={styles.avatar} />
+        </Pressable>
+
+        <View style={styles.topContent}>
+          <Pressable onPress={handleProfilePress} style={styles.nameWrapper}>
+            <Text style={styles.name} numberOfLines={1}>
+              {user.name}
+            </Text>
+            {user.username ? (
+              <Text style={styles.username} numberOfLines={1}>
+                @{user.username}
+              </Text>
+            ) : null}
+          </Pressable>
+
           <Text style={styles.bio} numberOfLines={2}>
-            {user.bio}
+            {displayBio}
           </Text>
+        </View>
+      </View>
 
-          <View style={styles.footer}>
-            <View style={styles.socialRow}>
-              {platforms.map(([platformId, url]) => {
-                const platform = socialPlatforms[platformId];
-                const content = platform.renderIcon({ color: '#FFFFFF', size: theme.iconSizes.md });
+      <View style={styles.bottomRow}>
+        <View style={styles.socialRow}>
+          {platforms.map(({ id, url }) => {
+            const meta = SOCIAL_PLATFORMS[id];
+            const iconSize = Platform.select({ ios: 18, android: 18, default: 16 }) ?? 18;
 
-                return (
-                  <Pressable
-                    key={platformId}
-                    style={styles.socialButton}
-                    onPress={() => onSocialPress?.(platformId, url)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open ${platform.label}`}
+            const wrapperStyles = [styles.socialWrapper, meta.wrapperStyle];
+            const icon = (
+              <FontAwesome name={meta.iconName} size={iconSize} color={id === 'instagram' ? '#ffffff' : '#ffffff'} />
+            );
+
+            return (
+              <Pressable
+                key={id}
+                onPress={() => handleLinkPress(url)}
+                style={styles.socialButton}
+                accessibilityRole="button"
+                accessibilityLabel={meta.label}
+              >
+                {meta.gradient ? (
+                  <LinearGradient colors={meta.gradient} style={wrapperStyles as any}>
+                    {icon}
+                  </LinearGradient>
+                ) : (
+                  <View
+                    style={[
+                      wrapperStyles,
+                      meta.backgroundColor ? { backgroundColor: meta.backgroundColor } : null,
+                    ]}
                   >
-                    {platform.gradient ? (
-                      <LinearGradient colors={platform.gradient} style={styles.socialIcon}>
-                        {content}
-                      </LinearGradient>
-                    ) : (
-                      <View
-                        style={[
-                          styles.socialIcon,
-                          platform.backgroundColor ? { backgroundColor: platform.backgroundColor } : null,
-                        ]}
-                      >
-                        {content}
-                      </View>
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
+                    {icon}
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
 
-            <View style={styles.actions}>
-              <Pressable
-                style={styles.actionButton}
-                onPress={() => onProfilePress?.(user.id)}
-                accessibilityRole="button"
-                accessibilityLabel="View profile"
-              >
-                <Feather name="user" size={theme.iconSizes.md} color={theme.colors.icon} />
-              </Pressable>
-              <Pressable
-                style={[styles.actionButton, styles.actionSpacing]}
-                onPress={() => onMessagePress?.(user.id)}
-                accessibilityRole="button"
-                accessibilityLabel="Send message"
-              >
-                <Feather name="message-circle" size={theme.iconSizes.md} color={theme.colors.icon} />
-              </Pressable>
-            </View>
-          </View>
+        <View style={styles.actionRow}>
+          <Pressable style={styles.actionButton} onPress={handleProfilePress} accessibilityRole="button">
+            <User size={22} color="#ffffff" strokeWidth={2} />
+          </Pressable>
+          <Pressable style={styles.actionButton} onPress={handleMessagePress} accessibilityRole="button">
+            <MessageSquare size={22} color="#ffffff" strokeWidth={2} />
+          </Pressable>
         </View>
       </View>
     </View>
@@ -119,64 +177,56 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radii.lg,
-    marginBottom: theme.spacing.lg,
-    padding: theme.spacing.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.shadows.card.shadowColor,
-        shadowOpacity: theme.shadows.card.shadowOpacity,
-        shadowRadius: theme.shadows.card.shadowRadius,
-        shadowOffset: theme.shadows.card.shadowOffset,
-      },
-      android: {
-        elevation: theme.shadows.card.elevation,
-      },
-      default: {
-        shadowColor: theme.shadows.card.shadowColor,
-        shadowOpacity: theme.shadows.card.shadowOpacity,
-        shadowRadius: theme.shadows.card.shadowRadius,
-        shadowOffset: theme.shadows.card.shadowOffset,
-      },
-    }),
+  card: {
+    backgroundColor: '#000000',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+    shadowColor: '#ffffff',
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 4, height: 8 },
+    elevation: 6,
   },
-  content: {
+  topRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  avatarWrapper: {
+    marginRight: 16,
   },
   avatar: {
-    width: theme.avatar.size,
-    height: theme.avatar.size,
-    borderRadius: theme.avatar.size / 2,
-    marginRight: theme.spacing.md,
-    backgroundColor: theme.colors.muted,
+    width: 80,
+    height: 80,
+    borderRadius: 16,
+    backgroundColor: theme.colors.surface,
   },
-  details: {
+  topContent: {
     flex: 1,
+    minWidth: 0,
+  },
+  nameWrapper: {
+    marginBottom: 4,
   },
   name: {
-    color: theme.colors.text,
-    fontSize: theme.typography.title.size,
-    fontWeight: theme.typography.title.weight,
-    lineHeight: theme.typography.title.lineHeight,
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 2,
   },
-  handle: {
-    color: theme.typography.handle.color,
-    fontSize: theme.typography.handle.size,
-    fontWeight: theme.typography.handle.weight,
-    marginTop: 2,
+  username: {
+    color: '#9ca3af',
+    fontSize: 14,
   },
   bio: {
-    color: theme.typography.body.color,
-    fontSize: theme.typography.body.size,
-    fontWeight: theme.typography.body.weight,
-    marginTop: theme.spacing.xs,
-    marginBottom: theme.spacing.md,
+    color: '#f8fafc',
+    fontSize: 15,
+    lineHeight: 20,
   },
-  footer: {
+  bottomRow: {
+    marginTop: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -186,31 +236,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   socialButton: {
-    marginRight: theme.spacing.xs,
+    marginRight: 10,
   },
-  socialIcon: {
-    minWidth: 36,
-    minHeight: 36,
-    borderRadius: theme.radii.md,
+  socialWrapper: {
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing.xs,
   },
-  actions: {
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: 'transparent',
-  },
-  actionSpacing: {
-    marginLeft: theme.spacing.xs,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    marginLeft: 12,
   },
 });
+
+export default SocialProfileCard;

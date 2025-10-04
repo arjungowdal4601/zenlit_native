@@ -10,96 +10,125 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import { orderedSocialPlatforms } from '../constants/socialPlatforms';
+import { SOCIAL_PLATFORM_IDS, SOCIAL_PLATFORMS } from '../constants/socialPlatforms';
 import { useVisibility } from '../contexts/VisibilityContext';
-import { animations } from '../styles/animations';
-import { theme } from '../styles/theme';
 
-type VisibilitySheetProps = {
+export type VisibilitySheetProps = {
   visible: boolean;
-  onClose: () => void;
+  onRequestClose: () => void;
 };
 
-export const VisibilitySheet: React.FC<VisibilitySheetProps> = ({ visible, onClose }) => {
-  const translateAnim = useRef(new Animated.Value(0)).current;
-  const { isVisible, toggleVisibility, selectedPlatforms, selectAll, deselectAll, togglePlatform } =
-    useVisibility();
+export const VisibilitySheet: React.FC<VisibilitySheetProps> = ({ visible, onRequestClose }) => {
+  const translateY = useRef(new Animated.Value(1)).current;
+  const {
+    isVisible,
+    setIsVisible,
+    radiusKm,
+    setRadiusKm,
+    selectedAccounts,
+    toggleAccount,
+    selectAll,
+    deselectAll,
+  } = useVisibility();
 
   useEffect(() => {
-    Animated.timing(translateAnim, {
-      toValue: visible ? 1 : 0,
-      duration: animations.durations.sheet,
+    Animated.timing(translateY, {
+      toValue: visible ? 0 : 1,
+      duration: 260,
       useNativeDriver: true,
     }).start();
-  }, [translateAnim, visible]);
-
-  const translateY = translateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [340, 0],
-  });
+  }, [translateY, visible]);
 
   return (
-    <Modal
-      animationType="none"
-      visible={visible}
-      transparent
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}> 
+    <Modal transparent visible={visible} animationType="none" onRequestClose={onRequestClose}>
+      <View style={styles.backdrop}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onRequestClose} />
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              transform: [
+                {
+                  translateY: translateY.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 420],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
           <View style={styles.header}>
             <Text style={styles.title}>Visibility</Text>
-            <Pressable style={styles.closeButton} onPress={onClose}>
-              <Feather name="x" size={theme.iconSizes.lg} color={theme.colors.icon} />
+            <Pressable style={styles.iconButton} onPress={onRequestClose}>
+              <Feather name="x" size={22} color="#ffffff" />
             </Pressable>
           </View>
 
           <View style={styles.section}>
-            <View style={styles.visibilityRow}>
-              <View>
-                <Text style={styles.sectionTitle}>Radar presence</Text>
+            <View style={styles.sectionRow}>
+              <View style={styles.sectionCopy}>
+                <Text style={styles.sectionTitle}>Visible to nearby users</Text>
                 <Text style={styles.sectionSubtitle}>
-                  Control whether your profile appears to nearby members.
+                  Control whether your profile appears in radar results.
                 </Text>
               </View>
               <Switch
                 value={isVisible}
-                onValueChange={toggleVisibility}
-                thumbColor={isVisible ? theme.colors.icon : '#FFFFFF'}
-                trackColor={{ false: theme.colors.muted, true: theme.colors.accent }}
+                onValueChange={setIsVisible}
+                thumbColor={isVisible ? '#ffffff' : '#ffffff'}
+                trackColor={{ false: 'rgba(71, 85, 105,0.7)', true: '#6366f1' }}
               />
             </View>
           </View>
 
           <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Platforms</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Radius (km)</Text>
+              <View style={styles.stepper}>
+                <Pressable
+                  style={styles.stepperButton}
+                  onPress={() => setRadiusKm(Math.max(1, radiusKm - 1))}
+                >
+                  <Feather name="minus" size={16} color="#ffffff" />
+                </Pressable>
+                <Text style={styles.stepperLabel}>{radiusKm}</Text>
+                <Pressable
+                  style={styles.stepperButton}
+                  onPress={() => setRadiusKm(Math.min(50, radiusKm + 1))}
+                >
+                  <Feather name="plus" size={16} color="#ffffff" />
+                </Pressable>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Social platforms</Text>
               <View style={styles.sectionActions}>
                 <Pressable onPress={selectAll}>
                   <Text style={styles.actionText}>Select all</Text>
                 </Pressable>
-                <View style={styles.actionDivider} />
+                <View style={styles.divider} />
                 <Pressable onPress={deselectAll}>
                   <Text style={styles.actionText}>Clear</Text>
                 </Pressable>
               </View>
             </View>
 
-            {orderedSocialPlatforms.map((platform) => {
-              const isSelected = selectedPlatforms.includes(platform.id);
-
+            {SOCIAL_PLATFORM_IDS.map((platformId) => {
+              const meta = SOCIAL_PLATFORMS[platformId];
+              const isSelected = selectedAccounts.includes(platformId);
               return (
                 <Pressable
-                  key={platform.id}
-                  style={[styles.platformRow, isSelected ? styles.platformRowActive : null]}
-                  onPress={() => togglePlatform(platform.id)}
+                  key={platformId}
+                  style={[styles.platformRow, isSelected ? styles.platformActive : null]}
+                  onPress={() => toggleAccount(platformId)}
                 >
-                  <Text style={styles.platformLabel}>{platform.label}</Text>
+                  <Text style={styles.platformLabel}>{meta.label}</Text>
                   <View style={[styles.checkbox, isSelected ? styles.checkboxActive : null]}>
-                    {isSelected ? (
-                      <Feather name="check" size={16} color={theme.colors.icon} />
-                    ) : null}
+                    {isSelected ? <Feather name="check" size={16} color="#ffffff" /> : null}
                   </View>
                 </Pressable>
               );
@@ -112,20 +141,20 @@ export const VisibilitySheet: React.FC<VisibilitySheetProps> = ({ visible, onClo
 };
 
 const styles = StyleSheet.create({
-  overlay: {
+  backdrop: {
     flex: 1,
-    backgroundColor: theme.colors.overlay,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: theme.colors.surface,
-    borderTopLeftRadius: theme.radii.xl,
-    borderTopRightRadius: theme.radii.xl,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
-    borderTopWidth: 1,
-    borderColor: theme.colors.border,
+    backgroundColor: '#020617',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 32,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.35)',
   },
   header: {
     flexDirection: 'row',
@@ -133,87 +162,115 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: {
-    color: theme.colors.text,
+    color: '#ffffff',
     fontSize: 20,
     fontWeight: '600',
   },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  iconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.colors.muted,
+    backgroundColor: 'rgba(30, 41, 59, 0.9)',
   },
   section: {
-    marginTop: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: theme.colors.border,
+    marginTop: 20,
   },
-  sectionHeader: {
+  sectionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.sm,
+  },
+  sectionCopy: {
+    flex: 1,
+    marginRight: 16,
   },
   sectionTitle: {
-    color: theme.colors.text,
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '600',
   },
   sectionSubtitle: {
     marginTop: 4,
-    color: theme.colors.subtitle,
+    color: '#94a3b8',
     fontSize: 13,
+    lineHeight: 18,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  stepperButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperLabel: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginHorizontal: 8,
   },
   sectionActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   actionText: {
-    color: theme.colors.accent,
+    color: '#6366f1',
     fontSize: 13,
     fontWeight: '600',
   },
-  actionDivider: {
+  divider: {
     width: 1,
-    height: 12,
-    backgroundColor: theme.colors.border,
-    marginHorizontal: theme.spacing.xs,
-  },
-  visibilityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    height: 16,
+    backgroundColor: 'rgba(71, 85, 105, 0.6)',
+    marginHorizontal: 10,
   },
   platformRow: {
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(51, 65, 85, 0.7)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: theme.spacing.sm,
-    paddingHorizontal: 4,
-    borderRadius: theme.radii.md,
   },
-  platformRowActive: {
-    backgroundColor: theme.colors.muted,
+  platformActive: {
+    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+    borderColor: 'rgba(59, 130, 246, 0.45)',
   },
   platformLabel: {
-    color: theme.colors.text,
+    color: '#ffffff',
     fontSize: 15,
     fontWeight: '500',
   },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: theme.colors.border,
+    borderColor: 'rgba(148, 163, 184, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxActive: {
-    backgroundColor: theme.colors.accent,
-    borderColor: theme.colors.accent,
+    backgroundColor: '#6366f1',
+    borderColor: '#6366f1',
   },
 });
+
+export default VisibilitySheet;

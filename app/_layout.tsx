@@ -1,7 +1,7 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { VisibilityProvider } from '../src/contexts/VisibilityContext';
@@ -11,12 +11,12 @@ const RootLayout: React.FC = () => {
   return (
     <SafeAreaProvider>
       <VisibilityProvider>
-        <StatusBar style="light" backgroundColor={theme.colors.background} />
-        <View style={styles.container}>
+        <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+          <StatusBar style="light" backgroundColor={theme.colors.background} />
           <Stack
             screenOptions={{
               headerShown: false,
-              contentStyle: styles.stackContent,
+              contentStyle: { backgroundColor: theme.colors.background },
             }}
           />
         </View>
@@ -24,15 +24,5 @@ const RootLayout: React.FC = () => {
     </SafeAreaProvider>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  stackContent: {
-    backgroundColor: theme.colors.background,
-  },
-});
 
 export default RootLayout;

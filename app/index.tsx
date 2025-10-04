@@ -1,164 +1,165 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
-import { animations } from '../src/styles/animations';
-import { theme } from '../src/styles/theme';
+const TITLE_GRADIENT = ['#2563eb', '#7e22ce'] as const;
+const BUTTON_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 
-const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
-const FADE_DURATION = animations.durations.fadeOut;
-const NAVIGATE_DELAY = animations.delays.navigate;
-
-const HomeScreen: React.FC = () => {
+const GetStartedScreen: React.FC = () => {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const containerScale = useRef(new Animated.Value(1)).current;
+  const containerTranslate = useRef(new Animated.Value(0)).current;
   const containerOpacity = useRef(new Animated.Value(1)).current;
-  const buttonScale = useRef(new Animated.Value(1)).current;
-  const useNativeDriver = Platform.OS !== 'web';
 
-  const runButtonScale = useCallback(
-    (toValue: number) => {
-      Animated.spring(buttonScale, {
-        toValue,
-        speed: 20,
-        bounciness: toValue === 1 ? 8 : 0,
-        useNativeDriver,
-      }).start();
-    },
-    [buttonScale, useNativeDriver]
-  );
+  useEffect(() => {
+    containerScale.setValue(1);
+    containerTranslate.setValue(0);
+    containerOpacity.setValue(1);
+  }, [containerOpacity, containerScale, containerTranslate]);
 
-  const handlePressIn = useCallback(() => {
-    if (loading) {
-      return;
-    }
-
-    runButtonScale(0.96);
-  }, [loading, runButtonScale]);
-
-  const handlePressOut = useCallback(() => {
-    if (loading) {
-      return;
-    }
-
-    runButtonScale(1);
-  }, [loading, runButtonScale]);
+  const runContainerAnimation = useCallback((isPressed: boolean) => {
+    Animated.parallel([
+      Animated.timing(containerScale, {
+        toValue: isPressed ? 0.95 : 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(containerOpacity, {
+        toValue: isPressed ? 0.8 : 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(containerTranslate, {
+        toValue: isPressed ? -12 : 0,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [containerOpacity, containerScale, containerTranslate]);
 
   const handlePress = useCallback(() => {
-    if (loading) {
+    if (isNavigating) {
       return;
     }
 
-    setLoading(true);
-    runButtonScale(1);
+    setIsNavigating(true);
+    runContainerAnimation(true);
 
-    Animated.sequence([
-      Animated.delay(NAVIGATE_DELAY),
-      Animated.timing(containerOpacity, {
-        toValue: 0,
-        duration: FADE_DURATION,
-        useNativeDriver,
-      }),
-    ]).start(({ finished }) => {
-      if (finished) {
-        router.replace('/radar');
-      }
-    });
-  }, [FADE_DURATION, NAVIGATE_DELAY, containerOpacity, loading, router, runButtonScale, useNativeDriver]);
+    setTimeout(() => {
+      router.push('/radar');
+    }, 420);
+  }, [isNavigating, router, runContainerAnimation]);
 
   return (
-    <Animated.View style={[styles.container, { opacity: containerOpacity }]}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <View style={styles.content}>
-          <Text style={styles.title}>Zenlit</Text>
+    <View style={styles.root}>
+      <Animated.View
+        style={[
+          styles.content,
+          {
+            opacity: containerOpacity,
+            transform: [{ scale: containerScale }, { translateY: containerTranslate }],
+          },
+        ]}
+      >
+        <MaskedView
+          style={styles.maskedTitle}
+          maskElement={<Text style={styles.title}>Zenlit</Text>}
+        >
+          <LinearGradient colors={TITLE_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+            <Text style={[styles.title, styles.transparentTitle]}>Zenlit</Text>
+          </LinearGradient>
+        </MaskedView>
 
-          {loading ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={theme.colors.icon} size="small" />
-              <Text style={styles.loadingText}>Loading...</Text>
-            </View>
-          ) : (
-            <Pressable
-              accessibilityRole="button"
-              onPressIn={handlePressIn}
-              onPressOut={handlePressOut}
-              onPress={handlePress}
-            >
-              <AnimatedLinearGradient
-                colors={theme.gradients.primary}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.cta, { transform: [{ scale: buttonScale }] }]}
-              >
-                <Text style={styles.ctaLabel}>Get Started</Text>
-              </AnimatedLinearGradient>
-            </Pressable>
-          )}
-        </View>
-      </SafeAreaView>
-    </Animated.View>
+        <Pressable
+          accessibilityRole="button"
+          disabled={isNavigating}
+          onPress={handlePress}
+          style={({ pressed }) => [styles.buttonWrapper, pressed ? styles.buttonPressed : null]}
+        >
+          <LinearGradient
+            colors={BUTTON_GRADIENT}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.button}
+          >
+            {isNavigating ? (
+              <View style={styles.loadingRow}>
+                <ActivityIndicator color="#ffffff" size="small" />
+                <Text style={[styles.buttonLabel, styles.loadingText]}>Loading...</Text>
+              </View>
+            ) : (
+              <Text style={styles.buttonLabel}>Get Started</Text>
+            )}
+          </LinearGradient>
+        </Pressable>
+      </Animated.View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-  },
-  safeArea: {
-    flex: 1,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
   },
   content: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.xl,
+  },
+  maskedTitle: {
+    marginBottom: 48,
   },
   title: {
     fontSize: 64,
-    fontWeight: '700',
+    fontWeight: '600',
     letterSpacing: -1,
-    color: theme.colors.icon,
-    marginBottom: theme.spacing.xxl,
+    textAlign: 'center',
+    color: '#ffffff',
   },
-  cta: {
-    borderRadius: theme.radii.lg,
-    paddingHorizontal: theme.spacing.xxl,
-    paddingVertical: theme.spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: theme.colors.shadow,
-    shadowOffset: { width: 0, height: 12 },
+  transparentTitle: {
+    color: 'transparent',
+  },
+  buttonWrapper: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000000',
     shadowOpacity: 0.35,
     shadowRadius: 16,
+    shadowOffset: { width: 0, height: 12 },
     elevation: 8,
   },
-  ctaLabel: {
-    color: theme.colors.icon,
+  buttonPressed: {
+    transform: [{ scale: 0.98 }],
+  },
+  button: {
+    paddingHorizontal: 40,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  buttonLabel: {
+    color: '#ffffff',
     fontSize: 18,
     fontWeight: '600',
-    letterSpacing: 0.3,
   },
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   loadingText: {
-    marginLeft: theme.spacing.sm,
-    color: theme.colors.icon,
-    fontSize: 16,
-    fontWeight: '500',
+    marginLeft: 8,
   },
 });
 
-export default HomeScreen;
+export default GetStartedScreen;
