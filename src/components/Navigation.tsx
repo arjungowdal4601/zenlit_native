@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Compass, MessageSquare, Plus, UserCircle, Users } from 'lucide-react-native';
@@ -47,6 +47,11 @@ const Navigation: React.FC<NavigationProps> = ({ activePath }) => {
               key={path}
               accessibilityRole="button"
               onPress={() => {
+                if (Platform.OS === 'web' && typeof document !== 'undefined') {
+                  const activeElement = document.activeElement as HTMLElement | null;
+                  activeElement?.blur();
+                }
+
                 if (currentPath !== path) {
                   router.push(path);
                 }

@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -15,6 +15,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+
+import { createShadowStyle } from '../../../src/utils/shadow';
+
 
 const TITLE_GRADIENT = ['#2563eb', '#4f46e5', '#7e22ce'] as const;
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
@@ -232,11 +235,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.78)',
     borderWidth: 1,
     borderColor: 'rgba(148, 163, 184, 0.35)',
-    shadowColor: '#000000',
-    shadowOpacity: 0.55,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 18 },
-    elevation: 22,
+    ...createShadowStyle({
+      native: {
+        shadowColor: '#000000',
+        shadowOpacity: 0.55,
+        shadowRadius: 24,
+        shadowOffset: { width: 0, height: 18 },
+        elevation: 22,
+      },
+    }),
   },
   screenTitle: {
     fontSize: 24,
@@ -323,3 +330,5 @@ const styles = StyleSheet.create({
 });
 
 export default OnboardingBasicScreen;
+
+

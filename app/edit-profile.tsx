@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather, FontAwesome5 } from '@expo/vector-icons';
+import { Feather, FontAwesome6 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 const FALLBACK_BANNER = 'https://images.unsplash.com/photo-1519669556878-619358287bf8?auto=format&fit=crop&w=1200&q=80';
@@ -137,7 +137,7 @@ const EditProfileScreen: React.FC = () => {
           {/* Instagram */}
           <View style={styles.socialRow}>
             <View style={[styles.socialIcon, { backgroundColor: '#e1306c' }]}> 
-              <FontAwesome5 name="instagram" size={20} color="#ffffff" />
+              <Feather name="instagram" size={20} color="#ffffff" />
             </View>
             <View style={styles.socialContent}>
               <Text style={styles.socialLabel}>Instagram</Text>
@@ -151,7 +151,7 @@ const EditProfileScreen: React.FC = () => {
           {/* Twitter/X */}
           <View style={styles.socialRow}>
             <View style={[styles.socialIcon, { backgroundColor: '#000000' }]}> 
-              <FontAwesome5 name="x-twitter" size={18} color="#ffffff" />
+              <FontAwesome6 name="x-twitter" size={18} color="#ffffff" />
             </View>
             <View style={styles.socialContent}>
               <Text style={styles.socialLabel}>X</Text>
@@ -306,3 +306,5 @@ const styles = StyleSheet.create({
 });
 
 export default EditProfileScreen;
+
+

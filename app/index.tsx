@@ -1,7 +1,8 @@
-﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -11,8 +12,21 @@ import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 
+import { createShadowStyle } from '../src/utils/shadow';
+
+
 const TITLE_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const BUTTON_GRADIENT = ['#2563eb', '#7e22ce'] as const;
+const BUTTON_ELEVATION = createShadowStyle({
+  native: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+  },
+  web: '0 12px 16px rgba(0, 0, 0, 0.35)',
+});
 
 const GetStartedScreen: React.FC = () => {
   const router = useRouter();
@@ -32,17 +46,17 @@ const GetStartedScreen: React.FC = () => {
       Animated.timing(containerScale, {
         toValue: isPressed ? 0.95 : 1,
         duration: 400,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(containerOpacity, {
         toValue: isPressed ? 0.8 : 1,
         duration: 400,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(containerTranslate, {
         toValue: isPressed ? -12 : 0,
         duration: 400,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start();
   }, [containerOpacity, containerScale, containerTranslate]);
@@ -142,11 +156,7 @@ const styles = StyleSheet.create({
   buttonWrapper: {
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 8,
+    ...BUTTON_ELEVATION,
   },
   buttonPressed: {
     transform: [{ scale: 0.98 }],
@@ -179,3 +189,11 @@ const styles = StyleSheet.create({
 });
 
 export default GetStartedScreen;
+
+
+
+
+
+
+
+

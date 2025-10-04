@@ -16,8 +16,31 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
+import { createShadowStyle } from '../../src/utils/shadow';
+
 const TITLE_GRADIENT = ['#2563eb', '#4f46e5', '#7e22ce'] as const;
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
+const CARD_ELEVATION = createShadowStyle({
+  native: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 18 },
+    elevation: 24,
+  },
+  web: '0 18px 24px rgba(0, 0, 0, 0.35)',
+});
+
+const GOOGLE_BUTTON_ELEVATION = createShadowStyle({
+  native: {
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
+  },
+  web: '0 8px 16px rgba(15, 23, 42, 0.25)',
+});
 
 type GradientTextProps = {
   children: string;
@@ -163,33 +186,6 @@ const SignInScreen: React.FC = () => {
   );
 };
 
-const CARD_ELEVATION = Platform.select({
-  web: {
-    boxShadow: '0 18px 24px rgba(0, 0, 0, 0.35)',
-  },
-  default: {
-    shadowColor: '#000000',
-    shadowOpacity: 0.6,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 18 },
-    elevation: 24,
-  },
-}) as Record<string, unknown>;
-
-const GOOGLE_BUTTON_ELEVATION = Platform.select({
-  web: {
-    boxShadow: '0 8px 16px rgba(15, 23, 42, 0.25)',
-  },
-  default: {
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 12,
-  },
-}) as Record<string, unknown>;
-
-
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -235,7 +231,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: 'rgba(15, 23, 42, 0.75)',
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',\r
+    borderColor: 'rgba(148, 163, 184, 0.35)',
     ...CARD_ELEVATION,
     alignItems: 'center',
   },
@@ -251,10 +247,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    backgroundColor: '#ffffff',\r
-    borderRadius: 18,\r
-    paddingVertical: 14,\r
-    paddingHorizontal: 16,\r
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     ...GOOGLE_BUTTON_ELEVATION,
   },
   googleButtonPressed: {
@@ -350,6 +346,7 @@ const styles = StyleSheet.create({
 });
 
 export default SignInScreen;
+
 
 
 

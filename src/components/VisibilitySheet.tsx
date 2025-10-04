@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import {
   Animated,
+  Platform,
   Modal,
   Pressable,
   StyleSheet,
@@ -35,7 +36,7 @@ export const VisibilitySheet: React.FC<VisibilitySheetProps> = ({ visible, onReq
     Animated.timing(translateY, {
       toValue: visible ? 0 : 1,
       duration: 260,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [translateY, visible]);
 
@@ -274,3 +275,4 @@ const styles = StyleSheet.create({
 });
 
 export default VisibilitySheet;
+
