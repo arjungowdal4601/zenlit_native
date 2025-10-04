@@ -1,24 +1,16 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
-export type SocialAccount = {
-  id: string;
-  label: string;
-};
-
-export const SOCIAL_ACCOUNTS: SocialAccount[] = [
-  { id: 'instagram', label: 'Instagram' },
-  { id: 'linkedin', label: 'LinkedIn' },
-  { id: 'x', label: 'X (Twitter)' },
-];
+import type { SocialPlatformId } from '../constants/nearbyUsers';
+import { orderedSocialPlatforms } from '../constants/socialPlatforms';
 
 type VisibilityContextValue = {
   isVisible: boolean;
-  selectedAccounts: string[];
+  selectedPlatforms: SocialPlatformId[];
   toggleVisibility: () => void;
   selectAll: () => void;
   deselectAll: () => void;
-  toggleAccount: (id: string) => void;
+  togglePlatform: (id: SocialPlatformId) => void;
 };
 
 const VisibilityContext = createContext<VisibilityContextValue | undefined>(undefined);
@@ -29,8 +21,8 @@ type VisibilityProviderProps = {
 
 export const VisibilityProvider: React.FC<VisibilityProviderProps> = ({ children }) => {
   const [isVisible, setIsVisible] = useState(true);
-  const [selectedAccounts, setSelectedAccounts] = useState<string[]>(
-    SOCIAL_ACCOUNTS.map((account) => account.id)
+  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatformId[]>(
+    orderedSocialPlatforms.map((platform) => platform.id)
   );
 
   const toggleVisibility = () => {
@@ -38,28 +30,28 @@ export const VisibilityProvider: React.FC<VisibilityProviderProps> = ({ children
   };
 
   const selectAll = () => {
-    setSelectedAccounts(SOCIAL_ACCOUNTS.map((account) => account.id));
+    setSelectedPlatforms(orderedSocialPlatforms.map((platform) => platform.id));
   };
 
   const deselectAll = () => {
-    setSelectedAccounts([]);
+    setSelectedPlatforms([]);
   };
 
-  const toggleAccount = (id: string) => {
-    setSelectedAccounts((prev) =>
-      prev.includes(id) ? prev.filter((accountId) => accountId !== id) : [...prev, id]
+  const togglePlatform = (id: SocialPlatformId) => {
+    setSelectedPlatforms((prev) =>
+      prev.includes(id) ? prev.filter((platformId) => platformId !== id) : [...prev, id]
     );
   };
 
   const value = useMemo(
-    () => ({ isVisible, selectedAccounts, toggleVisibility, selectAll, deselectAll, toggleAccount }),
-    [isVisible, selectedAccounts]
+    () => ({ isVisible, selectedPlatforms, toggleVisibility, selectAll, deselectAll, togglePlatform }),
+    [isVisible, selectedPlatforms]
   );
 
   return <VisibilityContext.Provider value={value}>{children}</VisibilityContext.Provider>;
 };
 
-export const useVisibility = (): VisibilityContextValue => {
+export const useVisibility = () => {
   const context = useContext(VisibilityContext);
 
   if (!context) {
