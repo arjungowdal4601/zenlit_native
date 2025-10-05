@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, StatusBar, StyleSheet, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader } from '../src/components/AppHeader';
 import Navigation from '../src/components/Navigation';
@@ -46,18 +46,17 @@ const RadarScreen: React.FC = () => {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <AppHeader
-          onToggleSearch={() => setSearchVisible((prev) => !prev)}
-          onOpenVisibility={() => setSheetVisible(true)}
-        />
-      </SafeAreaView>
+      <AppHeader
+        title="Radar"
+        onToggleSearch={() => setSearchVisible((prev) => !prev)}
+        onOpenVisibility={() => setSheetVisible(true)}
+      />
 
       <FlatList
         data={filteredUsers}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <SocialProfileCard user={item} selectedAccounts={selectedAccounts} />
+          <SocialProfileCard user={item} selectedAccounts={selectedAccounts} borderRadius={10} />
         )}
         contentContainerStyle={{
           paddingHorizontal: 20,
@@ -88,9 +87,6 @@ const RadarScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000000',
-  },
-  safeArea: {
     backgroundColor: '#000000',
   },
 });

@@ -1,6 +1,5 @@
 import React from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppHeader from '../src/components/AppHeader';
 import FeedList from '../src/components/FeedList';
@@ -10,9 +9,7 @@ const FeedScreen: React.FC = () => {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <AppHeader title="Feed" />
-      </SafeAreaView>
+      <AppHeader title="Feed" />
       <View style={styles.content}>
         <FeedList />
       </View>
@@ -24,9 +21,6 @@ const FeedScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000000',
-  },
-  safeArea: {
     backgroundColor: '#000000',
   },
   content: {

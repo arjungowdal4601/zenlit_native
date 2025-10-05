@@ -72,11 +72,13 @@ const getVisiblePlatforms = (
 export type SocialProfileCardProps = {
   user: NearbyUser;
   selectedAccounts?: SocialPlatformId[];
+  borderRadius?: number;
 };
 
 export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
   user,
   selectedAccounts,
+  borderRadius = 20,
 }) => {
   const router = useRouter();
 
@@ -116,7 +118,7 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
   };
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { borderRadius }]}>
       <View style={styles.topRow}>
         <Pressable style={styles.avatarWrapper} onPress={handleProfilePress}>
           <Image source={avatarSource} style={styles.avatar} />
@@ -144,7 +146,7 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
         <View style={styles.socialRow}>
           {platforms.map(({ id, url }) => {
             const meta = SOCIAL_PLATFORMS[id];
-            const icon = meta.renderIcon({ size: 18, color: meta.wantsWhiteIcon ? '#ffffff' : '#000000' });
+            const icon = meta.renderIcon({ size: 20, color: meta.wantsWhiteIcon ? '#ffffff' : '#000000' });
 
             return (
               <Pressable
@@ -227,7 +229,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 80,
     height: 80,
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: '#111827',
   },
   topContent: {
@@ -282,7 +284,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    backgroundColor: 'transparent',
     marginLeft: 12,
   },
 });

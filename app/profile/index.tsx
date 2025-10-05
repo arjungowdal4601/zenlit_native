@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Image,
   ImageSourcePropType,
@@ -9,11 +9,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 
+import AppHeader from '../../src/components/AppHeader';
 import Navigation from '../../src/components/Navigation';
 import LogoutConfirmation from '../../src/components/LogoutConfirmation';
 import ProfileMenu from '../../src/components/profile/ProfileMenu';
@@ -93,18 +93,7 @@ const ProfileScreen: React.FC = () => {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
-          <Pressable
-            style={styles.headerButton}
-            onPress={() => setMenuOpen(true)}
-            accessibilityRole='button'
-            accessibilityLabel='Open profile menu'>
-            <Feather name="menu" size={22} color="#ffffff" />
-          </Pressable>
-        </View>
-      </SafeAreaView>
+      <AppHeader title="Profile" onMenuPress={() => setMenuOpen(true)} />
       <ProfileMenu
         visible={menuOpen}
         onClose={handleCloseMenu}
@@ -208,29 +197,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
-  safeArea: {
-    backgroundColor: '#000000',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#6d28d9',
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.6)',
-  },
   content: {
     paddingBottom: 160,
   },
@@ -247,7 +213,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     bottom: -50,
-    borderRadius: 16,
+    borderRadius: 8,
     borderWidth: 2,
     borderColor: '#000000',
     padding: 2,
@@ -256,7 +222,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 100,
     height: 100,
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: '#111827',
   },
   profileContent: {

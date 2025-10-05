@@ -29,7 +29,7 @@ const Navigation: React.FC<NavigationProps> = ({ activePath }) => {
   const isOtherUserProfile = currentPath.startsWith('/profile/');
 
   return (
-    <View style={[styles.root, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+    <View style={[styles.root, { paddingBottom: Math.max(insets.bottom, 6) }]}>
       <View style={styles.inner}>
         {navigationItems.map(({ path, Icon }) => {
           let isActive = currentPath === path || currentPath.startsWith(`${path}/`);
@@ -58,7 +58,7 @@ const Navigation: React.FC<NavigationProps> = ({ activePath }) => {
               }}
               style={[styles.tabButton, isActive ? styles.tabButtonActive : null]}
             >
-              <Icon color="#ffffff" size={24} strokeWidth={2} />
+              <Icon color="#ffffff" size={28} strokeWidth={2} />
             </Pressable>
           );
         })}
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingTop: 4,
   },
   tabButton: {
     width: 56,
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   },
   tabButtonActive: {
     backgroundColor: 'rgba(255,255,255,0.05)',
-    marginBottom: 4,
+    marginBottom: 1,
     shadowColor: 'rgba(255, 255, 255, 0.35)',
     shadowOpacity: 0.35,
     shadowRadius: 12,

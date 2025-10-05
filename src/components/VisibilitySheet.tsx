@@ -1,8 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
-  Platform,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Switch,
@@ -10,9 +10,18 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { SOCIAL_PLATFORM_IDS, SOCIAL_PLATFORMS } from '../constants/socialPlatforms';
 import { useVisibility } from '../contexts/VisibilityContext';
+
+const INSTAGRAM_GRADIENT = [
+  '#f09433',
+  '#e6683c',
+  '#dc2743',
+  '#cc2366',
+  '#bc1888',
+] as const;
 
 export type VisibilitySheetProps = {
   visible: boolean;
@@ -78,42 +87,23 @@ export const VisibilitySheet: React.FC<VisibilitySheetProps> = ({ visible, onReq
                 value={isVisible}
                 onValueChange={setIsVisible}
                 thumbColor={isVisible ? '#ffffff' : '#ffffff'}
-                trackColor={{ false: 'rgba(71, 85, 105,0.7)', true: '#6366f1' }}
+                trackColor={{ false: 'rgba(71, 85, 105, 0.7)', true: '#3b82f6' }}
               />
             </View>
           </View>
 
-          <View style={styles.section}>
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Radius (km)</Text>
-              <View style={styles.stepper}>
-                <Pressable
-                  style={styles.stepperButton}
-                  onPress={() => setRadiusKm(Math.max(1, radiusKm - 1))}
-                >
-                  <Feather name="minus" size={16} color="#ffffff" />
-                </Pressable>
-                <Text style={styles.stepperLabel}>{radiusKm}</Text>
-                <Pressable
-                  style={styles.stepperButton}
-                  onPress={() => setRadiusKm(Math.min(50, radiusKm + 1))}
-                >
-                  <Feather name="plus" size={16} color="#ffffff" />
-                </Pressable>
-              </View>
-            </View>
-          </View>
+          {/* Radius selection removed per request */}
 
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>Social platforms</Text>
               <View style={styles.sectionActions}>
                 <Pressable onPress={selectAll}>
-                  <Text style={styles.actionText}>Select all</Text>
+                  <Text style={styles.actionTextSelectAll}>Select All</Text>
                 </Pressable>
                 <View style={styles.divider} />
                 <Pressable onPress={deselectAll}>
-                  <Text style={styles.actionText}>Clear</Text>
+                  <Text style={styles.actionTextClear}>Clear All</Text>
                 </Pressable>
               </View>
             </View>
@@ -127,7 +117,28 @@ export const VisibilitySheet: React.FC<VisibilitySheetProps> = ({ visible, onReq
                   style={[styles.platformRow, isSelected ? styles.platformActive : null]}
                   onPress={() => toggleAccount(platformId)}
                 >
-                  <Text style={styles.platformLabel}>{meta.label}</Text>
+                  <View style={styles.platformLeft}>
+                    {platformId === 'instagram' ? (
+                      <LinearGradient
+                        colors={INSTAGRAM_GRADIENT}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.platformIcon}
+                      >
+                        {meta.renderIcon({ size: 16, color: '#ffffff' })}
+                      </LinearGradient>
+                    ) : (
+                      <View
+                        style={[
+                          styles.platformIcon,
+                          meta.style.backgroundColor ? { backgroundColor: meta.style.backgroundColor } : null,
+                        ]}
+                      >
+                        {meta.renderIcon({ size: 16, color: meta.wantsWhiteIcon ? '#ffffff' : '#94a3b8' })}
+                      </View>
+                    )}
+                    <Text style={styles.platformLabel}>{meta.label}</Text>
+                  </View>
                   <View style={[styles.checkbox, isSelected ? styles.checkboxActive : null]}>
                     {isSelected ? <Feather name="check" size={16} color="#ffffff" /> : null}
                   </View>
@@ -228,8 +239,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  actionText: {
-    color: '#6366f1',
+  actionTextSelectAll: {
+    color: '#3b82f6',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  actionTextClear: {
+    color: '#ef4444',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -249,6 +265,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  platformLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  platformIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.9)',
   },
   platformActive: {
     backgroundColor: 'rgba(59, 130, 246, 0.12)',

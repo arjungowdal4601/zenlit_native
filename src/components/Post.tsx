@@ -127,7 +127,7 @@ export const Post: React.FC<PostProps> = ({
           <View style={styles.authorBlock}>
             <Text style={styles.authorName}>{author.name}</Text>
             <Text style={styles.authorMeta}>
-              @{author.username} • {timestamp}
+              @{author.username} ï¿½ {timestamp}
             </Text>
           </View>
 

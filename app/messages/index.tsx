@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { ScrollView, StatusBar, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
 import AppHeader from '../../src/components/AppHeader';
@@ -19,9 +18,7 @@ const MessagesScreen: React.FC = () => {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <AppHeader title="Messages" />
-      </SafeAreaView>
+      <AppHeader title="Message" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -39,9 +36,6 @@ const MessagesScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000000',
-  },
-  safeArea: {
     backgroundColor: '#000000',
   },
   scrollContent: {

@@ -1,93 +1,160 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
-const ICON_SIZE = 24;
+import GradientTitle from './GradientTitle';
+import { theme } from '../styles/theme';
+import { createShadowStyle } from '../utils/shadow';
+
+const ICON_SIZE = theme.header.iconSize;
+const TOUCH_SIZE = theme.header.touchSize;
+const ICON_HIT_SLOP = { top: 6, bottom: 6, left: 6, right: 6 } as const;
 
 export type AppHeaderProps = {
-  title?: string;
+  title: string;
+  onBackPress?: () => void;
+  backAccessibilityLabel?: string;
   onToggleSearch?: () => void;
   onOpenVisibility?: () => void;
   onMenuPress?: () => void;
 };
 
+const shadowStyle = createShadowStyle({
+  native: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+});
+
 export const AppHeader: React.FC<AppHeaderProps> = ({
-  title = 'Zenlit',
+  title,
+  onBackPress,
+  backAccessibilityLabel,
   onToggleSearch,
   onOpenVisibility,
   onMenuPress,
 }) => {
+  const showBack = typeof onBackPress === 'function';
   const showSearch = typeof onToggleSearch === 'function';
   const menuHandler = onMenuPress ?? onOpenVisibility;
   const showMenu = typeof menuHandler === 'function';
+  const backLabel = backAccessibilityLabel ?? 'Go back';
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
-      {showSearch || showMenu ? (
-        <View style={styles.actions}>
-          {showSearch ? (
+    <View style={[styles.wrapper, shadowStyle]}>
+      <SafeAreaView edges={['top']} style={styles.safeArea}>
+        <View style={styles.content}>
+          {showBack ? (
             <Pressable
-              onPress={onToggleSearch}
-              style={styles.iconButton}
+              onPress={onBackPress}
+              style={({ pressed }) => [styles.iconButton, pressed && styles.iconPressed]}
+              android_ripple={{ color: 'rgba(255, 255, 255, 0.12)' }}
               accessibilityRole="button"
-              accessibilityLabel="Toggle search"
+              accessibilityLabel={backLabel}
+              hitSlop={ICON_HIT_SLOP}
             >
-              <Feather name="search" size={ICON_SIZE} color="#ffffff" />
+              <Feather name="arrow-left" size={ICON_SIZE} color={theme.colors.icon} />
             </Pressable>
           ) : null}
-          {showMenu ? (
-            <Pressable
-              onPress={() => {
-                menuHandler?.();
-              }}
-              style={[styles.iconButton, showSearch ? styles.iconSpacing : null]}
-              accessibilityRole="button"
-              accessibilityLabel="Open menu"
-            >
-              <Feather name="menu" size={ICON_SIZE} color="#ffffff" />
-            </Pressable>
-          ) : null}
+
+          <View style={[styles.titleWrapper, showBack ? styles.titleWithBack : null]}>
+            <GradientTitle text={title} style={styles.title} />
+          </View>
+
+          {showSearch || showMenu ? (
+            <View style={styles.actions}>
+              {showSearch ? (
+                <Pressable
+                  onPress={onToggleSearch}
+                  style={({ pressed }) => [styles.iconButton, pressed && styles.iconPressed]}
+                  android_ripple={{ color: 'rgba(255, 255, 255, 0.12)' }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Toggle search"
+                  hitSlop={ICON_HIT_SLOP}
+                >
+                  <Feather name="search" size={ICON_SIZE} color={theme.colors.icon} />
+                </Pressable>
+              ) : null}
+
+              {showMenu ? (
+                <Pressable
+                  onPress={() => menuHandler?.()}
+                  style={({ pressed }) => [
+                    styles.iconButton,
+                    showSearch ? styles.iconSpacing : null,
+                    pressed && styles.iconPressed,
+                  ]}
+                  android_ripple={{ color: 'rgba(255, 255, 255, 0.12)' }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open menu"
+                  hitSlop={ICON_HIT_SLOP}
+                >
+                  <Feather name="menu" size={ICON_SIZE} color={theme.colors.icon} />
+                </Pressable>
+              ) : null}
+            </View>
+          ) : (
+            <View style={styles.placeholder} />
+          )}
         </View>
-      ) : (
-        <View style={styles.spacer} />
-      )}
+      </SafeAreaView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
+    backgroundColor: theme.colors.headerBackground,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
+    marginBottom: 10,
+  },
+  safeArea: {
+    backgroundColor: theme.colors.headerBackground,
+  },
+  content: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
+    minHeight: theme.header.height,
+    paddingHorizontal: theme.header.paddingHorizontal,
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.sm,
+  },
+  titleWrapper: {
+    flex: 1,
+    minWidth: 0,
+  },
+  titleWithBack: {
+    marginLeft: theme.header.contentSpacing,
   },
   title: {
-    color: '#ffffff',
-    fontSize: 30,
-    fontWeight: '600',
-    letterSpacing: -0.5,
+    flexShrink: 1,
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginLeft: theme.header.contentSpacing,
   },
   iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: TOUCH_SIZE,
+    height: TOUCH_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(148, 163, 184, 0.2)',
   },
   iconSpacing: {
-    marginLeft: 12,
+    marginLeft: theme.header.contentSpacing,
   },
-  spacer: {
-    width: 44,
-    height: 44,
+  iconPressed: {
+    opacity: 0.6,
+  },
+  placeholder: {
+    width: TOUCH_SIZE,
+    height: TOUCH_SIZE,
+    marginLeft: theme.header.contentSpacing,
   },
 });
 

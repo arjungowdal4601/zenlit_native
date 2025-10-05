@@ -90,7 +90,7 @@ const ChatDetailScreen: React.FC = () => {
       <View style={styles.missingRoot}>
         <StatusBar barStyle="light-content" backgroundColor="#000000" />
         <SafeAreaView style={styles.safeArea} edges={['top']}>
-          <ChatHeader title="Messages" />
+          <ChatHeader title="Message" />
         </SafeAreaView>
         <View style={styles.missingContent}>
           <Text style={styles.missingText}>Conversation not found.</Text>

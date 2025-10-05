@@ -11,11 +11,11 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import AppHeader from '../../src/components/AppHeader';
 import Navigation from '../../src/components/Navigation';
 import ProfilePost from '../../src/components/profile/Post';
 import {
@@ -94,6 +94,8 @@ const UserProfileScreen: React.FC = () => {
     };
   }, [requestedId]);
 
+  const headerTitle = (displayUser.name?.trim().length ? displayUser.name : 'Profile');
+
   const bannerSource = resolveImageSource(displayUser.banner, FALLBACK_BANNER);
   const avatarSource = resolveImageSource(displayUser.avatar, FALLBACK_AVATAR);
 
@@ -133,20 +135,11 @@ const UserProfileScreen: React.FC = () => {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={styles.headerBar}>
-          <Pressable
-            onPress={() => router.back()}
-            style={styles.headerButton}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-          >
-            <Feather name="arrow-left" size={20} color="#e2e8f0" />
-          </Pressable>
-          <Text style={styles.headerTitle}>Profile</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-      </SafeAreaView>
+      <AppHeader
+        title={headerTitle}
+        onBackPress={() => router.back()}
+        backAccessibilityLabel="Go back"
+      />
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id}
@@ -242,40 +235,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
-  safeArea: {
-    backgroundColor: '#000000',
-  },
-  headerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 8,
-    paddingTop: 12,
-    backgroundColor: '#020617',
-    shadowColor: '#000000',
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 6,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.6)',
-  },
-  headerTitle: {
-    color: '#f5f3ff',
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  headerSpacer: {
-    width: 40,
-    height: 40,
-  },
+
+
+
+
+
   listContent: {
     paddingHorizontal: 20,
     paddingBottom: 140,
@@ -307,7 +271,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   socialButton: {
-    borderRadius: 16,
+    borderRadius: 8,
   },
   socialBadge: {
     width: 44,

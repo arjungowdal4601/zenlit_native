@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
   },
   avatarWrapper: {
     marginTop: -40,
-    borderRadius: 100,
+    borderRadius: 50,
     borderWidth: 3,
     borderColor: '#0f172a',
     padding: 4,
@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 96,
     height: 96,
-    borderRadius: 48,
+    borderRadius: 24,
     backgroundColor: '#111827',
   },
   info: {

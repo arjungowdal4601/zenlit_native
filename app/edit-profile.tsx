@@ -277,8 +277,8 @@ const styles = StyleSheet.create({
   overlayBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 10, paddingVertical: 8, borderRadius: 999 },
   overlayText: { color: '#ffffff', fontSize: 12, fontWeight: '600' },
   avatarWrapper: { position: 'absolute', left: 20, bottom: -50 },
-  avatarButton: { borderRadius: 16, borderWidth: 2, borderColor: '#000000', padding: 2, backgroundColor: '#000000' },
-  avatar: { width: 100, height: 100, borderRadius: 16, backgroundColor: '#111827' },
+  avatarButton: { borderRadius: 8, borderWidth: 2, borderColor: '#000000', padding: 2, backgroundColor: '#000000' },
+  avatar: { width: 100, height: 100, borderRadius: 8, backgroundColor: '#111827' },
   avatarAffordance: { position: 'absolute', right: -6, bottom: -10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 6, borderRadius: 999 },
   formSection: { paddingHorizontal: 20 },
   label: { color: '#ffffff', fontSize: 14, fontWeight: '600', marginBottom: 8 },
@@ -306,5 +306,3 @@ const styles = StyleSheet.create({
 });
 
 export default EditProfileScreen;
-
-

@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
 export type ProfilePostProps = {
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 6,
     backgroundColor: '#111827',
   },
   meta: {

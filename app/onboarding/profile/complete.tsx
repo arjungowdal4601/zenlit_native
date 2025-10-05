@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   avatarButton: {
     width: 120,
     height: 120,
-    borderRadius: 60,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',

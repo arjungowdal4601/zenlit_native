@@ -36,7 +36,7 @@ export const SOCIAL_PLATFORMS: Record<SocialPlatformId, SocialPlatformMeta> = {
     label: 'Instagram',
     style: {},
     renderIcon: (props) =>
-      React.createElement(Feather, {
+      React.createElement(FontAwesome6 as any, {
         name: 'instagram',
         size: props?.size ?? 16,
         color: props?.color ?? '#ffffff',

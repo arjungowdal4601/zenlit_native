@@ -1,6 +1,5 @@
 import React from 'react';
 import { Alert, StatusBar, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import AppHeader from '../src/components/AppHeader';
 import EditablePost from '../src/components/EditablePost';
@@ -20,9 +19,7 @@ const CreateScreen: React.FC = () => {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <AppHeader title="Create" />
-      </SafeAreaView>
+      <AppHeader title="Create Post" />
 
       <View style={styles.content}>
         <EditablePost author={DEFAULT_AUTHOR} onSubmit={handleShare} />
@@ -36,9 +33,6 @@ const CreateScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000000',
-  },
-  safeArea: {
     backgroundColor: '#000000',
   },
   content: {
