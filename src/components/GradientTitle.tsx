@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet, Text, TextProps } from 'react-native';
+import { Platform, StyleSheet, Text, TextProps, View } from 'react-native';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -18,7 +18,6 @@ export const GradientTitle: React.FC<GradientTitleProps> = ({
   numberOfLines = 1,
   ellipsizeMode = 'tail',
 }) => {
-  // Web fallback: use CSS linear-gradient with background-clip to render gradient text
   if (Platform.OS === 'web') {
     const webGradientStyle: any = {
       backgroundImage: `linear-gradient(90deg, ${theme.gradients.header.from}, ${theme.gradients.header.to})`,
@@ -28,6 +27,7 @@ export const GradientTitle: React.FC<GradientTitleProps> = ({
       WebkitTextFillColor: 'transparent',
       display: 'inline-block',
     };
+
     return (
       <Text
         numberOfLines={numberOfLines}
@@ -40,31 +40,36 @@ export const GradientTitle: React.FC<GradientTitleProps> = ({
       </Text>
     );
   }
+
   return (
     <MaskedView
+      style={styles.maskContainer}
       maskElement={
-        <Text
-          numberOfLines={numberOfLines}
-          ellipsizeMode={ellipsizeMode}
-          accessible={false}
-          importantForAccessibility="no"
-          style={[styles.text, style]}
-        >
-          {text}
-        </Text>
+        <View style={styles.maskWrapper}>
+          <Text
+            numberOfLines={numberOfLines}
+            ellipsizeMode={ellipsizeMode}
+            accessible={false}
+            importantForAccessibility="no"
+            style={[styles.text, style]}
+          >
+            {text}
+          </Text>
+        </View>
       }
     >
       <LinearGradient
         colors={[theme.gradients.header.from, theme.gradients.header.to]}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
+        style={styles.gradientFill}
       >
         <Text
           accessible={false}
           importantForAccessibility="no"
           numberOfLines={numberOfLines}
           ellipsizeMode={ellipsizeMode}
-          style={[styles.text, style, styles.gradientText]}
+          style={[styles.text, style, styles.hiddenText]}
         >
           {text}
         </Text>
@@ -80,8 +85,18 @@ const styles = StyleSheet.create({
     fontWeight: theme.header.title.fontWeight,
     letterSpacing: theme.header.title.letterSpacing,
   },
-  gradientText: {
-    color: 'transparent',
+  maskContainer: {
+    flexShrink: 1,
+    alignSelf: 'flex-start',
+  },
+  maskWrapper: {
+    backgroundColor: 'transparent',
+  },
+  gradientFill: {
+    alignSelf: 'flex-start',
+  },
+  hiddenText: {
+    color: '#ffffff',
   },
 });
 

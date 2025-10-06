@@ -16,6 +16,7 @@ export type AppHeaderProps = {
   onBackPress?: () => void;
   backAccessibilityLabel?: string;
   onToggleSearch?: () => void;
+  isSearchActive?: boolean;
   onOpenVisibility?: () => void;
   onMenuPress?: () => void;
 };
@@ -35,6 +36,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onBackPress,
   backAccessibilityLabel,
   onToggleSearch,
+  isSearchActive,
   onOpenVisibility,
   onMenuPress,
 }) => {
@@ -42,6 +44,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const showSearch = typeof onToggleSearch === 'function';
   const menuHandler = onMenuPress ?? onOpenVisibility;
   const showMenu = typeof menuHandler === 'function';
+  const searchLabel = isSearchActive ? 'Close search' : 'Open search';
   const backLabel = backAccessibilityLabel ?? 'Go back';
 
   return (
@@ -73,7 +76,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   style={({ pressed }) => [styles.iconButton, pressed && styles.iconPressed]}
                   android_ripple={{ color: 'rgba(255, 255, 255, 0.12)' }}
                   accessibilityRole="button"
-                  accessibilityLabel="Toggle search"
+                  accessibilityLabel={searchLabel}
                   hitSlop={ICON_HIT_SLOP}
                 >
                   <Feather name="search" size={ICON_SIZE} color={theme.colors.icon} />

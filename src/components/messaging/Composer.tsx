@@ -52,9 +52,9 @@ const Composer: React.FC<ComposerProps> = ({ onSend, disabled = false }) => {
 
 const styles = StyleSheet.create({
   container: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(148, 163, 184, 0.25)',
-    backgroundColor: 'rgba(2, 6, 23, 0.9)',
+    borderTopWidth: 0,
+    borderTopColor: 'transparent',
+    backgroundColor: '#000000',
     paddingBottom: 12,
     paddingTop: 10,
     paddingHorizontal: 20,
@@ -66,10 +66,10 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     flex: 1,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: '#000000',
     paddingHorizontal: 14,
     paddingVertical: 8,
   },

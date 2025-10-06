@@ -76,68 +76,70 @@ export const Post: React.FC<PostProps> = ({
   }, []);
 
   return (
-    <View style={styles.wrapper}>
-      {showSocialLinks && socialEntries.length > 0 ? (
-        <View style={styles.socialLinksRow}>
-          {socialEntries.map(({ id, url }) => {
-            const meta = SOCIAL_PLATFORMS[id];
-            const icon = meta.renderIcon({ size: 18, color: '#ffffff' });
+    <View style={styles.postContainer}>
+      <View style={styles.wrapper}>
+        {showSocialLinks && socialEntries.length > 0 ? (
+          <View style={styles.socialLinksRow}>
+            {socialEntries.map(({ id, url }) => {
+              const meta = SOCIAL_PLATFORMS[id];
+              const icon = meta.renderIcon({ size: 18, color: '#ffffff' });
 
-            return (
-              <Pressable
-                key={id}
-                accessibilityRole="button"
-                accessibilityLabel={meta.label}
-                onPress={() => handleOpenLink(url)}
-                style={styles.socialButton}
-              >
-                {id === 'instagram' ? (
-                  <LinearGradient
-                    colors={INSTAGRAM_GRADIENT}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.socialBadge}
-                  >
-                    {icon}
-                  </LinearGradient>
-                ) : (
-                  <View
-                    style={[
-                      styles.socialBadge,
-                      meta.style.backgroundColor
-                        ? { backgroundColor: meta.style.backgroundColor }
-                        : null,
-                    ]}
-                  >
-                    {icon}
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
+              return (
+                <Pressable
+                  key={id}
+                  accessibilityRole="button"
+                  accessibilityLabel={meta.label}
+                  onPress={() => handleOpenLink(url)}
+                  style={styles.socialButton}
+                >
+                  {id === 'instagram' ? (
+                    <LinearGradient
+                      colors={INSTAGRAM_GRADIENT}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.socialBadge}
+                    >
+                      {icon}
+                    </LinearGradient>
+                  ) : (
+                    <View
+                      style={[
+                        styles.socialBadge,
+                        meta.style.backgroundColor
+                          ? { backgroundColor: meta.style.backgroundColor }
+                          : null,
+                      ]}
+                    >
+                      {icon}
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
 
-      <View style={styles.contentRow}>
-        <View style={styles.avatarWrapper}>
-          <Image source={{ uri: avatarUri }} style={styles.avatar} />
-        </View>
-
-        <View style={styles.postBody}>
-          <View style={styles.authorBlock}>
-            <Text style={styles.authorName}>{author.name}</Text>
-            <Text style={styles.authorMeta}>
-              @{author.username} � {timestamp}
-            </Text>
+        <View style={styles.contentRow}>
+          <View style={styles.avatarWrapper}>
+            <Image source={{ uri: avatarUri }} style={styles.avatar} />
           </View>
 
-          <Text style={styles.postText}>{content}</Text>
-
-          {image ? (
-            <View style={styles.postMediaWrapper}>
-              <Image source={{ uri: image }} style={styles.postMedia} />
+          <View style={styles.postBody}>
+            <View style={styles.authorBlock}>
+              <Text style={styles.authorName}>{author.name}</Text>
+              <Text style={styles.authorMeta}>
+                @{author.username} � {timestamp}
+              </Text>
             </View>
-          ) : null}
+
+            <Text style={styles.postText}>{content}</Text>
+
+            {image ? (
+              <View style={styles.postMediaWrapper}>
+                <Image source={{ uri: image }} style={styles.postMedia} />
+              </View>
+            ) : null}
+          </View>
         </View>
       </View>
 
@@ -149,8 +151,10 @@ export const Post: React.FC<PostProps> = ({
 };
 
 const styles = StyleSheet.create({
-  wrapper: {
+  postContainer: {
     marginBottom: 16,
+  },
+  wrapper: {
     position: 'relative',
   },
   socialLinksRow: {
@@ -182,7 +186,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 40,
     height: 40,
-    borderRadius: 10,
+    borderRadius: 5,
     backgroundColor: '#111827',
   },
   postBody: {
@@ -220,10 +224,14 @@ const styles = StyleSheet.create({
   },
   dividerWrapper: {
     marginTop: 12,
+    // Extend the separator to full width beyond list padding
+    marginLeft: -24,
+    marginRight: -24,
   },
   divider: {
     height: 1,
     backgroundColor: 'rgba(100, 116, 139, 0.6)',
+    width: '100%',
   },
 });
 

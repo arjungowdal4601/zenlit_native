@@ -1,8 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
-  Platform,
+  Dimensions,
+  Easing,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -11,7 +13,10 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-type SearchDropdownItem = {
+import { theme } from '../styles/theme';
+import { createShadowStyle } from '../utils/shadow';
+
+export type SearchDropdownItem = {
   id: string;
   title: string;
   subtitle?: string;
@@ -19,147 +24,264 @@ type SearchDropdownItem = {
 
 type SearchDropdownProps = {
   visible: boolean;
-  value: string;
-  onChangeText: (text: string) => void;
-  onClose: () => void;
-  items: SearchDropdownItem[];
+  query: string;
+  onChangeQuery: (text: string) => void;
+  onRequestClose: () => void;
   onSelect: (item: SearchDropdownItem) => void;
+  items: SearchDropdownItem[];
+  topOffset?: number;
+  horizontalPadding?: number;
 };
+
+const dropdownShadow = createShadowStyle({
+  native: {
+    shadowColor: '#020617',
+    shadowOpacity: 0.32,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 18,
+  },
+});
 
 export const SearchDropdown: React.FC<SearchDropdownProps> = ({
   visible,
-  value,
-  onChangeText,
-  onClose,
-  items,
+  query,
+  onChangeQuery,
+  onRequestClose,
   onSelect,
+  items,
+  topOffset = 0,
+  horizontalPadding = theme.spacing.lg,
 }) => {
-  const opacity = useRef(new Animated.Value(0)).current;
+  const [rendered, setRendered] = useState(visible);
+  const progress = useRef(new Animated.Value(visible ? 1 : 0)).current;
+  const inputRef = useRef<TextInput>(null);
+  const windowHeight = Dimensions.get('window').height;
 
   useEffect(() => {
-    Animated.timing(opacity, {
-      toValue: visible ? 1 : 0,
-      duration: 200,
-      useNativeDriver: Platform.OS !== 'web',
-    }).start();
-  }, [opacity, visible]);
+    if (visible) {
+      setRendered(true);
+    }
 
-  if (!visible) {
+    Animated.timing(progress, {
+      toValue: visible ? 1 : 0,
+      duration: visible ? 220 : 200,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: Platform.OS !== 'web',
+    }).start(({ finished }) => {
+      if (!visible && finished) {
+        setRendered(false);
+      }
+    });
+  }, [progress, visible]);
+
+  useEffect(() => {
+    if (!visible) {
+      return undefined;
+    }
+
+    const focusTimer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+
+    return () => {
+      clearTimeout(focusTimer);
+    };
+  }, [visible]);
+
+  if (!rendered) {
     return null;
   }
 
+  const handleClose = () => {
+    onChangeQuery('');
+    onRequestClose();
+  };
+
+  const hasQuery = query.trim().length > 0;
+  const maxListHeight = Math.round(windowHeight * 0.48);
+
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      <Pressable style={styles.backdrop} onPress={onClose} />
-      <Animated.View style={[styles.dropdown, { opacity }]}> 
-        <View style={styles.inputRow}>
+    <View style={[StyleSheet.absoluteFill, styles.overlay]}>
+      <Pressable style={styles.backdrop} onPress={handleClose} />
+
+      <Animated.View
+        style={[
+          styles.dropdown,
+          dropdownShadow,
+          {
+            top: topOffset,
+            left: horizontalPadding,
+            right: horizontalPadding,
+            opacity: progress,
+            transform: [
+              {
+                translateY: progress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-12, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <View style={styles.inputWrapper}>
           <TextInput
-            value={value}
-            onChangeText={onChangeText}
-            placeholder="Search people"
-            placeholderTextColor="#94a3b8"
+            ref={inputRef}
+            value={query}
+            onChangeText={onChangeQuery}
+            placeholder='Search users...'
+            placeholderTextColor={theme.colors.muted}
             style={styles.input}
-            autoFocus
+            returnKeyType='search'
+            accessibilityLabel='Search users'
+            autoCorrect={false}
+            spellCheck={false}
+            keyboardAppearance='dark'
           />
-          <Pressable onPress={onClose} style={styles.closeButton} accessibilityLabel="Close search">
-            <Feather name="x" size={20} color="#ffffff" />
+
+          <Pressable
+            onPress={handleClose}
+            style={({ pressed }) => [
+              styles.closeButton,
+              pressed ? styles.closeButtonPressed : null,
+            ]}
+            accessibilityLabel='Close search'
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
+            <Feather name='x' size={18} color={theme.colors.icon} />
           </Pressable>
         </View>
 
-        <FlatList
-          data={items}
-          keyExtractor={(item) => item.id}
-          keyboardShouldPersistTaps="handled"
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          renderItem={({ item }) => (
-            <Pressable style={styles.item} onPress={() => onSelect(item)}>
-              <Text style={styles.itemTitle}>{item.title}</Text>
-              {item.subtitle ? <Text style={styles.itemSubtitle}>{item.subtitle}</Text> : null}
-            </Pressable>
-          )}
-          ListEmptyComponent={() => (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>No matches found</Text>
-              <Text style={styles.emptySubtitle}>Try a different name or handle.</Text>
-            </View>
-          )}
-        />
+        {hasQuery ? (
+          <FlatList
+            data={items}
+            keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps='handled'
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            style={{ maxHeight: maxListHeight }}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <Pressable
+                onPress={() => onSelect(item)}
+                style={({ pressed }) => [
+                  styles.item,
+                  pressed ? styles.itemPressed : null,
+                ]}
+                accessibilityRole='button'
+                accessibilityLabel={`Select ${item.title}`}
+              >
+                <Text style={styles.itemTitle}>{item.title}</Text>
+                {item.subtitle ? (
+                  <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
+                ) : null}
+              </Pressable>
+            )}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>No users found</Text>
+                <Text style={styles.emptySubtitle}>
+                  Try a different name or handle.
+                </Text>
+              </View>
+            }
+          />
+        ) : null}
       </Animated.View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  overlay: {
+    pointerEvents: 'box-none' as const,
+  },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
   },
   dropdown: {
     position: 'absolute',
-    top: 110,
-    left: 24,
-    right: 24,
-    borderRadius: 18,
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    borderRadius: theme.radii.lg,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.md,
+    zIndex: 32,
   },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
+  inputWrapper: {
+    position: 'relative',
+    marginBottom: theme.spacing.sm,
   },
   input: {
-    flex: 1,
     height: 44,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(30, 41, 59, 0.9)',
-    color: '#ffffff',
+    borderRadius: theme.radii.md,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    paddingLeft: theme.spacing.md,
+    paddingRight: theme.spacing.xl + theme.spacing.sm,
+    color: theme.colors.text,
     fontSize: 16,
+    fontWeight: '500',
   },
   closeButton: {
-    marginLeft: 10,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    position: 'absolute',
+    right: 6,
+    top: 6,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(30, 41, 59, 0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+  },
+  closeButtonPressed: {
+    opacity: 0.7,
+  },
+  listContent: {
+    paddingVertical: 2,
   },
   separator: {
     height: 1,
-    backgroundColor: 'rgba(148, 163, 184, 0.35)',
+    backgroundColor: 'rgba(148, 163, 184, 0.22)',
   },
   item: {
-    paddingVertical: 12,
+    minHeight: 56,
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radii.md,
+  },
+  itemPressed: {
+    backgroundColor: 'rgba(30, 41, 59, 0.55)',
   },
   itemTitle: {
-    color: '#ffffff',
+    color: theme.colors.text,
     fontSize: 16,
     fontWeight: '600',
   },
   itemSubtitle: {
     marginTop: 2,
-    color: '#cbd5f5',
-    fontSize: 14,
+    color: theme.colors.muted,
+    fontSize: 13,
   },
   emptyState: {
-    paddingVertical: 24,
+    paddingVertical: theme.spacing.lg,
     alignItems: 'center',
   },
   emptyTitle: {
-    color: '#e2e8f0',
+    color: theme.colors.text,
     fontSize: 15,
     fontWeight: '600',
   },
   emptySubtitle: {
     marginTop: 4,
-    color: '#94a3b8',
+    color: theme.colors.muted,
     fontSize: 13,
   },
 });
 
 export default SearchDropdown;
-

@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 48,
     height: 48,
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: 'rgba(30, 41, 59, 0.8)',
   },
   textBlock: {

@@ -63,13 +63,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: 'transparent',
+    backgroundColor: '#000000',
   },
   avatarFrame: {
     width: 52,
     height: 52,
-    borderRadius: 8,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    borderRadius: 4,
+    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
   avatarFallback: {
     width: '100%',
     height: '100%',
-    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+    backgroundColor: '#000000',
   },
   content: {
     flex: 1,

@@ -128,31 +128,37 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   sectionContainer: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(51, 65, 85, 0.6)',
-    backgroundColor: 'rgba(2, 6, 23, 0.6)',
+    // Remove any bounding box or outline; let items sit on black page
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
   },
   sectionDivider: {
+    // Center the label without lines or chip box
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 12,
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 0,
+    marginVertical: 4,
   },
   sectionLine: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(51, 65, 85, 0.8)',
+    // No dividing lines
+    flex: 0,
+    height: 0,
+    backgroundColor: 'transparent',
   },
   sectionChip: {
+    // Plain label without border or background
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(51, 65, 85, 0.6)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    backgroundColor: 'transparent',
   },
 });
 

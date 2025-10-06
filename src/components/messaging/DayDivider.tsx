@@ -22,18 +22,20 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   line: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(71, 85, 105, 0.6)',
+    // Remove dividing lines
+    flex: 0,
+    height: 0,
+    backgroundColor: 'transparent',
   },
   badge: {
-    marginHorizontal: 12,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.3)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(2, 6, 23, 0.7)',
+    // No pill/bounds; plain label
+    marginHorizontal: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    backgroundColor: 'transparent',
   },
   text: {
     fontSize: 12,

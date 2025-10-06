@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -17,7 +17,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import AppHeader from '../../src/components/AppHeader';
 import Navigation from '../../src/components/Navigation';
-import ProfilePost from '../../src/components/profile/Post';
+import Post from '../../src/components/Post';
 import {
   mockPosts,
   mockUser,
@@ -41,6 +41,18 @@ const INSTAGRAM_GRADIENT = [
   '#cc2366',
   '#bc1888',
 ] as const;
+
+const formatDate = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
 
 const SOCIAL_ORDER: Array<{ id: SocialPlatformId; key: 'instagram' | 'linkedin' | 'x' }> = [
   { id: 'instagram', key: 'instagram' },
@@ -111,23 +123,47 @@ const UserProfileScreen: React.FC = () => {
     });
   }, [displayUser.socials]);
 
-  const posts = useMemo(() => {
-    return mockPosts.map<MockPost>((post) => ({
+  const initialPosts = useMemo(() =>
+    mockPosts.map<MockPost>((post) => ({
       ...post,
       authorName: displayUser.name,
       authorHandle: displayUser.handle,
-    }));
-  }, [displayUser.handle, displayUser.name]);
+    })),
+    [displayUser.handle, displayUser.name],
+  );
 
-  const renderPost = ({ item }: { item: MockPost }) => (
-    <ProfilePost
-      authorName={item.authorName}
-      authorHandle={item.authorHandle}
-      dateISO={item.dateISO}
-      text={item.text}
-      image={item.image}
-      avatar={displayUser.avatar}
-    />
+  const [posts, setPosts] = useState<MockPost[]>(initialPosts);
+
+  useEffect(() => {
+    setPosts(initialPosts);
+  }, [initialPosts]);
+
+  const handleDeletePost = useCallback((postId: string) => {
+    setPosts((prev) => prev.filter((post) => post.id !== postId));
+  }, []);
+
+  const renderPost = useCallback(
+    ({ item }: { item: MockPost }) => {
+      const feedPost = {
+        id: item.id,
+        author: {
+          name: item.authorName,
+          username: item.authorHandle,
+          avatar: displayUser.avatar,
+          socialLinks: {
+            instagram: displayUser.socials.instagram,
+            linkedin: displayUser.socials.linkedin,
+            twitter: displayUser.socials.x,
+          },
+        },
+        content: item.text,
+        image: item.image ?? undefined,
+        timestamp: formatDate(item.dateISO),
+      };
+
+      return <Post post={feedPost} showSocialLinks={false} />;
+    },
+    [displayUser.avatar, displayUser.socials],
   );
 
   const activePath = `/profile/${requestedId.length > 0 ? requestedId : displayUser.id}`;
@@ -149,63 +185,67 @@ const UserProfileScreen: React.FC = () => {
             <View style={styles.bannerWrapper}>
               <Image source={bannerSource} style={styles.bannerImage} />
               <View style={styles.bannerGradient} />
-              <View style={styles.socialCluster}>
-                {socialEntries.map(({ id, url, disabled }) => {
-                  const meta = SOCIAL_PLATFORMS[id];
+              <View style={styles.bannerOverlayRow}>
+                <View style={styles.avatarWrapper}>
+                  <Image source={avatarSource} style={styles.avatar} />
+                </View>
+                <View style={styles.socialCluster}>
+                  {socialEntries.map(({ id, url, disabled }) => {
+                    const meta = SOCIAL_PLATFORMS[id];
 
-                  if (id === 'instagram') {
+                    if (id === 'instagram') {
+                      return (
+                        <Pressable
+                          key={id}
+                          onPress={() => {
+                            if (disabled || !url) return;
+                            console.log('Open social link', id, url);
+                          }}
+                          disabled={disabled}
+                          style={styles.socialButton}
+                          accessibilityRole="button"
+                          accessibilityLabel={meta.label}
+                        >
+                          <LinearGradient
+                            colors={INSTAGRAM_GRADIENT}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={[styles.socialBadge, disabled ? styles.socialDisabled : null]}
+                          >
+                            {meta.renderIcon({ size: 18, color: '#ffffff' })}
+                          </LinearGradient>
+                        </Pressable>
+                      );
+                    }
+
+                    const badgeStyle: StyleProp<ViewStyle> = [
+                      styles.socialBadge,
+                      id === 'twitter' ? styles.outlinedBadge : null,
+                      id !== 'twitter' && meta.style.backgroundColor
+                        ? { backgroundColor: meta.style.backgroundColor }
+                        : null,
+                      disabled ? styles.socialDisabled : null,
+                    ];
+
                     return (
                       <Pressable
                         key={id}
                         onPress={() => {
-                          console.log('Open social link', id, url ?? '(missing)');
+                          if (disabled || !url) return;
+                          console.log('Open social link', id, url);
                         }}
                         disabled={disabled}
                         style={styles.socialButton}
                         accessibilityRole="button"
                         accessibilityLabel={meta.label}
                       >
-                        <LinearGradient
-                          colors={INSTAGRAM_GRADIENT}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 1 }}
-                          style={[styles.socialBadge, disabled ? styles.socialDisabled : null]}
-                        >
+                        <View style={badgeStyle}>
                           {meta.renderIcon({ size: 18, color: '#ffffff' })}
-                        </LinearGradient>
+                        </View>
                       </Pressable>
                     );
-                  }
-
-                  const badgeStyle: StyleProp<ViewStyle> = [
-                    styles.socialBadge,
-                    id === 'twitter' ? styles.outlinedBadge : null,
-                    id !== 'twitter' && meta.style.backgroundColor
-                      ? { backgroundColor: meta.style.backgroundColor }
-                      : null,
-                    disabled ? styles.socialDisabled : null,
-                  ];
-
-                  return (
-                    <Pressable
-                      key={id}
-                      onPress={() => {
-                        console.log('Open social link', id, url ?? '(missing)');
-                      }}
-                      disabled={disabled}
-                      style={styles.socialButton}
-                      accessibilityRole="button"
-                      accessibilityLabel={meta.label}
-                    >
-                      <View style={badgeStyle}>
-                        {meta.renderIcon({ size: 18, color: '#ffffff' })}
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <View style={styles.avatarWrapper}>
-                <Image source={avatarSource} style={styles.avatar} />
+                  })}
+                </View>
               </View>
             </View>
 
@@ -235,13 +275,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
-
-
-
-
-
   listContent: {
-    paddingHorizontal: 20,
+    // Match feed list padding for consistent post indentation
+    paddingHorizontal: 24,
     paddingBottom: 140,
     gap: 18,
   },
@@ -252,8 +288,9 @@ const styles = StyleSheet.create({
   bannerWrapper: {
     position: 'relative',
     backgroundColor: '#111827',
-    marginHorizontal: -20,
-    marginBottom: 52,
+    // Align banner to edges relative to list padding
+    marginHorizontal: -24,
+    marginBottom: 72,
   },
   bannerImage: {
     width: '100%',
@@ -263,20 +300,42 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(15, 23, 42, 0.28)',
   },
-  socialCluster: {
+  bannerOverlayRow: {
     position: 'absolute',
-    right: 18,
-    bottom: 18,
+    left: 24,
+    right: 24,
+    bottom: -60,
     flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  avatarWrapper: {
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#000000',
+    backgroundColor: '#000000',
+    padding: 2,
+  },
+  avatar: {
+    width: 92,
+    height: 92,
+    borderRadius: 6,
+    backgroundColor: '#0f172a',
+  },
+  socialCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
+    // Move social icons up by 5px (remove previous downward offset)
+    transform: [{ translateX: 5 }, { translateY: 0 }],
   },
   socialButton: {
     borderRadius: 8,
   },
   socialBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(30, 41, 59, 0.82)',
@@ -287,26 +346,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(148, 163, 184, 0.45)',
   },
   socialDisabled: {
-    opacity: 0.4,
-  },
-  avatarWrapper: {
-    position: 'absolute',
-    left: 24,
-    bottom: -34,
-    borderRadius: 16,
-    borderWidth: 4,
-    borderColor: '#000000',
-    backgroundColor: '#000000',
-    padding: 4,
-  },
-  avatar: {
-    width: 92,
-    height: 92,
-    borderRadius: 14,
-    backgroundColor: '#0f172a',
+    opacity: 0.35,
   },
   identityBlock: {
-    marginTop: 12,
+    // Move name and username up by 10px
+    marginTop: 0,
   },
   name: {
     color: '#ffffff',
@@ -319,6 +363,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   bio: {
+    // Move bio up by 10px
+    marginTop: 2,
     color: '#e2e8f0',
     fontSize: 15,
     lineHeight: 22,
@@ -327,6 +373,10 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(71, 85, 105, 0.6)',
     marginTop: 6,
+    // Make header divider full-bleed like feed separators
+    marginLeft: -24,
+    marginRight: -24,
+    width: '100%',
   },
   sectionTitle: {
     color: '#ffffff',

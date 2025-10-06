@@ -83,13 +83,13 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ title, subtitle, avatarUrl, isA
 
 const styles = StyleSheet.create({
   wrapper: {
-    backgroundColor: theme.colors.headerBackground,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: theme.colors.border,
+    backgroundColor: '#000000',
+    borderBottomWidth: 0,
+    borderBottomColor: 'transparent',
     marginBottom: 10,
   },
   safeArea: {
-    backgroundColor: theme.colors.headerBackground,
+    backgroundColor: '#000000',
   },
   inner: {
     flexDirection: 'row',
@@ -119,11 +119,11 @@ const styles = StyleSheet.create({
   avatarFrame: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
-    borderRadius: 7,
+    borderRadius: 3.5,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.3)',
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -58,7 +58,7 @@ const Navigation: React.FC<NavigationProps> = ({ activePath }) => {
               }}
               style={[styles.tabButton, isActive ? styles.tabButtonActive : null]}
             >
-              <Icon color="#ffffff" size={28} strokeWidth={2} />
+              <Icon color="#ffffff" size={24} strokeWidth={2} />
             </Pressable>
           );
         })}
@@ -74,8 +74,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#000000',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     borderTopWidth: 1,
     borderColor: 'rgba(148, 163, 184, 0.35)',
     shadowColor: '#000000',
