@@ -239,7 +239,9 @@ const ProfileScreen: React.FC = () => {
               <Text style={styles.bioText}>{ME.bio}</Text>
             </View>
 
-            <View style={styles.separator} />
+            <View style={styles.separatorWrapper}>
+              <View style={styles.separator} />
+            </View>
             <Text style={styles.sectionTitle}>Posts</Text>
           </View>
         }
@@ -348,13 +350,15 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginTop: 2,
   },
-  separator: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(71, 85, 105, 0.6)',
+  separatorWrapper: {
     marginTop: 6,
     marginBottom: 12,
     marginLeft: -24,
     marginRight: -24,
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(71, 85, 105, 0.6)',
     width: '100%',
   },
   sectionTitle: {

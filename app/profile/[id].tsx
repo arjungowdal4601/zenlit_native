@@ -256,7 +256,9 @@ const UserProfileScreen: React.FC = () => {
 
             <Text style={styles.bio}>{displayUser.bio}</Text>
 
-            <View style={styles.divider} />
+            <View style={{ marginLeft: -24, marginRight: -24, marginTop: 6 }}>
+              <View style={styles.divider} />
+            </View>
 
             <Text style={styles.sectionTitle}>Posts</Text>
           </View>

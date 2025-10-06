@@ -111,7 +111,7 @@ export const Post: React.FC<PostProps> = ({
           </Pressable>
         ) : null}
         {showSocialLinks && socialEntries.length > 0 ? (
-          <View style={styles.socialLinksRow}>
+          <View style={[styles.socialLinksRow, { right: showMenu ? 44 : 0 }]}>
             {socialEntries.map(({ id, url }) => {
               const meta = SOCIAL_PLATFORMS[id];
               const icon = meta.renderIcon({ size: 18, color: '#ffffff' });
@@ -215,7 +215,6 @@ const styles = StyleSheet.create({
   socialLinksRow: {
     position: 'absolute',
     top: 0,
-    right: 44, // leave space for the menu button
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 8,

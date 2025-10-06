@@ -117,13 +117,7 @@ const GetStartedScreen: React.FC = () => {
           </LinearGradient>
         </Pressable>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.push('/auth/signin')}
-          style={styles.secondaryLink}
-        >
-          <Text style={styles.secondaryText}>Already have an account? Sign in</Text>
-        </Pressable>
+        {/** Removed the secondary sign-in link to declutter the Get Started page */}
       </Animated.View>
     </View>
   );

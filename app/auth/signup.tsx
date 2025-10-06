@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FontAwesome } from '@expo/vector-icons';
+// Use official multicolor Google "G" logo instead of a monochrome icon
 import { useRouter } from 'expo-router';
 
 import { createShadowStyle } from '../../src/utils/shadow';
@@ -64,6 +66,32 @@ const SignUpScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [googleLoading, setGoogleLoading] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // Card enter/exit animations
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const cardTranslate = useRef(new Animated.Value(24)).current;
+  const cardScale = useRef(new Animated.Value(0.98)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(cardOpacity, {
+        toValue: 1,
+        duration: 320,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(cardTranslate, {
+        toValue: 0,
+        duration: 320,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(cardScale, {
+        toValue: 1,
+        duration: 320,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start();
+  }, [cardOpacity, cardScale, cardTranslate]);
 
   const isValidEmail = useMemo(() => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
@@ -91,6 +119,32 @@ const SignUpScreen: React.FC = () => {
     }, 350);
   };
 
+  const navigateWithExit = (path: string) => {
+    if (isTransitioning) {
+      return;
+    }
+    setIsTransitioning(true);
+    Animated.parallel([
+      Animated.timing(cardOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(cardTranslate, {
+        toValue: 20,
+        duration: 250,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(cardScale, {
+        toValue: 0.97,
+        duration: 250,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start(() => {
+      router.push(path);
+    });
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
@@ -108,7 +162,15 @@ const SignUpScreen: React.FC = () => {
             <Text style={styles.brandSubtitle}>Connect with people around you</Text>
           </View>
 
-          <View style={styles.card}>
+          <Animated.View
+            style={[
+              styles.card,
+              {
+                opacity: cardOpacity,
+                transform: [{ translateY: cardTranslate }, { scale: cardScale }],
+              },
+            ]}
+          >
             <Text style={styles.cardTitle}>Sign Up</Text>
 
             <Pressable
@@ -120,7 +182,11 @@ const SignUpScreen: React.FC = () => {
                 googleLoading ? styles.disabled : null,
               ]}
             >
-              <FontAwesome name="google" size={22} color="#EA4335" />
+              <Image
+                source={{ uri: GOOGLE_G_LOGO }}
+                style={styles.googleIcon}
+                accessibilityIgnoresInvertColors
+              />
               <Text style={styles.googleLabel}>
                 {googleLoading ? 'Connecting...' : 'Continue with Google'}
               </Text>
@@ -171,13 +237,13 @@ const SignUpScreen: React.FC = () => {
             <Text style={styles.footerText}>
               Already have an account?{' '}
               <Text
-                onPress={() => router.push('/auth/signin')}
+                onPress={() => navigateWithExit('/auth/signin')}
                 style={styles.footerLink}
               >
                 Sign In
               </Text>
             </Text>
-          </View>
+          </Animated.View>
 
           <Text style={styles.legalText}>
             By continuing, you agree to our <Text style={styles.legalLink}>Terms of Service</Text> and{' '}
@@ -258,6 +324,11 @@ const styles = StyleSheet.create({
   },
   googleButtonPressed: {
     transform: [{ scale: 0.98 }],
+  },
+  googleIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 2,
   },
   googleLabel: {
     color: '#111827',
@@ -349,6 +420,11 @@ const styles = StyleSheet.create({
 });
 
 export default SignUpScreen;
+
+
+
+// Official multicolor Google "G" logo (PNG) from Google Identity guidelines
+const GOOGLE_G_LOGO = 'https://developers.google.com/identity/images/g-logo.png';
 
 
 

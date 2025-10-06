@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -83,12 +83,11 @@ const VerifyOtpSigninScreen: React.FC = () => {
     }, 1000);
   }, [clearTimer]);
 
+  // Always start cooldown on mount so Resend appears only after 60s
   useEffect(() => {
-    if (sentParam === '1') {
-      startCooldown(COOLDOWN_SECONDS);
-    }
+    startCooldown(COOLDOWN_SECONDS);
     return clearTimer;
-  }, [sentParam, startCooldown, clearTimer]);
+  }, [startCooldown, clearTimer]);
 
   const handleChange = (value: string) => {
     const sanitized = value.replace(/\D/g, '').slice(0, FIXED_OTP.length);
@@ -182,9 +181,12 @@ const VerifyOtpSigninScreen: React.FC = () => {
                   textContentType="oneTimeCode"
                   inputMode="numeric"
                   maxLength={FIXED_OTP.length}
+                  autoFocus
                   style={styles.otpInput}
                 />
-                {code.length === 0 ? <Text style={styles.ghostCode}>{FIXED_OTP}</Text> : null}
+                {code.length === 0 ? (
+                  <Text style={styles.ghostCode} pointerEvents="none">{FIXED_OTP}</Text>
+                ) : null}
               </View>
             </View>
 
@@ -258,9 +260,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   brandSection: {
     alignItems: 'center',
@@ -345,6 +347,10 @@ const styles = StyleSheet.create({
   otpWrapper: {
     position: 'relative',
     justifyContent: 'center',
+    alignSelf: 'center',
+    alignItems: 'center',
+    maxWidth: 280,
+    width: '100%',
   },
   otpInput: {
     borderRadius: 18,
@@ -354,9 +360,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 24,
     fontWeight: '600',
-    letterSpacing: 18,
+    letterSpacing: 12,
     textAlign: 'center',
-    paddingVertical: 16,
+    paddingVertical: 12,
   },
   ghostCode: {
     position: 'absolute',
@@ -367,10 +373,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 24,
     fontWeight: '600',
-    letterSpacing: 18,
+    letterSpacing: 12,
     color: 'rgba(148, 163, 184, 0.25)',
-    textTransform: 'uppercase',
+    textTransform: 'none',
     textAlignVertical: 'center',
+    lineHeight: 48,
   },
   primaryButton: {
     width: '100%',
