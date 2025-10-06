@@ -1,19 +1,18 @@
 import React from 'react';
 import { ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
+import AppHeader from '../src/components/AppHeader';
 import FeedbackForm from '../src/components/feedback/FeedbackForm';
 import Navigation from '../src/components/Navigation';
 
 const FeedbackScreen: React.FC = () => {
+  const router = useRouter();
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={styles.headerRow}>
-          <Text style={styles.headerTitle}>Feedback</Text>
-        </View>
-      </SafeAreaView>
+      <AppHeader title="Feedback" onBackPress={() => router.back()} />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -34,21 +33,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#000000',
-  },
-  safeArea: {
-    backgroundColor: '#000000',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#60a5fa',
   },
   content: {
     paddingHorizontal: 20,

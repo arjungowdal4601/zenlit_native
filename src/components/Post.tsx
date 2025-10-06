@@ -1,6 +1,10 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
+import ConfirmDialog from './ConfirmDialog';
+import OptionsDialog from './OptionsDialog';
+import DropdownMenu from './DropdownMenu';
 
 import type { FeedPost } from '../constants/feedData';
 import {
@@ -23,14 +27,21 @@ export type PostProps = {
   post: FeedPost;
   selectedAccounts?: SocialPlatformId[];
   showSocialLinks?: boolean;
+  showMenu?: boolean;
+  onDelete?: (id: string) => void;
 };
 
 export const Post: React.FC<PostProps> = ({
   post,
   selectedAccounts = DEFAULT_VISIBLE_PLATFORMS,
   showSocialLinks = true,
+  showMenu = false,
+  onDelete,
 }) => {
   const { author, content, image, timestamp } = post;
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const socialEntries = useMemo(() => {
     if (!author.socialLinks) {
@@ -75,9 +86,30 @@ export const Post: React.FC<PostProps> = ({
     }
   }, []);
 
+  const handleMenuPress = useCallback(() => {
+    if (!showMenu) return;
+    setDropdownOpen(true);
+  }, [showMenu]);
+
+  const handleConfirmDelete = useCallback(() => {
+    setConfirmOpen(false);
+    onDelete?.(post.id);
+  }, [post.id, onDelete]);
+
   return (
     <View style={styles.postContainer}>
       <View style={styles.wrapper}>
+        {showMenu ? (
+          <Pressable
+            onPress={handleMenuPress}
+            style={styles.menuButton}
+            accessibilityRole="button"
+            accessibilityLabel="Post options"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Feather name="more-vertical" size={18} color="#94a3b8" />
+          </Pressable>
+        ) : null}
         {showSocialLinks && socialEntries.length > 0 ? (
           <View style={styles.socialLinksRow}>
             {socialEntries.map(({ id, url }) => {
@@ -146,6 +178,29 @@ export const Post: React.FC<PostProps> = ({
       <View style={styles.dividerWrapper}>
         <View style={styles.divider} />
       </View>
+
+      <DropdownMenu
+        visible={dropdownOpen}
+        onClose={() => setDropdownOpen(false)}
+        items={[
+          {
+            label: 'Delete',
+            iconName: 'trash-2',
+            destructive: true,
+            onPress: () => setConfirmOpen(true),
+          },
+        ]}
+        // Anchored relative positioning handled inside component
+      />
+
+      <ConfirmDialog
+        visible={confirmOpen}
+        message={'Are you sure you want to delete this post?'}
+        confirmLabel={'Delete'}
+        cancelLabel={'Cancel'}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </View>
   );
 };
@@ -160,10 +215,26 @@ const styles = StyleSheet.create({
   socialLinksRow: {
     position: 'absolute',
     top: 0,
-    right: 0,
+    right: 44, // leave space for the menu button
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 8,
+    // allow touches to pass through outside of badges
+    pointerEvents: 'box-none',
+  },
+  menuButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    // remove background to match requested style
+    backgroundColor: 'transparent',
+    zIndex: 10,
   },
   socialButton: {
     marginLeft: 12,

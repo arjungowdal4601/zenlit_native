@@ -1,15 +1,16 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
+  FlatList,
   Image,
   ImageSourcePropType,
   Pressable,
-  ScrollView,
   StatusBar,
+  StyleProp,
   StyleSheet,
   Text,
   View,
+  ViewStyle,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 
@@ -17,12 +18,14 @@ import AppHeader from '../../src/components/AppHeader';
 import Navigation from '../../src/components/Navigation';
 import LogoutConfirmation from '../../src/components/LogoutConfirmation';
 import ProfileMenu from '../../src/components/profile/ProfileMenu';
+import Post from '../../src/components/Post';
 import {
   SOCIAL_PLATFORMS,
   ensureSocialUrl,
   getTwitterHandle,
 } from '../../src/constants/socialPlatforms';
 import { NEARBY_USERS } from '../../src/constants/nearbyUsers';
+import { mockPosts } from '../../src/constants/profileMock';
 
 const ME = NEARBY_USERS[0];
 
@@ -35,6 +38,26 @@ const SOCIAL_ORDER: Array<'instagram' | 'linkedin' | 'twitter'> = [
 const FALLBACK_BANNER_URI =
   'https://images.unsplash.com/photo-1519669556878-619358287bf8?auto=format&fit=crop&w=1200&q=80';
 const bannerImg = require('@/assets/images/profile-banner.jpg');
+
+const INSTAGRAM_GRADIENT = [
+  '#f09433',
+  '#e6683c',
+  '#dc2743',
+  '#cc2366',
+  '#bc1888',
+] as const;
+
+const formatDate = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
 
 const ProfileScreen: React.FC = () => {
   const router = useRouter();
@@ -69,7 +92,7 @@ const ProfileScreen: React.FC = () => {
   const handleEditProfile = useCallback(() => {
     setMenuOpen(false);
     router.push('/edit-profile');
-  }, []);
+  }, [router]);
 
   const handleFeedback = useCallback(() => {
     setMenuOpen(false);
@@ -90,6 +113,32 @@ const ProfileScreen: React.FC = () => {
     router.replace('/auth/signin');
   }, [router]);
 
+  const [posts, setPosts] = useState(mockPosts);
+
+  const handleDeletePost = useCallback((id: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  const renderPost = useCallback(
+    ({ item }: { item: { id: string; dateISO: string; text: string; image?: string } }) => {
+      const feedPost = {
+        id: item.id,
+        author: {
+          name: ME.name,
+          username: ME.username,
+          avatar: ME.profilePhoto,
+          socialLinks: ME.socialLinks,
+        },
+        content: item.text,
+        image: item.image ?? undefined,
+        timestamp: formatDate(item.dateISO),
+      };
+
+      return <Post post={feedPost} showSocialLinks={false} showMenu onDelete={handleDeletePost} />;
+    },
+    [handleDeletePost],
+  );
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
@@ -106,87 +155,96 @@ const ProfileScreen: React.FC = () => {
         onCancel={handleCancelLogout}
         onConfirm={handleConfirmLogout}
       />
-      <ScrollView
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.bannerWrapper}>
-          <Image
-            source={bannerSource}
-            style={styles.bannerImage}
-            resizeMode='cover'
-          />
-          <View style={styles.avatarWrapper}>
-            <Image source={{ uri: ME.profilePhoto }} style={styles.avatar} />
-          </View>
-        </View>
+      <FlatList
+        data={posts}
+        keyExtractor={(item) => item.id}
+        renderItem={renderPost}
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <View style={styles.listHeader}>
+            <View style={styles.bannerWrapper}>
+              <Image source={bannerSource} style={styles.bannerImage} resizeMode="cover" />
+              <View style={styles.bannerGradient} />
+              <View style={styles.bannerOverlayRow}>
+                <View style={styles.avatarWrapper}>
+                  <Image source={{ uri: ME.profilePhoto }} style={styles.avatar} />
+                </View>
+                <View style={styles.socialCluster}>
+                  {socialEntries.map(({ id, url }) => {
+                    const meta = SOCIAL_PLATFORMS[id];
+                    const disabled = !url;
 
-        <View style={styles.profileContent}>
-          <View style={styles.socialRow}>
-            {socialEntries.map(({ id, url }) => {
-              const meta = SOCIAL_PLATFORMS[id];
-              const icon = meta.renderIcon({ size: 18, color: '#ffffff' });
-              const disabled = !url;
-              return (
-                <Pressable
-                  key={id}
-                  style={[styles.socialButton, disabled ? styles.socialDisabled : null]}
-                  accessibilityRole="button"
-                  accessibilityLabel={meta.label}
-                  onPress={() => {
-                    if (!url) {
-                      return;
+                    if (id === 'instagram') {
+                      return (
+                        <Pressable
+                          key={id}
+                          style={styles.socialButton}
+                          accessibilityRole="button"
+                          accessibilityLabel={meta.label}
+                          onPress={() => {
+                            if (!url) return;
+                            console.log('social link', id, url);
+                          }}
+                          disabled={disabled}
+                        >
+                          <LinearGradient
+                            colors={INSTAGRAM_GRADIENT}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={[styles.socialBadge, disabled ? styles.socialDisabled : null]}
+                          >
+                            {meta.renderIcon({ size: 18, color: '#ffffff' })}
+                          </LinearGradient>
+                        </Pressable>
+                      );
                     }
-                    console.log('social link', id, url);
-                }}
-              >
-                {id === 'instagram' ? (
-                  <LinearGradient
-                    colors={['#f09433', '#e6683c', '#dc2743', '#cc2366', '#bc1888']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.socialBadge}
-                  >
-                    {icon}
-                  </LinearGradient>
-                ) : (
-                  <View
-                    style={[
+
+                    const badgeStyle: StyleProp<ViewStyle> = [
                       styles.socialBadge,
-                      meta.style.backgroundColor
+                      id === 'twitter' ? styles.outlinedBadge : null,
+                      id !== 'twitter' && meta.style.backgroundColor
                         ? { backgroundColor: meta.style.backgroundColor }
                         : null,
-                    ]}
-                  >
-                    {icon}
-                  </View>
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
+                      disabled ? styles.socialDisabled : null,
+                    ];
 
-        <View style={styles.identityBlock}>
-          <Text style={styles.name}>{ME.name}</Text>
-          <Text style={styles.username}>@{ME.username}</Text>
-        </View>
+                    return (
+                      <Pressable
+                        key={id}
+                        style={styles.socialButton}
+                        accessibilityRole="button"
+                        accessibilityLabel={meta.label}
+                        onPress={() => {
+                          if (!url) return;
+                          console.log('social link', id, url);
+                        }}
+                        disabled={disabled}
+                      >
+                        <View style={badgeStyle}>
+                          {meta.renderIcon({ size: 18, color: '#ffffff' })}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
 
-        <View style={styles.bioBlock}>
-          <Text style={styles.bioText}>{ME.bio}</Text>
-        </View>
+            <View style={styles.identityBlock}>
+              <Text style={styles.name}>{ME.name}</Text>
+              <Text style={styles.username}>@{ME.username}</Text>
+            </View>
 
-        <View style={styles.separator} />
+            <View style={styles.bioBlock}>
+              <Text style={styles.bioText}>{ME.bio}</Text>
+            </View>
 
-        <Text style={styles.sectionTitle}>Posts</Text>
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIconWrapper}>
-            <Feather name="file-text" size={24} color="#64748b" />
+            <View style={styles.separator} />
+            <Text style={styles.sectionTitle}>Posts</Text>
           </View>
-          <Text style={styles.emptyTitle}>No posts yet</Text>
-          <Text style={styles.emptySubtitle}>Share your first post to get started!</Text>
-        </View>
-        </View>
-      </ScrollView>
+        }
+        showsVerticalScrollIndicator={false}
+      />
       <Navigation activePath="/profile" />
     </View>
   );
@@ -197,62 +255,83 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000000',
   },
-  content: {
-    paddingBottom: 160,
+  listContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 140,
+    gap: 18,
+  },
+  listHeader: {
+    gap: 18,
+    paddingTop: 16,
   },
   bannerWrapper: {
     position: 'relative',
-    marginBottom: 60,
+    backgroundColor: '#111827',
+    marginHorizontal: -24,
+    marginBottom: 72,
   },
   bannerImage: {
     width: '100%',
-    height: 200,
-    borderRadius: 0,
+    height: 212,
+  },
+  bannerGradient: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.28)',
+  },
+  bannerOverlayRow: {
+    position: 'absolute',
+    left: 24,
+    right: 24,
+    bottom: -60,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
   },
   avatarWrapper: {
-    position: 'absolute',
-    left: 20,
-    bottom: -50,
     borderRadius: 8,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: '#000000',
-    padding: 2,
     backgroundColor: '#000000',
+    padding: 2,
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 8,
-    backgroundColor: '#111827',
+    width: 92,
+    height: 92,
+    borderRadius: 6,
+    backgroundColor: '#0f172a',
   },
-  profileContent: {
-    paddingHorizontal: 20,
-  },
-  socialRow: {
+  socialCluster: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
-    justifyContent: 'flex-end',
-    marginBottom: 16,
+    transform: [{ translateX: 5 }, { translateY: 0 }],
   },
   socialButton: {
-    borderRadius: 12,
+    borderRadius: 8,
   },
   socialDisabled: {
-    opacity: 0.4,
+    opacity: 0.35,
   },
   socialBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(30, 41, 59, 0.82)',
+  },
+  outlinedBadge: {
+    backgroundColor: '#000000',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.45)',
   },
   identityBlock: {
     marginBottom: 16,
+    marginTop: 0,
   },
   name: {
     color: '#ffffff',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '700',
   },
   username: {
@@ -267,47 +346,23 @@ const styles = StyleSheet.create({
     color: '#e2e8f0',
     fontSize: 15,
     lineHeight: 22,
+    marginTop: 2,
   },
   separator: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(71, 85, 105, 0.6)',
-    marginBottom: 24,
+    marginTop: 6,
+    marginBottom: 12,
+    marginLeft: -24,
+    marginRight: -24,
+    width: '100%',
   },
   sectionTitle: {
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 16,
-  },
-  emptyState: {
-    alignItems: 'center',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(51, 65, 85, 0.6)',
-    backgroundColor: 'rgba(2, 6, 23, 0.6)',
-    paddingVertical: 36,
-    paddingHorizontal: 24,
-  },
-  emptyIconWrapper: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.9)',
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    color: '#e2e8f0',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  emptySubtitle: {
-    color: '#94a3b8',
-    fontSize: 14,
+    marginTop: 4,
   },
 });
 
 export default ProfileScreen;
-

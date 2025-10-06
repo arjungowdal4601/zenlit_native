@@ -103,11 +103,8 @@ const FeedbackForm: React.FC = () => {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    padding: 20,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
     gap: 12,
   },
   headerRow: {
