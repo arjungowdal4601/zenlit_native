@@ -10,6 +10,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { MessageSquare, User } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { THREADS } from '../constants/messagesData';
 
 import type { NearbyUser } from '../constants/nearbyUsers';
 import {
@@ -102,8 +103,22 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
     router.push(`/profile/${user.id}`);
   };
 
+  const toPeerId = (name: string) =>
+    name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-');
+
   const handleMessagePress = () => {
-    router.push(`/messages/${user.id}`);
+    const peerId = toPeerId(user.name);
+    const thread = THREADS.find((t) => t.peer.id === peerId);
+    if (thread) {
+      router.push(`/messages/${thread.id}`);
+    } else {
+      router.push('/messages');
+    }
   };
 
   const handleLinkPress = async (url: string) => {
@@ -125,7 +140,7 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
         </Pressable>
 
         <View style={styles.topContent}>
-          <Pressable style={styles.nameWrapper} onPress={handleProfilePress}>
+          <Pressable style={styles.nameWrapper} onPress={handleMessagePress}>
             <Text style={styles.name} numberOfLines={1}>
               {user.name}
             </Text>

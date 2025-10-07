@@ -124,8 +124,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: theme.header.height,
     paddingHorizontal: theme.header.paddingHorizontal,
-    paddingTop: theme.spacing.sm,
-    paddingBottom: theme.spacing.sm,
+    paddingTop: 2,
+    paddingBottom: 2,
   },
   titleWrapper: {
     flex: 1,

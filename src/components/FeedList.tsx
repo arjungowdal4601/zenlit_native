@@ -14,7 +14,7 @@ export const FeedList: React.FC = () => {
         data={FEED_DATA}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <Post post={item} selectedAccounts={selectedAccounts} />
+          <Post post={item} selectedAccounts={selectedAccounts} showTimestamp={false} />
         )}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 8,
     paddingBottom: 160,
     paddingTop: 8,
   },

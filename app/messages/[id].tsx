@@ -115,7 +115,7 @@ const ChatDetailScreen: React.FC = () => {
 
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.select({ ios: 'padding', android: undefined })}
+        behavior={Platform.select({ ios: 'padding', android: 'height' })}
         keyboardVerticalOffset={Platform.select({ ios: 18, android: 0 }) ?? 0}
       >
         <View style={styles.messagesArea}>
@@ -130,6 +130,7 @@ const ChatDetailScreen: React.FC = () => {
               return <MessageBubble message={item.message} />;
             }}
             contentContainerStyle={styles.listContent}
+            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           />
           <SafeAreaView edges={['bottom']} style={styles.composerWrapper}>
@@ -171,11 +172,11 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 80,
+    paddingBottom: 88,
     gap: 4,
   },
   composerWrapper: {
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: 'rgba(0,0,0,0.92)',
   },
 });
 

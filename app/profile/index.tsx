@@ -134,7 +134,15 @@ const ProfileScreen: React.FC = () => {
         timestamp: formatDate(item.dateISO),
       };
 
-      return <Post post={feedPost} showSocialLinks={false} showMenu onDelete={handleDeletePost} />;
+      return (
+        <Post
+          post={feedPost}
+          showSocialLinks={false}
+          showMenu
+          showTimestamp
+          onDelete={handleDeletePost}
+        />
+      );
     },
     [handleDeletePost],
   );

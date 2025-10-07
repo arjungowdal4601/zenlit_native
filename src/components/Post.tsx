@@ -28,6 +28,7 @@ export type PostProps = {
   selectedAccounts?: SocialPlatformId[];
   showSocialLinks?: boolean;
   showMenu?: boolean;
+  showTimestamp?: boolean;
   onDelete?: (id: string) => void;
 };
 
@@ -36,6 +37,7 @@ export const Post: React.FC<PostProps> = ({
   selectedAccounts = DEFAULT_VISIBLE_PLATFORMS,
   showSocialLinks = true,
   showMenu = false,
+  showTimestamp = true,
   onDelete,
 }) => {
   const { author, content, image, timestamp } = post;
@@ -160,7 +162,8 @@ export const Post: React.FC<PostProps> = ({
             <View style={styles.authorBlock}>
               <Text style={styles.authorName}>{author.name}</Text>
               <Text style={styles.authorMeta}>
-                @{author.username} � {timestamp}
+                @{author.username}
+                {showTimestamp && timestamp ? `  ${timestamp}` : ''}
               </Text>
             </View>
 

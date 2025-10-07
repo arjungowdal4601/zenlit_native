@@ -52,10 +52,10 @@ const Composer: React.FC<ComposerProps> = ({ onSend, disabled = false }) => {
 
 const styles = StyleSheet.create({
   container: {
-    borderTopWidth: 0,
-    borderTopColor: 'transparent',
+    borderTopWidth: 1,
+    borderTopColor: '#1f2937',
     backgroundColor: '#000000',
-    paddingBottom: 12,
+    paddingBottom: 16,
     paddingTop: 10,
     paddingHorizontal: 20,
   },
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   input: {
-    minHeight: 40,
+    minHeight: 42,
     maxHeight: 120,
     color: '#e2e8f0',
     fontSize: 15,
