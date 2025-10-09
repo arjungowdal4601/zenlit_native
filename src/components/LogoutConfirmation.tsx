@@ -15,16 +15,13 @@ const LogoutConfirmation: React.FC<LogoutConfirmationProps> = ({ visible, onConf
       visible={visible}
       onRequestClose={onCancel}
     >
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
-          <Pressable style={styles.closeButton} onPress={onCancel} accessibilityRole="button">
-            <Text style={styles.closeLabel}>×</Text>
-          </Pressable>
-          <Text style={styles.message}>Are you sure you want to log out?</Text>
-          <View style={styles.actions}>
-            <Pressable style={[styles.button, styles.cancelButton]} onPress={onCancel} accessibilityRole="button">
-              <Text style={[styles.buttonLabel, styles.cancelLabel]}>Cancel</Text>
-            </Pressable>
+  <View style={styles.backdrop}>
+    <View style={styles.card}>
+      <Text style={styles.message}>Are you sure you want to log out?</Text>
+      <View style={styles.actions}>
+        <Pressable style={[styles.button, styles.cancelButton]} onPress={onCancel} accessibilityRole="button">
+          <Text style={[styles.buttonLabel, styles.cancelLabel]}>Cancel</Text>
+        </Pressable>
             <Pressable
               style={[styles.button, styles.logoutButton]}
               onPress={() => {
@@ -58,22 +55,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     borderWidth: 1,
     borderColor: 'rgba(148, 163, 184, 0.35)',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.8)',
-  },
-  closeLabel: {
-    color: '#cbd5f5',
-    fontSize: 18,
-    fontWeight: '600',
   },
   message: {
     color: '#e2e8f0',

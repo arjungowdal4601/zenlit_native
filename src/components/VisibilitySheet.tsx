@@ -70,9 +70,7 @@ export const VisibilitySheet: React.FC<VisibilitySheetProps> = ({ visible, onReq
         >
           <View style={styles.header}>
             <Text style={styles.title}>Visibility</Text>
-            <Pressable style={styles.iconButton} onPress={onRequestClose}>
-              <Feather name="x" size={22} color="#ffffff" />
-            </Pressable>
+            {/* Removed redundant close icon; backdrop tap and controls provide dismissal */}
           </View>
 
           <View style={styles.section}>

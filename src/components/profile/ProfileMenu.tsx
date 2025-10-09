@@ -33,14 +33,6 @@ const ProfileMenu: React.FC<ProfileMenuProps> = ({
         />
         <View style={styles.positioner}>
           <View style={styles.card}>
-            <Pressable
-              onPress={onClose}
-              style={styles.closeButton}
-              accessibilityRole='button'
-              accessibilityLabel='Dismiss menu'
-            >
-              <Text style={styles.closeText}>X</Text>
-            </Pressable>
 
             <Pressable
               style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}
@@ -105,22 +97,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#020617',
     borderWidth: 1,
     borderColor: 'rgba(148, 163, 184, 0.35)',
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.75)',
-  },
-  closeText: {
-    color: '#cbd5f5',
-    fontSize: 16,
-    fontWeight: '600',
   },
   row: {
     flexDirection: 'row',

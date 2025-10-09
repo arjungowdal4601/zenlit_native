@@ -45,9 +45,7 @@ const ProfileMenuSheet: React.FC<ProfileMenuSheetProps> = ({
         >
           <View style={styles.headerRow}>
             <Text style={styles.title}>Menu</Text>
-            <Pressable style={styles.iconButton} onPress={onRequestClose} accessibilityRole="button" accessibilityLabel="Close menu">
-              <Feather name="x" size={20} color="#ffffff" />
-            </Pressable>
+            {/* Removed redundant close icon; backdrop tap and menu actions handle closing */}
           </View>
 
           <Pressable style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]} onPress={() => { onRequestClose(); onEditProfile(); }}>
