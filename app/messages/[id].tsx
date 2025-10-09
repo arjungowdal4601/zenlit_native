@@ -21,6 +21,7 @@ import {
   THREADS,
   formatDayLabel,
 } from '../../src/constants/messagesData';
+import { theme } from '../../src/styles/theme';
 
 type RenderItem =
   | { type: 'day'; id: string; label: string }
@@ -88,7 +89,7 @@ const ChatDetailScreen: React.FC = () => {
   if (!thread) {
     return (
       <View style={styles.missingRoot}>
-        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
         <SafeAreaView style={styles.safeArea} edges={['top']}>
           <ChatHeader title="Message" />
         </SafeAreaView>
@@ -104,7 +105,7 @@ const ChatDetailScreen: React.FC = () => {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ChatHeader
           title={thread.peer.name}
@@ -145,14 +146,14 @@ const ChatDetailScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: theme.colors.background,
   },
   missingRoot: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: theme.colors.background,
   },
   safeArea: {
-    backgroundColor: '#000000',
+    backgroundColor: theme.colors.headerBackground,
   },
   missingContent: {
     flex: 1,
@@ -160,7 +161,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   missingText: {
-    color: '#94a3b8',
+    color: theme.colors.muted,
     fontSize: 16,
   },
   flex: {
@@ -176,7 +177,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   composerWrapper: {
-    backgroundColor: 'rgba(0,0,0,0.92)',
+    backgroundColor: theme.colors.surface,
   },
 });
 

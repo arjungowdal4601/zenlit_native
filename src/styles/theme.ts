@@ -1,19 +1,38 @@
+const PRIMARY = '#2563EB';
+const SECONDARY = '#7E22CE';
+const BACKGROUND_DARK = '#0A0A0A';
+const SURFACE_DARK = '#101225';
+
+export const gradientColors = [PRIMARY, SECONDARY] as const;
+
 export const theme = {
   colors: {
-    background: '#000000',
-    surface: '#020617',
-    overlay: 'rgba(2, 6, 23, 0.85)',
-    border: 'rgba(148, 163, 184, 0.25)',
-    text: '#ffffff',
-    muted: '#94a3b8',
-    icon: '#ffffff',
-    accent: '#6366f1',
-    headerBackground: '#000000',
+    background: BACKGROUND_DARK,
+    surface: SURFACE_DARK,
+    overlay: 'rgba(16, 18, 37, 0.88)',
+    border: 'rgba(148, 163, 184, 0.18)',
+    text: '#F8FAFC',
+    muted: '#94A3B8',
+    icon: '#E2E8F0',
+    iconInactive: '#94A3B8',
+    accent: PRIMARY,
+    primary: PRIMARY,
+    secondary: SECONDARY,
+    headerBackground: 'rgba(10, 10, 10, 0.92)',
   },
   gradients: {
     header: {
-      from: '#4c6ef5',
-      to: '#c084fc',
+      from: PRIMARY,
+      to: SECONDARY,
+      colors: gradientColors,
+    },
+    surface: {
+      from: 'rgba(37, 99, 235, 0.35)',
+      to: 'rgba(126, 34, 206, 0.25)',
+      colors: ['rgba(37, 99, 235, 0.35)', 'rgba(126, 34, 206, 0.25)'] as const,
+    },
+    background: {
+      colors: ['#050510', BACKGROUND_DARK] as const,
     },
   },
   spacing: {

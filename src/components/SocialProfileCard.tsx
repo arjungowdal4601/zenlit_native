@@ -48,22 +48,26 @@ const getVisiblePlatforms = (
     return [];
   }
 
-  const active = selected?.length ? selected : DEFAULT_VISIBLE_PLATFORMS;
+  // If no platforms are selected, return empty array (show no social links)
+  if (!selected || selected.length === 0) {
+    return [];
+  }
+
   const results: Array<{ id: SocialPlatformId; url: string }> = [];
 
   const instagramUrl = ensureSocialUrl('instagram', links.instagram);
-  if (instagramUrl && active.includes('instagram')) {
+  if (instagramUrl && selected.includes('instagram')) {
     results.push({ id: 'instagram', url: instagramUrl });
   }
 
   const linkedinUrl = ensureSocialUrl('linkedin', links.linkedin);
-  if (linkedinUrl && active.includes('linkedin')) {
+  if (linkedinUrl && selected.includes('linkedin')) {
     results.push({ id: 'linkedin', url: linkedinUrl });
   }
 
   const twitterHandle = getTwitterHandle(links);
   const twitterUrl = ensureSocialUrl('twitter', twitterHandle);
-  if (twitterUrl && active.includes('twitter')) {
+  if (twitterUrl && selected.includes('twitter')) {
     results.push({ id: 'twitter', url: twitterUrl });
   }
 

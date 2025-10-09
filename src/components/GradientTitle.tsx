@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet, Text, TextProps, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextProps, StyleSheet as RNStyleSheet, TextStyle } from 'react-native';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -41,35 +41,34 @@ export const GradientTitle: React.FC<GradientTitleProps> = ({
     );
   }
 
+  const flattened = (RNStyleSheet.flatten([styles.text, style]) || {}) as TextStyle;
+  const lineHeight = flattened.lineHeight ?? theme.header.title.lineHeight;
+
   return (
     <MaskedView
-      style={styles.maskContainer}
       maskElement={
-        <View style={styles.maskWrapper}>
-          <Text
-            numberOfLines={numberOfLines}
-            ellipsizeMode={ellipsizeMode}
-            accessible={false}
-            importantForAccessibility="no"
-            style={[styles.text, style]}
-          >
-            {text}
-          </Text>
-        </View>
+        <Text
+          numberOfLines={numberOfLines}
+          ellipsizeMode={ellipsizeMode}
+          style={[styles.text, style]}
+        >
+          {text}
+        </Text>
       }
+      style={styles.maskContainer}
     >
       <LinearGradient
-        colors={[theme.gradients.header.from, theme.gradients.header.to]}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
-        style={styles.gradientFill}
+        colors={theme.gradients.header.colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[styles.gradientFill, { height: lineHeight }]}
       >
         <Text
-          accessible={false}
-          importantForAccessibility="no"
           numberOfLines={numberOfLines}
           ellipsizeMode={ellipsizeMode}
           style={[styles.text, style, styles.hiddenText]}
+          accessible={false}
+          importantForAccessibility="no"
         >
           {text}
         </Text>
@@ -86,17 +85,14 @@ const styles = StyleSheet.create({
     letterSpacing: theme.header.title.letterSpacing,
   },
   maskContainer: {
-    flexShrink: 1,
     alignSelf: 'flex-start',
-  },
-  maskWrapper: {
-    backgroundColor: 'transparent',
+    flexShrink: 1,
   },
   gradientFill: {
-    alignSelf: 'flex-start',
+    justifyContent: 'center',
   },
   hiddenText: {
-    color: '#ffffff',
+    color: 'transparent',
   },
 });
 

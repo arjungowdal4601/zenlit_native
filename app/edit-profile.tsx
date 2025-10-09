@@ -5,6 +5,7 @@ import { Feather, FontAwesome6 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import OptionsDialog from '../src/components/OptionsDialog';
 import { SOCIAL_PLATFORMS } from '../src/constants/socialPlatforms';
+import GradientTitle from '../src/components/GradientTitle';
 
 const FALLBACK_BANNER = require('@/assets/images/profile-banner.jpg');
 const FALLBACK_AVATAR = 'https://api.dicebear.com/7.x/avataaars/png?seed=Alex&backgroundColor=b6e3f4';
@@ -63,7 +64,7 @@ const EditProfileScreen: React.FC = () => {
           >
             <Feather name="arrow-left" size={22} color="#ffffff" />
           </Pressable>
-          <Text style={styles.headerTitle}>Edit Profile</Text>
+          <GradientTitle text="Edit Profile" style={styles.headerTitle} />
           <View style={{ width: 44 }} />
         </View>
       </SafeAreaView>
@@ -127,7 +128,7 @@ const EditProfileScreen: React.FC = () => {
 
         {/* Social links */}
         <View style={styles.socialSection}>
-          <Text style={styles.sectionTitle}>Social Links</Text>
+          <GradientTitle text="Social Links" style={styles.sectionTitle} />
 
           {/* Instagram */}
           <View style={styles.socialCard}>

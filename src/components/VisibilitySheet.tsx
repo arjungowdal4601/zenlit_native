@@ -182,12 +182,9 @@ const styles = StyleSheet.create({
   iconButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.45)',
   },
   section: {
     marginTop: 20,
@@ -312,8 +309,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxActive: {
-    backgroundColor: '#6366f1',
-    borderColor: '#6366f1',
+    backgroundColor: '#22c55e',
+    borderColor: '#22c55e',
   },
 });
 

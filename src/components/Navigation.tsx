@@ -4,6 +4,8 @@ import { usePathname, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Compass, MessageSquare, Plus, UserCircle, Users } from 'lucide-react-native';
 
+import { theme } from '../styles/theme';
+
 const navigationItems = [
   { path: '/radar', Icon: Users },
   { path: '/feed', Icon: Compass },
@@ -73,11 +75,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#000000',
+    backgroundColor: theme.colors.headerBackground,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderTopWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
+    borderColor: theme.colors.border,
     shadowColor: '#000000',
     shadowOpacity: 0.45,
     shadowRadius: 16,
@@ -99,13 +101,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tabButtonActive: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    marginBottom: 1,
-    shadowColor: 'rgba(255, 255, 255, 0.35)',
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    marginBottom: Platform.OS === 'ios' ? 1 : 0,
+    borderRadius: 18,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(255, 255, 255, 0.35)',
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
   },
 });
 

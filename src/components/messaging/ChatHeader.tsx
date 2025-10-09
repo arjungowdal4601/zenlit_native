@@ -56,7 +56,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ title, subtitle, avatarUrl, isA
               ) : (
                 <View style={styles.avatarFallback}>
                   {isAnonymous ? (
-                    <Feather name="eye" size={20} color="#cbd5f5" />
+                    <Feather name="eye" size={20} color={theme.colors.icon} />
                   ) : (
                     <Text style={styles.avatarInitial}>{initial}</Text>
                   )}
@@ -78,13 +78,13 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ title, subtitle, avatarUrl, isA
 
 const styles = StyleSheet.create({
   wrapper: {
-    backgroundColor: '#000000',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1f2937',
+    backgroundColor: theme.colors.headerBackground,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: theme.colors.border,
     marginBottom: 10,
   },
   safeArea: {
-    backgroundColor: '#000000',
+    backgroundColor: theme.colors.headerBackground,
   },
   inner: {
     flexDirection: 'row',
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 0,
     borderColor: 'transparent',
-    backgroundColor: '#000000',
+    backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarInitial: {
-    color: '#ffffff',
+    color: theme.colors.text,
     fontSize: 16,
     fontWeight: '600',
   },
