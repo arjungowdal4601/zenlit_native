@@ -32,8 +32,9 @@ const Composer: React.FC<ComposerProps> = ({ onSend, disabled = false }) => {
             placeholderTextColor={disabled ? '#64748b' : '#94a3b8'}
             editable={!disabled}
             multiline
+            numberOfLines={1}
             maxLength={800}
-            textAlignVertical="top"
+            textAlignVertical="center"
           />
         </View>
         <Pressable
@@ -43,7 +44,7 @@ const Composer: React.FC<ComposerProps> = ({ onSend, disabled = false }) => {
           accessibilityLabel="Send message"
           style={[styles.sendButton, !canSend ? styles.sendButtonDisabled : null]}
         >
-          <Feather name="send" size={18} color={canSend ? '#ffffff' : '#64748b'} />
+          <Feather name="send" size={16} color={canSend ? '#ffffff' : '#64748b'} />
         </Pressable>
       </View>
     </View>
@@ -55,14 +56,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#1f2937',
     backgroundColor: '#000000',
-    paddingBottom: 16,
-    paddingTop: 10,
+    paddingBottom: 12,
+    paddingTop: 8,
     paddingHorizontal: 20,
   },
   inner: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 12,
+    gap: 10,
   },
   inputWrapper: {
     flex: 1,
@@ -70,15 +71,15 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderColor: 'transparent',
     backgroundColor: '#000000',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 0,
   },
   inputDisabled: {
     opacity: 0.6,
   },
   input: {
-    minHeight: 42,
-    maxHeight: 120,
+    height: 36,
+    paddingVertical: 8,
     color: '#e2e8f0',
     fontSize: 15,
     lineHeight: 20,
@@ -87,9 +88,9 @@ const styles = StyleSheet.create({
     color: '#64748b',
   },
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#2563eb',

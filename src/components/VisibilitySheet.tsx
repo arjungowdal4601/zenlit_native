@@ -86,8 +86,9 @@ export const VisibilitySheet: React.FC<VisibilitySheetProps> = ({ visible, onReq
               <Switch
                 value={isVisible}
                 onValueChange={setIsVisible}
-                thumbColor={isVisible ? '#ffffff' : '#ffffff'}
+                thumbColor="#ffffff"
                 trackColor={{ false: 'rgba(71, 85, 105, 0.7)', true: '#3b82f6' }}
+                ios_backgroundColor="rgba(71, 85, 105, 0.7)"
               />
             </View>
           </View>
@@ -184,7 +185,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.45)',
   },
   section: {
     marginTop: 20,
@@ -262,9 +265,15 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(51, 65, 85, 0.7)',
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   platformLeft: {
     flexDirection: 'row',
@@ -277,11 +286,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+    backgroundColor: 'rgba(15, 23, 42, 0.9)',
   },
   platformActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.12)',
-    borderColor: 'rgba(59, 130, 246, 0.45)',
+    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    borderColor: 'rgba(148, 163, 184, 0.6)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   platformLabel: {
     color: '#ffffff',

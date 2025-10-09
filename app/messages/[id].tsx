@@ -99,7 +99,8 @@ const ChatDetailScreen: React.FC = () => {
     );
   }
 
-  const subtitle = thread.peer.isOnline ? 'Online now' : thread.peer.subtitle;
+  // Remove online status text entirely per request
+  const subtitle = undefined;
 
   return (
     <View style={styles.root}>
@@ -107,7 +108,6 @@ const ChatDetailScreen: React.FC = () => {
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ChatHeader
           title={thread.peer.name}
-          subtitle={subtitle}
           avatarUrl={thread.isAnonymous ? undefined : thread.peer.avatar}
           isAnonymous={thread.isAnonymous}
         />
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 88,
+    paddingBottom: 72,
     gap: 4,
   },
   composerWrapper: {

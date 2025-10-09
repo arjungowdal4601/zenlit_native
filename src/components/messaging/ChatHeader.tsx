@@ -66,11 +66,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ title, subtitle, avatarUrl, isA
 
             <View style={styles.textBlock}>
               <GradientTitle text={title} numberOfLines={1} style={styles.title} />
-              {subtitle ? (
-                <Text style={styles.subtitle} numberOfLines={1}>
-                  {subtitle}
-                </Text>
-              ) : null}
             </View>
           </View>
 
@@ -84,8 +79,8 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ title, subtitle, avatarUrl, isA
 const styles = StyleSheet.create({
   wrapper: {
     backgroundColor: '#000000',
-    borderBottomWidth: 0,
-    borderBottomColor: 'transparent',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1f2937',
     marginBottom: 10,
   },
   safeArea: {
@@ -147,12 +142,9 @@ const styles = StyleSheet.create({
   },
   title: {
     flexShrink: 1,
-  },
-  subtitle: {
-    color: theme.colors.muted,
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 2,
+    // Match feed author name sizing
+    fontSize: 16,
+    fontWeight: '600',
   },
   trailingSpace: {
     width: TOUCH_SIZE,

@@ -17,7 +17,7 @@ import { useRouter } from 'expo-router';
 import AppHeader from '../../src/components/AppHeader';
 import Navigation from '../../src/components/Navigation';
 import LogoutConfirmation from '../../src/components/LogoutConfirmation';
-import ProfileMenu from '../../src/components/profile/ProfileMenu';
+import ProfileMenuSheet from '../../src/components/profile/ProfileMenuSheet';
 import Post from '../../src/components/Post';
 import {
   SOCIAL_PLATFORMS,
@@ -151,9 +151,9 @@ const ProfileScreen: React.FC = () => {
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
       <AppHeader title="Profile" onMenuPress={() => setMenuOpen(true)} />
-      <ProfileMenu
+      <ProfileMenuSheet
         visible={menuOpen}
-        onClose={handleCloseMenu}
+        onRequestClose={handleCloseMenu}
         onEditProfile={handleEditProfile}
         onFeedback={handleFeedback}
         onLogout={handleLogout}
@@ -328,12 +328,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.82)',
+    backgroundColor: '#000000',
   },
   outlinedBadge: {
     backgroundColor: '#000000',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.45)',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   identityBlock: {
     marginBottom: 16,

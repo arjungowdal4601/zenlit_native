@@ -1,4 +1,4 @@
-﻿export const theme = {
+export const theme = {
   colors: {
     background: '#000000',
     surface: '#020617',
@@ -31,7 +31,7 @@
     xl: 24,
   },
   header: {
-    height: 64,
+    height: 56,
     paddingHorizontal: 24,
     contentSpacing: 12,
     iconSize: 24,

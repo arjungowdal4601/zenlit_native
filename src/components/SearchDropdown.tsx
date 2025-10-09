@@ -234,9 +234,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
+    backgroundColor: '#000000',
   },
   closeButtonPressed: {
     opacity: 0.7,
@@ -256,7 +254,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radii.md,
   },
   itemPressed: {
-    backgroundColor: 'rgba(30, 41, 59, 0.55)',
+    backgroundColor: 'rgba(30, 41, 59, 0.22)',
   },
   itemTitle: {
     color: theme.colors.text,
