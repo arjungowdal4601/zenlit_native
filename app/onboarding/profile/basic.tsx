@@ -462,6 +462,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
+    minHeight: 48,
   },
   pickerField: {
     borderRadius: 16,
@@ -472,6 +473,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     justifyContent: 'center',
     overflow: 'hidden',
+    minHeight: 48,
   },
   pickerFieldPressed: {
     backgroundColor: 'rgba(15, 23, 42, 0.75)',
@@ -484,7 +486,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 20,
   },
   pickerIcon: {
     marginLeft: 12,
