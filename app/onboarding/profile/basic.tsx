@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -26,6 +27,18 @@ import GradientTitle from '../../../src/components/GradientTitle';
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const GENDERS = ['Male', 'Female', 'Others'] as const;
+const WEB_DATE_INPUT_STYLE: CSSProperties = {
+  width: '100%',
+  border: 'none',
+  outline: 'none',
+  backgroundColor: 'transparent',
+  color: '#ffffff',
+  fontSize: 16,
+  padding: '14px 16px',
+  boxSizing: 'border-box',
+  fontFamily: 'inherit',
+  cursor: 'pointer',
+};
 
 const OnboardingBasicScreen: React.FC = () => {
   const router = useRouter();
@@ -68,6 +81,7 @@ const OnboardingBasicScreen: React.FC = () => {
     now.setHours(0, 0, 0, 0);
     return now;
   }, []);
+  const maxDobInputValue = useMemo(() => formatDate(maxDobDate), [maxDobDate]);
 
   const resolvedDobDate = useMemo(() => {
     if (dobDate) {
@@ -90,11 +104,20 @@ const OnboardingBasicScreen: React.FC = () => {
     setDob(formatDate(normalized));
   };
 
-  const handleDobManualChange = (value: string) => {
-    const sanitized = value.replace(/[^0-9-]/g, '').slice(0, 10);
-    setDob(sanitized);
-    const parsed = parseDobString(sanitized);
-    setDobDate(parsed);
+  const handleDobWebChange = (value: string) => {
+    if (!value) {
+      setDob('');
+      setDobDate(null);
+      return;
+    }
+    const parsed = parseDobString(value);
+    if (parsed) {
+      updateDob(parsed);
+      return;
+    }
+    const fallback = value.slice(0, 10);
+    setDob(fallback);
+    setDobDate(null);
   };
 
   const openDobPicker = () => {
@@ -204,15 +227,15 @@ const OnboardingBasicScreen: React.FC = () => {
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Date of Birth</Text>
               {Platform.OS === 'web' ? (
-                <TextInput
-                  value={dob}
-                  onChangeText={handleDobManualChange}
-                  placeholder="YYYY-MM-DD"
-                  placeholderTextColor="rgba(148, 163, 184, 0.7)"
-                  keyboardType="numbers-and-punctuation"
-                  inputMode="numeric"
-                  style={styles.input}
-                />
+                <View style={[styles.pickerField, styles.webDateWrapper]}>
+                  <input
+                    type="date"
+                    value={dob}
+                    onChange={(event) => handleDobWebChange(event.target.value)}
+                    max={maxDobInputValue}
+                    style={WEB_DATE_INPUT_STYLE}
+                  />
+                </View>
               ) : (
                 <Pressable
                   accessibilityRole="button"
@@ -398,6 +421,10 @@ const styles = StyleSheet.create({
   },
   pickerFieldPressed: {
     backgroundColor: 'rgba(15, 23, 42, 0.75)',
+  },
+  webDateWrapper: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
   },
   dobValue: {
     color: '#ffffff',

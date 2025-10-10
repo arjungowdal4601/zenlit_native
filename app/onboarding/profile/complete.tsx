@@ -1,389 +1,388 @@
-import React, { useMemo, useState } from 'react';
-import {
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, Image, ImageSourcePropType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-
+import OptionsDialog from '../../../src/components/OptionsDialog';
+import { SOCIAL_PLATFORMS } from '../../../src/constants/socialPlatforms';
 import GradientTitle from '../../../src/components/GradientTitle';
 
-const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
-const AVATAR_PLACEHOLDER = 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=400&q=80';
-const BANNER_PLACEHOLDER = 'https://images.unsplash.com/photo-1517816743773-6e0fd518b4a6?auto=format&fit=crop&w=1200&q=80';
-
-const socials = [
-  { id: 'instagram', label: 'Instagram', placeholder: '@username' },
-  { id: 'linkedin', label: 'LinkedIn', placeholder: 'Profile URL' },
-  { id: 'x', label: 'X (Twitter)', placeholder: '@handle' },
-] as const;
+const FALLBACK_BANNER = require('@/assets/images/profile-banner.jpg');
+const FALLBACK_AVATAR = 'https://api.dicebear.com/7.x/avataaars/png?seed=Alex&backgroundColor=b6e3f4';
 
 const CompleteProfileScreen: React.FC = () => {
   const router = useRouter();
-  const [avatar, setAvatar] = useState('');
-  const [banner, setBanner] = useState('');
-  const [bio, setBio] = useState('');
+
+  // Local state (UI-only)
+  const [displayName, setDisplayName] = useState('Alex Johnson');
+  const [bio, setBio] = useState('Front-end developer passionate about building delightful UIs.');
+  const [bannerImage, setBannerImage] = useState<ImageSourcePropType | null>(FALLBACK_BANNER as ImageSourcePropType);
+  const [profileImage, setProfileImage] = useState<string>(FALLBACK_AVATAR);
+
+  const [showInstagramModal, setShowInstagramModal] = useState(false);
+  const [showTwitterModal, setShowTwitterModal] = useState(false);
+  const [showLinkedinModal, setShowLinkedinModal] = useState(false);
+
   const [instagram, setInstagram] = useState('');
+  const [twitter, setTwitter] = useState('');
   const [linkedin, setLinkedin] = useState('');
-  const [xHandle, setXHandle] = useState('');
 
-  const socialState = useMemo(() => ({ instagram, linkedin, x: xHandle }), [instagram, linkedin, xHandle]);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [showAvatarDialog, setShowAvatarDialog] = useState(false);
+  const [showBannerDialog, setShowBannerDialog] = useState(false);
 
-  const handleComplete = () => {
-    console.log('Complete profile', {
-      avatar: avatar || AVATAR_PLACEHOLDER,
-      banner: banner || BANNER_PLACEHOLDER,
+  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearSuccessTimeout = () => {
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = null;
+    }
+  };
+
+  const handleBack = () => {
+    router.back();
+  };
+
+  const handleSave = () => {
+    const payload = {
+      displayName,
       bio,
-      socials: socialState,
-    });
-    router.replace('/feed');
+      social: { instagram, x: twitter, linkedin },
+      profileImage,
+      bannerImage,
+    };
+    console.log('Complete profile save', payload);
+    clearSuccessTimeout();
+    setShowSuccess(true);
+    successTimeoutRef.current = setTimeout(() => {
+      setShowSuccess(false);
+      router.replace('/feed');
+      successTimeoutRef.current = null;
+    }, 800);
   };
 
   const handleSkip = () => {
-    console.log('Skip profile setup');
+    console.log('Skip profile completion');
+    clearSuccessTimeout();
+    setShowSuccess(false);
     router.replace('/feed');
   };
 
+  const openBannerMenu = () => setShowBannerDialog(true);
+  const openProfileMenu = () => setShowAvatarDialog(true);
+
+  useEffect(() => {
+    return () => {
+      clearSuccessTimeout();
+    };
+  }, []);
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      <KeyboardAvoidingView
-        behavior={Platform.select({ ios: 'padding', android: undefined })}
-        style={styles.root}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.topBar}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.back()}
-              style={styles.backButton}
-            >
-              <Feather name="arrow-left" size={20} color="#ffffff" />
-            </Pressable>
-          </View>
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <View style={styles.header}>
+          <Pressable
+            onPress={handleBack}
+            style={styles.headerButton}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Feather name="arrow-left" size={22} color="#ffffff" />
+          </Pressable>
+          <GradientTitle text="Complete your profile" style={styles.headerTitle} />
+          <View style={{ width: 44 }} />
+        </View>
+      </SafeAreaView>
 
-          <View style={styles.brandSection}>
-            <GradientTitle text="Zenlit" style={styles.brandTitle} />
-            <Text style={styles.brandSubtitle}>Complete your profile</Text>
-          </View>
+      {showSuccess && (
+        <View style={styles.successBar}>
+          <Feather name="check" size={18} color="#ffffff" />
+          <Text style={styles.successText}>Profile updated successfully!</Text>
+        </View>
+      )}
 
-          <View style={styles.card}>
-            <Text style={styles.screenTitle}>Make it yours</Text>
-            <Text style={styles.screenSubtitle}>Add a face, a vibe, and how people can reach you.</Text>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Avatar</Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  console.log('Change avatar');
-                  setAvatar(avatar ? '' : AVATAR_PLACEHOLDER);
-                }}
-                style={styles.avatarButton}
-              >
-                <Image
-                  source={{ uri: avatar || AVATAR_PLACEHOLDER }}
-                  style={styles.avatarImage}
-                />
-                <View style={styles.cameraBadge}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Banner area */}
+        <View style={styles.bannerWrapper}>
+          {bannerImage ? (
+            <Image source={bannerImage} style={styles.bannerImage} resizeMode="cover" />
+          ) : (
+            <View style={[styles.bannerImage, styles.bannerFallback]} />
+          )}
+          <Pressable style={styles.bannerOverlay} onPress={openBannerMenu}>
+            <View style={styles.overlayCircle}>
+              <Feather name="camera" size={18} color="#ffffff" />
+            </View>
+          </Pressable>
+          {/* Avatar */}
+          <View style={styles.avatarWrapper}>
+            <Pressable onPress={openProfileMenu} style={styles.avatarButton}>
+              <Image source={{ uri: profileImage }} style={styles.avatar} />
+              <View style={styles.avatarCamera}>
+                <View style={styles.overlayCircle}>
                   <Feather name="camera" size={16} color="#ffffff" />
                 </View>
-              </Pressable>
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Banner</Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  console.log('Change banner');
-                  setBanner(banner ? '' : BANNER_PLACEHOLDER);
-                }}
-                style={styles.bannerButton}
-              >
-                <Image
-                  source={{ uri: banner || BANNER_PLACEHOLDER }}
-                  style={styles.bannerImage}
-                  resizeMode="cover"
-                />
-                <View style={styles.bannerOverlay}>
-                  <Feather name="image" size={18} color="#ffffff" />
-                  <Text style={styles.bannerOverlayText}>Upload banner</Text>
-                </View>
-              </Pressable>
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Bio</Text>
-              <TextInput
-                value={bio}
-                onChangeText={setBio}
-                placeholder="Share something about you..."
-                placeholderTextColor="rgba(148, 163, 184, 0.65)"
-                multiline
-                numberOfLines={4}
-                style={styles.bioInput}
-              />
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Socials</Text>
-              <Text style={styles.helperText}>Let people discover more of your work.</Text>
-              {socials.map((entry) => {
-                const value = entry.id === 'instagram' ? instagram : entry.id === 'linkedin' ? linkedin : xHandle;
-                const setter = entry.id === 'instagram' ? setInstagram : entry.id === 'linkedin' ? setLinkedin : setXHandle;
-                return (
-                  <View key={entry.id} style={styles.socialField}>
-                    <Text style={styles.socialLabel}>{entry.label}</Text>
-                    <TextInput
-                      value={value}
-                      onChangeText={setter}
-                      placeholder={entry.placeholder}
-                      placeholderTextColor="rgba(148, 163, 184, 0.65)"
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      style={styles.socialInput}
-                    />
-                  </View>
-                );
-              })}
-            </View>
-
-            <Pressable
-              accessibilityRole="button"
-              onPress={handleComplete}
-              style={({ pressed }) => [styles.primaryButton, pressed ? styles.primaryButtonPressed : null]}
-            >
-              <LinearGradient
-                colors={PRIMARY_GRADIENT}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.primaryGradient}
-              >
-                <Text style={styles.primaryLabel}>Complete Profile</Text>
-              </LinearGradient>
-            </Pressable>
-
-            <Pressable accessibilityRole="button" onPress={handleSkip} style={styles.skipButton}>
-              <Text style={styles.skipLabel}>Skip for now</Text>
+              </View>
             </Pressable>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        </View>
+
+        {/* Form */}
+        <View style={styles.formSection}>
+          <Text style={styles.label}>Display Name</Text>
+          <TextInput
+            value={displayName}
+            onChangeText={setDisplayName}
+            placeholder="Your name"
+            placeholderTextColor="#64748b"
+            style={styles.input}
+          />
+
+          <Text style={[styles.label, { marginTop: 16 }]}>Bio</Text>
+          <TextInput
+            value={bio}
+            onChangeText={(text) => setBio(text.slice(0, 500))}
+            placeholder="Tell people about yourself"
+            placeholderTextColor="#64748b"
+            style={[styles.input, styles.textarea]}
+            multiline
+            maxLength={500}
+          />
+          <Text style={styles.charCount}>{bio.length}/500</Text>
+        </View>
+
+        {/* Social links */}
+        <View style={styles.socialSection}>
+          <GradientTitle text="Social Links" style={styles.sectionTitle} />
+
+          {/* Instagram */}
+          <View style={styles.socialCard}>
+            {/* Instagram gradient badge */}
+            <View style={[styles.socialBadge, styles.instagramBadge]}>
+              {SOCIAL_PLATFORMS.instagram.renderIcon({ size: 20, color: '#ffffff' })}
+            </View>
+            <View style={styles.socialContent}>
+              <Text style={styles.socialLabel}>Instagram</Text>
+              <Text style={styles.socialValue}>{instagram ? instagram : 'No link added'}</Text>
+            </View>
+            <Pressable style={styles.editButton} onPress={() => setShowInstagramModal(true)}>
+              <Feather name="edit-3" size={16} color="#ffffff" />
+            </Pressable>
+          </View>
+
+          {/* Twitter/X */}
+          <View style={styles.socialCard}>
+            <View style={[styles.socialBadge, styles.outlinedBadge]}>
+              {SOCIAL_PLATFORMS.twitter.renderIcon({ size: 20, color: '#ffffff' })}
+            </View>
+            <View style={styles.socialContent}>
+              <Text style={styles.socialLabel}>X</Text>
+              <Text style={styles.socialValue}>{twitter ? twitter : 'No link added'}</Text>
+            </View>
+            <Pressable style={styles.editButton} onPress={() => setShowTwitterModal(true)}>
+              <Feather name="edit-3" size={16} color="#ffffff" />
+            </Pressable>
+          </View>
+
+          {/* LinkedIn */}
+          <View style={styles.socialCard}>
+            <View style={[styles.socialBadge, { backgroundColor: SOCIAL_PLATFORMS.linkedin.style.backgroundColor }] }>
+              {SOCIAL_PLATFORMS.linkedin.renderIcon({ size: 20, color: '#ffffff' })}
+            </View>
+            <View style={styles.socialContent}>
+              <Text style={styles.socialLabel}>LinkedIn</Text>
+              <Text style={styles.socialValue}>{linkedin ? linkedin : 'No link added'}</Text>
+            </View>
+            <Pressable style={styles.editButton} onPress={() => setShowLinkedinModal(true)}>
+              <Feather name="edit-3" size={16} color="#ffffff" />
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.footerActions}>
+          <Pressable style={[styles.actionButton, styles.cancelButton]} onPress={handleSkip} accessibilityRole="button">
+            <Text style={[styles.actionLabel, styles.cancelLabel]}>Skip</Text>
+          </Pressable>
+          <Pressable style={[styles.actionButton, styles.saveButton]} onPress={handleSave} accessibilityRole="button">
+            <Text style={styles.actionLabel}>Save</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+
+  {/* Instagram Modal */}
+      <Modal transparent visible={showInstagramModal} animationType="fade" onRequestClose={() => setShowInstagramModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Instagram</Text>
+            <TextInput
+              value={instagram}
+              onChangeText={setInstagram}
+              placeholder="@username or URL"
+              placeholderTextColor="#64748b"
+              style={styles.modalInput}
+            />
+            <View style={styles.modalActions}>
+              <Pressable style={[styles.modalBtn, styles.modalCancel]} onPress={() => setShowInstagramModal(false)}>
+                <Text style={styles.modalBtnLabel}>Cancel</Text>
+              </Pressable>
+              <Pressable style={[styles.modalBtn, styles.modalSave]} onPress={() => setShowInstagramModal(false)}>
+                <Text style={styles.modalBtnLabel}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Twitter Modal */}
+      <Modal transparent visible={showTwitterModal} animationType="fade" onRequestClose={() => setShowTwitterModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>X (Twitter)</Text>
+            <TextInput
+              value={twitter}
+              onChangeText={setTwitter}
+              placeholder="@handle or URL"
+              placeholderTextColor="#64748b"
+              style={styles.modalInput}
+            />
+            <View style={styles.modalActions}>
+              <Pressable style={[styles.modalBtn, styles.modalCancel]} onPress={() => setShowTwitterModal(false)}>
+                <Text style={styles.modalBtnLabel}>Cancel</Text>
+              </Pressable>
+              <Pressable style={[styles.modalBtn, styles.modalSave]} onPress={() => setShowTwitterModal(false)}>
+                <Text style={styles.modalBtnLabel}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* LinkedIn Modal */}
+      <Modal transparent visible={showLinkedinModal} animationType="fade" onRequestClose={() => setShowLinkedinModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>LinkedIn</Text>
+            <TextInput
+              value={linkedin}
+              onChangeText={setLinkedin}
+              placeholder="Profile URL"
+              placeholderTextColor="#64748b"
+              style={styles.modalInput}
+            />
+            <View style={styles.modalActions}>
+              <Pressable style={[styles.modalBtn, styles.modalCancel]} onPress={() => setShowLinkedinModal(false)}>
+                <Text style={styles.modalBtnLabel}>Cancel</Text>
+              </Pressable>
+              <Pressable style={[styles.modalBtn, styles.modalSave]} onPress={() => setShowLinkedinModal(false)}>
+                <Text style={styles.modalBtnLabel}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Avatar Options Dialog */}
+      <OptionsDialog
+        visible={showAvatarDialog}
+        onClose={() => setShowAvatarDialog(false)}
+        items={[
+          {
+            label: 'Upload Profile Picture',
+            icon: <Feather name="upload" size={16} color="#cbd5f5" />,
+            onPress: () => {
+              // Placeholder: integrate image picker
+              setProfileImage(FALLBACK_AVATAR);
+            },
+          },
+          {
+            label: 'Remove Profile Picture',
+            destructive: true,
+            icon: <Feather name="x" size={16} color="#fca5a5" />,
+            onPress: () => setProfileImage(FALLBACK_AVATAR),
+          },
+          { label: 'Cancel', onPress: () => {}, outlined: false, center: true },
+        ]}
+      />
+
+      {/* Banner Options Dialog */}
+      <OptionsDialog
+        visible={showBannerDialog}
+        onClose={() => setShowBannerDialog(false)}
+        items={[
+          {
+            label: 'Upload Banner',
+            icon: <Feather name="upload" size={16} color="#cbd5f5" />,
+            onPress: () => setBannerImage(FALLBACK_BANNER as ImageSourcePropType),
+          },
+          {
+            label: 'Remove Banner',
+            destructive: true,
+            icon: <Feather name="x" size={16} color="#fca5a5" />,
+            onPress: () => setBannerImage(null),
+          },
+          { label: 'Cancel', onPress: () => {}, outlined: false, center: true },
+        ]}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#000000',
+  root: { flex: 1, backgroundColor: '#000000' },
+  safeArea: { backgroundColor: '#000000' },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12,
   },
-  root: {
-    flex: 1,
-    backgroundColor: '#000000',
+  headerButton: {
+    width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(30, 41, 59, 0.6)',
   },
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 48,
-    alignItems: 'center',
-  },
-  topBar: {
-    width: '100%',
-    maxWidth: 400,
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  brandSection: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  brandTitle: {
-    fontSize: 40,
-    fontWeight: '700',
-    letterSpacing: -0.8,
-    textAlign: 'center',
-  },
-  brandSubtitle: {
-    marginTop: 6,
-    fontSize: 16,
-    color: '#94a3b8',
-  },
-  card: {
-    width: '100%',
-    maxWidth: 400,
-    paddingHorizontal: 24,
-    paddingVertical: 30,
-    borderRadius: 28,
-    backgroundColor: 'rgba(15, 23, 42, 0.78)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
-    shadowColor: '#000000',
-    shadowOpacity: 0.55,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 18 },
-    elevation: 22,
-  },
-  screenTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  screenSubtitle: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#94a3b8',
-  },
-  section: {
-    marginTop: 28,
-  },
-  sectionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#cbd5f5',
-    marginBottom: 12,
-  },
-  avatarButton: {
-    width: 120,
-    height: 120,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  cameraBadge: {
-    position: 'absolute',
-    bottom: 6,
-    right: 10,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.45)',
-  },
-  bannerButton: {
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
-  },
-  bannerImage: {
-    width: '100%',
-    height: 150,
-  },
-  bannerOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.35)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  bannerOverlayText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  bioInput: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.45)',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    color: '#ffffff',
-    fontSize: 15,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    minHeight: 112,
-    textAlignVertical: 'top',
-  },
-  helperText: {
-    fontSize: 12,
-    color: '#94a3b8',
-  },
-  socialField: {
-    marginTop: 18,
-  },
-  socialLabel: {
-    fontSize: 13,
-    color: '#cbd5f5',
-    marginBottom: 8,
-    fontWeight: '600',
-  },
-  socialInput: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.45)',
-    backgroundColor: 'rgba(15, 23, 42, 0.55)',
-    color: '#ffffff',
-    fontSize: 15,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  primaryButton: {
-    marginTop: 32,
-    borderRadius: 18,
-    overflow: 'hidden',
-  },
-  primaryButtonPressed: {
-    transform: [{ scale: 0.99 }],
-  },
-  primaryGradient: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-  },
-  primaryLabel: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  skipButton: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  skipLabel: {
-    color: '#94a3b8',
-    fontSize: 14,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
+  headerTitle: { fontSize: 24, fontWeight: '700', color: '#ffffff' },
+  successBar: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#16a34a', paddingHorizontal: 16, paddingVertical: 10 },
+  successText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
+  content: { paddingBottom: 120 },
+  bannerWrapper: { position: 'relative', marginBottom: 60 },
+  bannerImage: { width: '100%', height: 200, borderRadius: 0 },
+  bannerFallback: { backgroundColor: '#1f2937' },
+  bannerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  overlayCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)', borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.35)' },
+  avatarWrapper: { position: 'absolute', left: 20, bottom: -50 },
+  avatarButton: { borderRadius: 8, borderWidth: 2, borderColor: '#000000', padding: 2, backgroundColor: '#000000' },
+  avatar: { width: 100, height: 100, borderRadius: 8, backgroundColor: '#111827' },
+  avatarCamera: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  formSection: { paddingHorizontal: 20 },
+  label: { color: '#ffffff', fontSize: 14, fontWeight: '600', marginBottom: 8 },
+  input: { color: '#ffffff', backgroundColor: '#000000', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.35)' },
+  textarea: { minHeight: 100, textAlignVertical: 'top' },
+  socialSection: { marginTop: 24, paddingHorizontal: 20 },
+  sectionTitle: { color: '#ffffff', fontSize: 18, fontWeight: '700', marginBottom: 12 },
+  socialRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  socialCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.35)', borderRadius: 12, backgroundColor: '#000000', marginBottom: 12 },
+  socialIconWrap: { display: 'none' },
+  socialBadge: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.35)', backgroundColor: '#000000' },
+  instagramBadge: { backgroundColor: '#dc2743' },
+  outlinedBadge: { backgroundColor: '#000000', borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.35)' },
+  socialContent: { flex: 1, minWidth: 0 },
+  socialLabel: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
+  socialValue: { color: '#94a3b8', fontSize: 14 },
+  charCount: { color: '#94a3b8', fontSize: 12, alignSelf: 'flex-end', marginTop: 4 },
+  editButton: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.85)', borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.35)' },
+  footerActions: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, marginTop: 24 },
+  actionButton: { flex: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderWidth: 1 },
+  cancelButton: { backgroundColor: '#000000', borderColor: 'rgba(148, 163, 184, 0.35)' },
+  saveButton: { backgroundColor: '#6d28d9', borderColor: '#6d28d9' },
+  actionLabel: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
+  cancelLabel: { color: '#cbd5f5' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center' },
+  modalCard: { width: '90%', maxWidth: 420, backgroundColor: '#000000', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.35)' },
+  modalTitle: { color: '#ffffff', fontSize: 18, fontWeight: '700', marginBottom: 12 },
+  modalInput: { color: '#ffffff', backgroundColor: '#000000', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.35)' },
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  modalBtn: { flex: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingVertical: 10 },
+  modalCancel: { backgroundColor: '#000000', borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.35)' },
+  modalSave: { backgroundColor: '#6d28d9' },
+  modalBtnLabel: { color: '#ffffff', fontSize: 15, fontWeight: '600' },
 });
 
 export default CompleteProfileScreen;
