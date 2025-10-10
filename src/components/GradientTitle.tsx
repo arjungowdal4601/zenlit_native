@@ -1,5 +1,5 @@
-import React from 'react';
-import { Platform, StyleSheet, Text, TextProps, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { Platform, StyleSheet, Text, TextProps, TextStyle, View } from 'react-native';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -18,6 +18,17 @@ export const GradientTitle: React.FC<GradientTitleProps> = ({
   numberOfLines = 1,
   ellipsizeMode = 'tail',
 }) => {
+  const effectiveStyle = useMemo<TextStyle>(() => {
+    const flattened = StyleSheet.flatten([styles.text, style]) as TextStyle | undefined;
+    const computed: TextStyle = { ...(flattened ?? {}) };
+    const fallbackFontSize =
+      typeof computed.fontSize === 'number' ? computed.fontSize : theme.header.title.fontSize;
+    if (computed.lineHeight == null && typeof fallbackFontSize === 'number') {
+      computed.lineHeight = Math.round(fallbackFontSize * 1.1);
+    }
+    return computed;
+  }, [style]);
+
   if (Platform.OS === 'web') {
     const webGradientStyle: any = {
       backgroundImage: `linear-gradient(90deg, ${theme.gradients.header.from}, ${theme.gradients.header.to})`,
@@ -34,7 +45,7 @@ export const GradientTitle: React.FC<GradientTitleProps> = ({
         ellipsizeMode={ellipsizeMode}
         accessible={false}
         importantForAccessibility="no"
-        style={[styles.text, style, webGradientStyle]}
+        style={[effectiveStyle, webGradientStyle]}
       >
         {text}
       </Text>
@@ -51,7 +62,7 @@ export const GradientTitle: React.FC<GradientTitleProps> = ({
             ellipsizeMode={ellipsizeMode}
             accessible={false}
             importantForAccessibility="no"
-            style={[styles.text, style]}
+            style={effectiveStyle}
           >
             {text}
           </Text>
@@ -69,7 +80,7 @@ export const GradientTitle: React.FC<GradientTitleProps> = ({
           importantForAccessibility="no"
           numberOfLines={numberOfLines}
           ellipsizeMode={ellipsizeMode}
-          style={[styles.text, style, styles.hiddenText]}
+          style={[effectiveStyle, styles.hiddenText]}
         >
           {text}
         </Text>
@@ -81,7 +92,6 @@ export const GradientTitle: React.FC<GradientTitleProps> = ({
 const styles = StyleSheet.create({
   text: {
     fontSize: theme.header.title.fontSize,
-    lineHeight: theme.header.title.lineHeight,
     fontWeight: theme.header.title.fontWeight,
     letterSpacing: theme.header.title.letterSpacing,
   },

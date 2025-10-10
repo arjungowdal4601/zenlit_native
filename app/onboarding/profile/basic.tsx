@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -15,6 +16,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
+import DateTimePicker, {
+  DateTimePickerAndroid,
+  DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import { createShadowStyle } from '../../../src/utils/shadow';
 import GradientTitle from '../../../src/components/GradientTitle';
 
@@ -27,11 +32,109 @@ const OnboardingBasicScreen: React.FC = () => {
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [dob, setDob] = useState('');
+  const [dobDate, setDobDate] = useState<Date | null>(null);
+  const [showIosPicker, setShowIosPicker] = useState(false);
   const [gender, setGender] = useState<typeof GENDERS[number] | ''>('');
 
+  const formatDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const parseDobString = (value: string): Date | null => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) {
+      return null;
+    }
+    const year = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const candidate = new Date(year, month, day);
+    if (
+      candidate.getFullYear() === year &&
+      candidate.getMonth() === month &&
+      candidate.getDate() === day
+    ) {
+      candidate.setHours(0, 0, 0, 0);
+      return candidate;
+    }
+    return null;
+  };
+
+  const maxDobDate = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now;
+  }, []);
+
+  const resolvedDobDate = useMemo(() => {
+    if (dobDate) {
+      return dobDate;
+    }
+    const parsed = parseDobString(dob);
+    if (parsed) {
+      return parsed;
+    }
+    const fallback = new Date();
+    fallback.setFullYear(fallback.getFullYear() - 18);
+    fallback.setHours(0, 0, 0, 0);
+    return fallback;
+  }, [dob, dobDate]);
+
+  const updateDob = (date: Date) => {
+    const normalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    normalized.setHours(0, 0, 0, 0);
+    setDobDate(normalized);
+    setDob(formatDate(normalized));
+  };
+
+  const handleDobManualChange = (value: string) => {
+    const sanitized = value.replace(/[^0-9-]/g, '').slice(0, 10);
+    setDob(sanitized);
+    const parsed = parseDobString(sanitized);
+    setDobDate(parsed);
+  };
+
+  const openDobPicker = () => {
+    if (Platform.OS === 'android') {
+      DateTimePickerAndroid.open({
+        mode: 'date',
+        value: resolvedDobDate,
+        maximumDate: maxDobDate,
+        onChange: (_event: DateTimePickerEvent, selectedDate?: Date) => {
+          if (selectedDate) {
+            updateDob(selectedDate);
+          }
+        },
+      });
+      return;
+    }
+
+    if (Platform.OS === 'ios') {
+      setShowIosPicker(true);
+    }
+  };
+
+  const handleIosDobChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (selectedDate) {
+      updateDob(selectedDate);
+    }
+  };
+
+  const closeIosPicker = () => {
+    setShowIosPicker(false);
+  };
+
   const isComplete = useMemo(() => {
-    return displayName.trim().length > 0 && username.trim().length > 0 && dob.trim().length > 0 && gender !== '';
-  }, [displayName, username, dob, gender]);
+    return (
+      displayName.trim().length > 0 &&
+      username.trim().length > 0 &&
+      dobDate !== null &&
+      gender !== ''
+    );
+  }, [displayName, username, dobDate, gender]);
 
   const handleUsernameChange = (value: string) => {
     const sanitized = value.replace(/[^a-zA-Z0-9_.-]/g, '').toLowerCase();
@@ -100,14 +203,31 @@ const OnboardingBasicScreen: React.FC = () => {
 
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Date of Birth</Text>
-              <TextInput
-                value={dob}
-                onChangeText={setDob}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="rgba(148, 163, 184, 0.7)"
-                keyboardType="numbers-and-punctuation"
-                style={styles.input}
-              />
+              {Platform.OS === 'web' ? (
+                <TextInput
+                  value={dob}
+                  onChangeText={handleDobManualChange}
+                  placeholder="YYYY-MM-DD"
+                  placeholderTextColor="rgba(148, 163, 184, 0.7)"
+                  keyboardType="numbers-and-punctuation"
+                  inputMode="numeric"
+                  style={styles.input}
+                />
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Select date of birth"
+                  onPress={openDobPicker}
+                  style={({ pressed }) => [
+                    styles.pickerField,
+                    pressed ? styles.pickerFieldPressed : null,
+                  ]}
+                >
+                  <Text style={dob ? styles.dobValue : styles.dobPlaceholder}>
+                    {dob || 'YYYY-MM-DD'}
+                  </Text>
+                </Pressable>
+              )}
             </View>
 
             <View style={styles.fieldGroup}>
@@ -138,18 +258,47 @@ const OnboardingBasicScreen: React.FC = () => {
                 !isComplete ? styles.disabled : null,
                 pressed && isComplete ? styles.primaryButtonPressed : null,
               ]}
-            >
-              <LinearGradient
-                colors={PRIMARY_GRADIENT}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.primaryGradient}
-              >
-                <Text style={styles.primaryLabel}>Continue</Text>
-              </LinearGradient>
-            </Pressable>
-          </View>
+        >
+          <LinearGradient
+            colors={PRIMARY_GRADIENT}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.primaryGradient}
+          >
+            <Text style={styles.primaryLabel}>Continue</Text>
+          </LinearGradient>
+        </Pressable>
+      </View>
         </ScrollView>
+
+        {Platform.OS === 'ios' ? (
+          <Modal
+            animationType="fade"
+            transparent
+            visible={showIosPicker}
+            onRequestClose={closeIosPicker}
+          >
+            <View style={styles.iosPickerOverlay}>
+              <Pressable style={styles.iosBackdrop} onPress={closeIosPicker} />
+              <View style={styles.iosPickerSheet}>
+                <View style={styles.iosPickerToolbar}>
+                  <Pressable accessibilityRole="button" onPress={closeIosPicker}>
+                    <Text style={styles.iosPickerAction}>Done</Text>
+                  </Pressable>
+                </View>
+                <DateTimePicker
+                  mode="date"
+                  display="spinner"
+                  value={resolvedDobDate}
+                  onChange={handleIosDobChange}
+                  maximumDate={maxDobDate}
+                  themeVariant="dark"
+                  style={styles.iosPicker}
+                />
+              </View>
+            </View>
+          </Modal>
+        ) : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -238,6 +387,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
+  pickerField: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.45)',
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    justifyContent: 'center',
+  },
+  pickerFieldPressed: {
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+  },
+  dobValue: {
+    color: '#ffffff',
+    fontSize: 16,
+  },
+  dobPlaceholder: {
+    color: 'rgba(148, 163, 184, 0.7)',
+    fontSize: 16,
+  },
   helperText: {
     marginTop: 8,
     fontSize: 12,
@@ -290,6 +459,39 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.6,
+  },
+  iosPickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  iosBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+  },
+  iosPickerSheet: {
+    backgroundColor: '#0f172a',
+    paddingBottom: 24,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+  },
+  iosPickerToolbar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(148, 163, 184, 0.25)',
+  },
+  iosPickerAction: {
+    color: '#60a5fa',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  iosPicker: {
+    backgroundColor: 'transparent',
   },
 });
 
