@@ -12,12 +12,12 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-const TITLE_GRADIENT = ['#2563eb', '#4f46e5', '#7e22ce'] as const;
+import GradientTitle from '../../../src/components/GradientTitle';
+
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const AVATAR_PLACEHOLDER = 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=400&q=80';
 const BANNER_PLACEHOLDER = 'https://images.unsplash.com/photo-1517816743773-6e0fd518b4a6?auto=format&fit=crop&w=1200&q=80';
@@ -27,20 +27,6 @@ const socials = [
   { id: 'linkedin', label: 'LinkedIn', placeholder: 'Profile URL' },
   { id: 'x', label: 'X (Twitter)', placeholder: '@handle' },
 ] as const;
-
-type GradientTextProps = {
-  children: string;
-};
-
-const GradientText: React.FC<GradientTextProps> = ({ children }) => {
-  return (
-    <MaskedView maskElement={<Text style={[styles.brandTitle, styles.brandMask]}>{children}</Text>}>
-      <LinearGradient colors={TITLE_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-        <Text style={[styles.brandTitle, styles.brandTransparent]}>{children}</Text>
-      </LinearGradient>
-    </MaskedView>
-  );
-};
 
 const CompleteProfileScreen: React.FC = () => {
   const router = useRouter();
@@ -91,7 +77,7 @@ const CompleteProfileScreen: React.FC = () => {
           </View>
 
           <View style={styles.brandSection}>
-            <GradientText>Zenlit</GradientText>
+            <GradientTitle text="Zenlit" style={styles.brandTitle} />
             <Text style={styles.brandSubtitle}>Complete your profile</Text>
           </View>
 
@@ -230,9 +216,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
+    backgroundColor: 'transparent',
   },
   brandSection: {
     alignItems: 'center',
@@ -243,12 +227,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.8,
     textAlign: 'center',
-  },
-  brandMask: {
-    color: '#ffffff',
-  },
-  brandTransparent: {
-    color: 'transparent',
   },
   brandSubtitle: {
     marginTop: 6,

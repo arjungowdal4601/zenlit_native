@@ -80,7 +80,6 @@ export const EditablePost: React.FC<EditablePostProps> = ({ author, onSubmit }) 
 
           <TextInput
             nativeID="editable-post-input"
-            name="postContent"
             style={styles.input}
             value={content}
             onChangeText={setContent}

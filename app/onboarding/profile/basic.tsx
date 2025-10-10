@@ -12,30 +12,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import MaskedView from '@react-native-masked-view/masked-view';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import { createShadowStyle } from '../../../src/utils/shadow';
+import GradientTitle from '../../../src/components/GradientTitle';
 
 
-const TITLE_GRADIENT = ['#2563eb', '#4f46e5', '#7e22ce'] as const;
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const GENDERS = ['Male', 'Female', 'Others'] as const;
-
-type GradientTextProps = {
-  children: string;
-};
-
-const GradientText: React.FC<GradientTextProps> = ({ children }) => {
-  return (
-    <MaskedView maskElement={<Text style={[styles.brandTitle, styles.brandMask]}>{children}</Text>}>
-      <LinearGradient colors={TITLE_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-        <Text style={[styles.brandTitle, styles.brandTransparent]}>{children}</Text>
-      </LinearGradient>
-    </MaskedView>
-  );
-};
 
 const OnboardingBasicScreen: React.FC = () => {
   const router = useRouter();
@@ -83,14 +68,11 @@ const OnboardingBasicScreen: React.FC = () => {
           </View>
 
           <View style={styles.brandSection}>
-            <GradientText>Zenlit</GradientText>
+            <GradientTitle text="Zenlit" style={styles.brandTitle} />
             <Text style={styles.brandSubtitle}>Let's set up your presence</Text>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.screenTitle}>Tell me about yourself</Text>
-            <Text style={styles.screenSubtitle}>We use this info to help others recognize you.</Text>
-
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Display Name</Text>
               <TextInput
@@ -201,9 +183,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
+    backgroundColor: 'transparent',
   },
   brandSection: {
     alignItems: 'center',
@@ -214,12 +194,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.8,
     textAlign: 'center',
-  },
-  brandMask: {
-    color: '#ffffff',
-  },
-  brandTransparent: {
-    color: 'transparent',
   },
   brandSubtitle: {
     marginTop: 6,
@@ -244,16 +218,6 @@ const styles = StyleSheet.create({
         elevation: 22,
       },
     }),
-  },
-  screenTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
-  screenSubtitle: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#94a3b8',
   },
   fieldGroup: {
     marginTop: 24,

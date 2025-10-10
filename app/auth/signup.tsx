@@ -13,15 +13,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 // Use official multicolor Google "G" logo instead of a monochrome icon
 import { useRouter } from 'expo-router';
 
 import { createShadowStyle } from '../../src/utils/shadow';
+import GradientTitle from '../../src/components/GradientTitle';
 
-
-const TITLE_GRADIENT = ['#2563eb', '#4f46e5', '#7e22ce'] as const;
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const CARD_ELEVATION = createShadowStyle({
   native: {
@@ -46,20 +44,6 @@ const GOOGLE_BUTTON_ELEVATION = createShadowStyle({
 });
 
 const EMAIL_PLACEHOLDER = 'Enter your email';
-
-type GradientTextProps = {
-  children: string;
-};
-
-const GradientText: React.FC<GradientTextProps> = ({ children }) => {
-  return (
-    <MaskedView maskElement={<Text style={[styles.brandTitle, styles.brandMask]}>{children}</Text>}>
-      <LinearGradient colors={TITLE_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-        <Text style={[styles.brandTitle, styles.brandTransparent]}>{children}</Text>
-      </LinearGradient>
-    </MaskedView>
-  );
-};
 
 const SignUpScreen: React.FC = () => {
   const router = useRouter();
@@ -158,7 +142,7 @@ const SignUpScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brandSection}>
-            <GradientText>Zenlit</GradientText>
+            <GradientTitle text="Zenlit" style={styles.brandTitle} />
             <Text style={styles.brandSubtitle}>Connect with people around you</Text>
           </View>
 
@@ -280,12 +264,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.8,
     textAlign: 'center',
-  },
-  brandMask: {
-    color: '#ffffff',
-  },
-  brandTransparent: {
-    color: 'transparent',
   },
   brandSubtitle: {
     marginTop: 6,

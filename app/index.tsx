@@ -8,14 +8,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 
 import { createShadowStyle } from '../src/utils/shadow';
+import GradientTitle from '../src/components/GradientTitle';
 
-
-const TITLE_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const BUTTON_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const BUTTON_ELEVATION = createShadowStyle({
   native: {
@@ -85,14 +83,7 @@ const GetStartedScreen: React.FC = () => {
           },
         ]}
       >
-        <MaskedView
-          style={styles.maskedTitle}
-          maskElement={<Text style={styles.title}>Zenlit</Text>}
-        >
-          <LinearGradient colors={TITLE_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-            <Text style={[styles.title, styles.transparentTitle]}>Zenlit</Text>
-          </LinearGradient>
-        </MaskedView>
+        <GradientTitle text="Zenlit" style={styles.title} numberOfLines={1} />
 
         <Pressable
           accessibilityRole="button"
@@ -134,18 +125,13 @@ const styles = StyleSheet.create({
   content: {
     alignItems: 'center',
   },
-  maskedTitle: {
-    marginBottom: 48,
-  },
   title: {
     fontSize: 64,
     fontWeight: '600',
     letterSpacing: -1,
     textAlign: 'center',
     color: '#ffffff',
-  },
-  transparentTitle: {
-    color: 'transparent',
+    marginBottom: 48,
   },
   buttonWrapper: {
     borderRadius: 16,

@@ -1,9 +1,10 @@
 const PRIMARY = '#2563EB';
+const PRIMARY_MID = '#4F46E5';
 const SECONDARY = '#7E22CE';
 const BACKGROUND_DARK = '#0A0A0A';
 const SURFACE_DARK = '#101225';
 
-export const gradientColors = [PRIMARY, SECONDARY] as const;
+export const gradientColors = [PRIMARY, PRIMARY_MID, SECONDARY] as const;
 
 export const theme = {
   colors: {

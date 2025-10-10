@@ -12,29 +12,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import MaskedView from '@react-native-masked-view/masked-view';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { FIXED_OTP, mockNextRouteAfterSignUp } from '../../src/constants/authMock';
+import GradientTitle from '../../src/components/GradientTitle';
 
-const TITLE_GRADIENT = ['#2563eb', '#4f46e5', '#7e22ce'] as const;
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const COOLDOWN_SECONDS = 60;
-
-type GradientTextProps = {
-  children: string;
-};
-
-const GradientText: React.FC<GradientTextProps> = ({ children }) => {
-  return (
-    <MaskedView maskElement={<Text style={[styles.brandTitle, styles.brandMask]}>{children}</Text>}>
-      <LinearGradient colors={TITLE_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-        <Text style={[styles.brandTitle, styles.brandTransparent]}>{children}</Text>
-      </LinearGradient>
-    </MaskedView>
-  );
-};
 
 const VerifyOtpScreen: React.FC = () => {
   const router = useRouter();
@@ -154,7 +139,7 @@ const VerifyOtpScreen: React.FC = () => {
           </View>
 
           <View style={styles.brandSection}>
-            <GradientText>Zenlit</GradientText>
+            <GradientTitle text="Zenlit" style={styles.brandTitle} />
             <Text style={styles.brandSubtitle}>Connect with people around you</Text>
           </View>
 
@@ -261,8 +246,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'transparent',
-    borderWidth: 0,
-    borderColor: 'transparent',
   },
   brandSection: {
     alignItems: 'center',
@@ -273,12 +256,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.8,
     textAlign: 'center',
-  },
-  brandMask: {
-    color: '#ffffff',
-  },
-  brandTransparent: {
-    color: 'transparent',
   },
   brandSubtitle: {
     marginTop: 6,
@@ -349,8 +326,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignSelf: 'center',
     alignItems: 'center',
-    maxWidth: 280,
-    width: '100%',
+    width: 260,
+    maxWidth: 260,
   },
   otpInput: {
     borderRadius: 18,
@@ -363,6 +340,9 @@ const styles = StyleSheet.create({
     letterSpacing: 12,
     textAlign: 'center',
     paddingVertical: 12,
+    width: '100%',
+    height: 52,
+    flexShrink: 0,
   },
   ghostCode: {
     position: 'absolute',
