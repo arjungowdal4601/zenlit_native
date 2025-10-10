@@ -131,16 +131,7 @@ const CompleteProfileScreen: React.FC = () => {
 
         {/* Form */}
         <View style={styles.formSection}>
-          <Text style={styles.label}>Display Name</Text>
-          <TextInput
-            value={displayName}
-            onChangeText={setDisplayName}
-            placeholder="Your name"
-            placeholderTextColor="#64748b"
-            style={styles.input}
-          />
-
-          <Text style={[styles.label, { marginTop: 16 }]}>Bio</Text>
+          <Text style={[styles.label, { marginTop: 0 }]}>Bio</Text>
           <TextInput
             value={bio}
             onChangeText={(text) => setBio(text.slice(0, 500))}

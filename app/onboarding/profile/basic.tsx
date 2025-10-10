@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import {
   KeyboardAvoidingView,
@@ -39,6 +39,21 @@ const WEB_DATE_INPUT_STYLE: CSSProperties = {
   fontFamily: 'inherit',
   cursor: 'pointer',
 };
+const WEB_DATE_INPUT_OVERLAY_STYLE: CSSProperties = {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  width: '100%',
+  height: '100%',
+  opacity: 0,
+  cursor: 'pointer',
+  borderRadius: 16,
+  border: 'none',
+  outline: 'none',
+  backgroundColor: 'transparent',
+};
 
 const OnboardingBasicScreen: React.FC = () => {
   const router = useRouter();
@@ -48,6 +63,8 @@ const OnboardingBasicScreen: React.FC = () => {
   const [dobDate, setDobDate] = useState<Date | null>(null);
   const [showIosPicker, setShowIosPicker] = useState(false);
   const [gender, setGender] = useState<typeof GENDERS[number] | ''>('');
+  const webDateInputRef = useRef<HTMLInputElement | null>(null);
+  const [isWebDateFocused, setIsWebDateFocused] = useState(false);
 
   const formatDate = (date: Date) => {
     const year = date.getFullYear();
@@ -227,15 +244,48 @@ const OnboardingBasicScreen: React.FC = () => {
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Date of Birth</Text>
               {Platform.OS === 'web' ? (
-                <View style={[styles.pickerField, styles.webDateWrapper]}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Select date of birth"
+                  onPress={() => {
+                    const el = webDateInputRef.current;
+                    if (el) {
+                      try {
+                        const anyEl = el as unknown as { showPicker?: () => void; focus: () => void };
+                        if (typeof anyEl.showPicker === 'function') {
+                          anyEl.showPicker();
+                        } else {
+                          el.focus();
+                        }
+                      } catch {
+                        el.focus();
+                      }
+                    }
+                  }}
+                  style={({ pressed }) => [
+                    styles.pickerField,
+                    isWebDateFocused ? styles.pickerFieldFocused : null,
+                    pressed ? styles.pickerFieldPressed : null,
+                  ]}
+                >
+                  <View style={styles.pickerRow}>
+                    <Text style={dob ? styles.dobValue : styles.dobPlaceholder}>
+                      {dob || 'YYYY-MM-DD'}
+                    </Text>
+                    <Feather name="calendar" size={24} color="#ffffff" style={styles.pickerIcon} />
+                  </View>
                   <input
+                    ref={webDateInputRef}
                     type="date"
                     value={dob}
                     onChange={(event) => handleDobWebChange(event.target.value)}
                     max={maxDobInputValue}
-                    style={WEB_DATE_INPUT_STYLE}
+                    style={WEB_DATE_INPUT_OVERLAY_STYLE}
+                    onFocus={() => setIsWebDateFocused(true)}
+                    onBlur={() => setIsWebDateFocused(false)}
+                    aria-label="Date of Birth"
                   />
-                </View>
+                </Pressable>
               ) : (
                 <Pressable
                   accessibilityRole="button"
@@ -246,9 +296,12 @@ const OnboardingBasicScreen: React.FC = () => {
                     pressed ? styles.pickerFieldPressed : null,
                   ]}
                 >
-                  <Text style={dob ? styles.dobValue : styles.dobPlaceholder}>
-                    {dob || 'YYYY-MM-DD'}
-                  </Text>
+                  <View style={styles.pickerRow}>
+                    <Text style={dob ? styles.dobValue : styles.dobPlaceholder}>
+                      {dob || 'YYYY-MM-DD'}
+                    </Text>
+                    <Feather name="calendar" size={24} color="#ffffff" style={styles.pickerIcon} />
+                  </View>
                 </Pressable>
               )}
             </View>
@@ -418,13 +471,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   pickerFieldPressed: {
     backgroundColor: 'rgba(15, 23, 42, 0.75)',
   },
-  webDateWrapper: {
-    paddingHorizontal: 0,
-    paddingVertical: 0,
+  pickerFieldFocused: {
+    borderColor: 'rgba(96, 165, 250, 0.7)',
+  },
+  webDateWrapper: {},
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 20,
+  },
+  pickerIcon: {
+    marginLeft: 12,
   },
   dobValue: {
     color: '#ffffff',
