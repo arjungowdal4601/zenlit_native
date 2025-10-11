@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import type { FeedPost } from '../constants/feedData';
 import { theme } from '../styles/theme';
+import AttachmentDialog from './AttachmentDialog';
 
 const AVATAR_SIZE = 48;
 const LINE_HEIGHT = 22;
@@ -19,6 +20,8 @@ export type PostComposerProps = {
 export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) => {
   const [value, setValue] = useState('');
   const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
+  const [showAttachmentDialog, setShowAttachmentDialog] = useState(false);
+  const [attachedImages, setAttachedImages] = useState<string[]>([]);
 
   const avatarSource = useMemo(() => {
     const uri = author.avatar?.trim();
@@ -35,6 +38,20 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
     onShare?.(value.trim());
     setValue('');
     setInputHeight(MIN_INPUT_HEIGHT);
+    setAttachedImages([]);
+  };
+
+  const handleAttachmentPress = () => {
+    setShowAttachmentDialog(true);
+  };
+
+  const handleImageSelected = (uri: string) => {
+    setAttachedImages(prev => [...prev, uri]);
+    setShowAttachmentDialog(false);
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setAttachedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -53,6 +70,7 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
             style={({ pressed }) => [styles.iconButton, pressed && styles.iconPressed]}
             accessibilityRole="button"
             accessibilityLabel="Attach media"
+            onPress={handleAttachmentPress}
           >
             <Feather name="paperclip" size={18} color={theme.colors.icon} />
           </Pressable>
@@ -92,6 +110,32 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
             setInputHeight(nextHeight);
           }
         }}
+      />
+
+      {/* Attached Images Preview */}
+      {attachedImages.length > 0 && (
+        <View style={styles.attachedImagesContainer}>
+          {attachedImages.map((uri, index) => (
+            <View key={index} style={styles.attachedImageWrapper}>
+              <Image source={{ uri }} style={styles.attachedImage} />
+              <Pressable
+                style={styles.removeImageButton}
+                onPress={() => handleRemoveImage(index)}
+                accessibilityRole="button"
+                accessibilityLabel="Remove image"
+              >
+                <Feather name="x" size={16} color="#ffffff" />
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Attachment Dialog */}
+      <AttachmentDialog
+        visible={showAttachmentDialog}
+        onClose={() => setShowAttachmentDialog(false)}
+        onImageSelected={handleImageSelected}
       />
     </View>
   );
@@ -170,6 +214,37 @@ const styles = StyleSheet.create({
     letterSpacing: 0.15,
     marginLeft: AVATAR_SIZE + theme.spacing.sm,
     paddingRight: theme.spacing.sm,
+  },
+  attachedImagesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: theme.spacing.sm,
+    marginLeft: AVATAR_SIZE + theme.spacing.sm,
+  },
+  attachedImageWrapper: {
+    position: 'relative',
+    width: 80,
+    height: 80,
+  },
+  attachedImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    backgroundColor: '#111827',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#ef4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#000000',
   },
 });
 

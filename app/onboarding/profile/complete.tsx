@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import OptionsDialog from '../../../src/components/OptionsDialog';
+import ImageUploadDialog from '../../../src/components/ImageUploadDialog';
 import { SOCIAL_PLATFORMS } from '../../../src/constants/socialPlatforms';
 import GradientTitle from '../../../src/components/GradientTitle';
 
@@ -30,6 +31,8 @@ const CompleteProfileScreen: React.FC = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showAvatarDialog, setShowAvatarDialog] = useState(false);
   const [showBannerDialog, setShowBannerDialog] = useState(false);
+  const [showImageUploadDialog, setShowImageUploadDialog] = useState(false);
+  const [uploadType, setUploadType] = useState<'avatar' | 'banner'>('avatar');
 
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -69,8 +72,23 @@ const CompleteProfileScreen: React.FC = () => {
     router.replace('/feed');
   };
 
-  const openBannerMenu = () => setShowBannerDialog(true);
-  const openProfileMenu = () => setShowAvatarDialog(true);
+  const openBannerMenu = () => {
+    setUploadType('banner');
+    setShowImageUploadDialog(true);
+  };
+  
+  const openProfileMenu = () => {
+    setUploadType('avatar');
+    setShowImageUploadDialog(true);
+  };
+
+  const handleImageSelected = (imageUri: string) => {
+    if (uploadType === 'avatar') {
+      setProfileImage(imageUri || FALLBACK_AVATAR);
+    } else {
+      setBannerImage(imageUri ? { uri: imageUri } : null);
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -274,47 +292,21 @@ const CompleteProfileScreen: React.FC = () => {
         </View>
       </Modal>
 
-      {/* Avatar Options Dialog */}
-      <OptionsDialog
-        visible={showAvatarDialog}
-        onClose={() => setShowAvatarDialog(false)}
-        items={[
-          {
-            label: 'Upload Profile Picture',
-            icon: <Feather name="upload" size={16} color="#cbd5f5" />,
-            onPress: () => {
-              // Placeholder: integrate image picker
-              setProfileImage(FALLBACK_AVATAR);
-            },
-          },
-          {
-            label: 'Remove Profile Picture',
-            destructive: true,
-            icon: <Feather name="x" size={16} color="#fca5a5" />,
-            onPress: () => setProfileImage(FALLBACK_AVATAR),
-          },
-          { label: 'Cancel', onPress: () => {}, outlined: false, center: true },
-        ]}
-      />
-
-      {/* Banner Options Dialog */}
-      <OptionsDialog
-        visible={showBannerDialog}
-        onClose={() => setShowBannerDialog(false)}
-        items={[
-          {
-            label: 'Upload Banner',
-            icon: <Feather name="upload" size={16} color="#cbd5f5" />,
-            onPress: () => setBannerImage(FALLBACK_BANNER as ImageSourcePropType),
-          },
-          {
-            label: 'Remove Banner',
-            destructive: true,
-            icon: <Feather name="x" size={16} color="#fca5a5" />,
-            onPress: () => setBannerImage(null),
-          },
-          { label: 'Cancel', onPress: () => {}, outlined: false, center: true },
-        ]}
+      {/* Image Upload Dialog */}
+      <ImageUploadDialog
+        visible={showImageUploadDialog}
+        onClose={() => setShowImageUploadDialog(false)}
+        onImageSelected={handleImageSelected}
+        title={uploadType === 'avatar' ? 'Profile Picture' : 'Banner Image'}
+        currentImage={uploadType === 'avatar' ? profileImage : (bannerImage as any)?.uri}
+        onRemove={() => {
+          if (uploadType === 'avatar') {
+            setProfileImage(FALLBACK_AVATAR);
+          } else {
+            setBannerImage(null);
+          }
+        }}
+        showRemoveOption={true}
       />
     </View>
   );
