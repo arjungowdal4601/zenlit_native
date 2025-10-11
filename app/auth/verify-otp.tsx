@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -9,111 +10,123 @@ import {
   Text,
   TextInput,
   View,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRef, useCallback } from 'react';
 
-import { FIXED_OTP, mockNextRouteAfterSignUp } from '../../src/constants/authMock';
+import { createShadowStyle } from '../../src/utils/shadow';
 import GradientTitle from '../../src/components/GradientTitle';
+import { supabase } from '../../src/lib/supabase';
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const COOLDOWN_SECONDS = 60;
 
-const VerifyOtpScreen: React.FC = () => {
+export default function VerifyOTPScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const emailParam = params.email;
-  const sentParam = params.sent;
-  const email = useMemo(() => {
-    if (Array.isArray(emailParam)) {
-      return emailParam[0] ?? '';
-    }
-    return emailParam ?? '';
-  }, [emailParam]);
+  const { email } = useLocalSearchParams<{ email: string }>();
 
   const [code, setCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
-  const [verifying, setVerifying] = useState(false);
-  const [cooldown, setCooldown] = useState(0);
-  const [resending, setResending] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const isComplete = code.length === FIXED_OTP.length;
+  const isComplete = useMemo(() => {
+    return code.length === 6;
+  }, [code]);
 
-  const clearTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
-
-  const startCooldown = useCallback((seconds: number) => {
-    clearTimer();
-    if (seconds <= 0) {
-      setCooldown(0);
-      return;
-    }
+  const startCooldown = (seconds: number) => {
     setCooldown(seconds);
-    timerRef.current = setInterval(() => {
+    const interval = setInterval(() => {
       setCooldown((prev) => {
         if (prev <= 1) {
-          clearTimer();
+          clearInterval(interval);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-  }, [clearTimer]);
-
-  // Always start cooldown on mount so Resend appears only after 60s
-  useEffect(() => {
-    startCooldown(COOLDOWN_SECONDS);
-    return clearTimer;
-  }, [startCooldown, clearTimer]);
-
-  const handleChange = (value: string) => {
-    const sanitized = value.replace(/\D/g, '').slice(0, FIXED_OTP.length);
-    setCode(sanitized);
-    if (error) {
-      setError('');
-    }
-    if (status) {
-      setStatus('');
-    }
   };
 
-  const handleVerify = () => {
-    if (!isComplete) {
-      setError('Enter the full 6-digit code to continue.');
+  useEffect(() => {
+    startCooldown(60); // Start with 60 second cooldown
+  }, []);
+
+  const handleChange = (text: string) => {
+    const numericText = text.replace(/[^0-9]/g, '');
+    setCode(numericText);
+    setError('');
+    setStatus('');
+  };
+
+  const handleVerify = async () => {
+    if (!isComplete || verifying) {
       return;
     }
-
     setVerifying(true);
-    setTimeout(() => {
-      if (code === FIXED_OTP) {
-        setStatus('Email verified! Taking you to your profile setup...');
-        setError('');
-        router.replace(mockNextRouteAfterSignUp);
-      } else {
-        setError('That code did not match. Try again.');
+    setError('');
+    setStatus('');
+
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email: email || '',
+        token: code,
+        type: 'email'
+      });
+
+      if (error) {
+        setError(error.message);
+        setVerifying(false);
+        return;
       }
+
+      if (data.user) {
+        // Success - navigate to onboarding or feed based on user status
+        router.replace('/onboarding/profile/basic');
+      } else {
+        setError('Verification failed. Please try again.');
+        setVerifying(false);
+      }
+    } catch (error) {
+      setError('Something went wrong. Please try again.');
       setVerifying(false);
-    }, 450);
+    }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (cooldown > 0 || resending) {
       return;
     }
     setResending(true);
-    setTimeout(() => {
-      setResending(false);
+    setError('');
+    setStatus('');
+
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email || '',
+        options: {
+          shouldCreateUser: true,
+        }
+      });
+
+      if (error) {
+        setError(error.message);
+        setResending(false);
+        return;
+      }
+
       setStatus('We sent a new code to your inbox.');
-      startCooldown(COOLDOWN_SECONDS);
-    }, 600);
+      startCooldown(60);
+      setResending(false);
+    } catch (error) {
+      setError('Failed to resend code. Please try again.');
+      setResending(false);
+    }
   };
 
   return (
@@ -165,12 +178,12 @@ const VerifyOtpScreen: React.FC = () => {
                   keyboardType="number-pad"
                   textContentType="oneTimeCode"
                   inputMode="numeric"
-                  maxLength={FIXED_OTP.length}
+                  maxLength={6}
                   autoFocus
                   style={styles.otpInput}
                 />
                 {code.length === 0 ? (
-                  <Text style={styles.ghostCode}>{FIXED_OTP}</Text>
+                  <Text style={styles.ghostCode}>123456</Text>
                 ) : null}
               </View>
             </View>
@@ -402,5 +415,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
-export default VerifyOtpScreen;
