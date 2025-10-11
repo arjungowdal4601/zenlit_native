@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, V
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, FontAwesome6 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import OptionsDialog from '../src/components/OptionsDialog';
+import ImageUploadDialog from '../src/components/ImageUploadDialog';
 import { SOCIAL_PLATFORMS } from '../src/constants/socialPlatforms';
 import GradientTitle from '../src/components/GradientTitle';
 
@@ -257,46 +257,37 @@ const EditProfileScreen: React.FC = () => {
       </Modal>
 
       {/* Avatar Options Dialog */}
-      <OptionsDialog
+      <ImageUploadDialog
         visible={showAvatarDialog}
         onClose={() => setShowAvatarDialog(false)}
-        items={[
-          {
-            label: 'Upload Profile Picture',
-            icon: <Feather name="upload" size={16} color="#cbd5f5" />,
-            onPress: () => {
-              // Placeholder: integrate image picker
-              setProfileImage(FALLBACK_AVATAR);
-            },
-          },
-          {
-            label: 'Remove Profile Picture',
-            destructive: true,
-            icon: <Feather name="x" size={16} color="#fca5a5" />,
-            onPress: () => setProfileImage(FALLBACK_AVATAR),
-          },
-          { label: 'Cancel', onPress: () => {}, outlined: false, center: true },
-        ]}
+        title="Profile Picture"
+        currentImage={profileImage}
+        onImageSelected={(uri) => {
+          setProfileImage(uri);
+          setShowAvatarDialog(false);
+        }}
+        onRemove={() => {
+          setProfileImage(FALLBACK_AVATAR);
+          setShowAvatarDialog(false);
+        }}
+        showRemoveOption={true}
       />
 
       {/* Banner Options Dialog */}
-      <OptionsDialog
+      <ImageUploadDialog
         visible={showBannerDialog}
         onClose={() => setShowBannerDialog(false)}
-        items={[
-          {
-            label: 'Upload Banner',
-            icon: <Feather name="upload" size={16} color="#cbd5f5" />,
-            onPress: () => setBannerImage(FALLBACK_BANNER as ImageSourcePropType),
-          },
-          {
-            label: 'Remove Banner',
-            destructive: true,
-            icon: <Feather name="x" size={16} color="#fca5a5" />,
-            onPress: () => setBannerImage(null),
-          },
-          { label: 'Cancel', onPress: () => {}, outlined: false, center: true },
-        ]}
+        title="Banner Image"
+        currentImage={bannerImage ? (typeof bannerImage === 'object' && 'uri' in bannerImage ? bannerImage.uri : '') : ''}
+        onImageSelected={(uri) => {
+          setBannerImage({ uri });
+          setShowBannerDialog(false);
+        }}
+        onRemove={() => {
+          setBannerImage(null);
+          setShowBannerDialog(false);
+        }}
+        showRemoveOption={true}
       />
     </View>
   );
