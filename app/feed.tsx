@@ -14,8 +14,7 @@ const FeedScreen: React.FC = () => {
         colors={theme.gradients.background.colors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
+        style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}
       />
       <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
       <AppHeader title="Feed" />
