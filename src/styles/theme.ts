@@ -33,7 +33,7 @@ export const theme = {
       colors: ['rgba(37, 99, 235, 0.35)', 'rgba(126, 34, 206, 0.25)'] as const,
     },
     background: {
-      colors: ['#050510', BACKGROUND_DARK] as const,
+      colors: ['#000000', '#000000'] as const,
     },
   },
   spacing: {

@@ -5,21 +5,20 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import OptionsDialog from '../../../src/components/OptionsDialog';
 import ImageUploadDialog from '../../../src/components/ImageUploadDialog';
-import { SOCIAL_PLATFORMS } from '../../../src/constants/socialPlatforms';
+import { SOCIAL_PLATFORMS, extractUsername } from '../../../src/constants/socialPlatforms';
 import GradientTitle from '../../../src/components/GradientTitle';
 import { supabase, supabaseReady } from '../../../src/lib/supabase';
 
-const FALLBACK_BANNER = require('@/assets/images/profile-banner.jpg');
-const FALLBACK_AVATAR = 'https://api.dicebear.com/7.x/avataaars/png?seed=Alex&backgroundColor=b6e3f4';
+const FALLBACK_AVATAR = null;
 
 const CompleteProfileScreen: React.FC = () => {
   const router = useRouter();
 
   // Local state (UI-only)
   const [displayName, setDisplayName] = useState('Alex Johnson');
-  const [bio, setBio] = useState('Front-end developer passionate about building delightful UIs.');
-  const [bannerImage, setBannerImage] = useState<ImageSourcePropType | null>(FALLBACK_BANNER as ImageSourcePropType);
-  const [profileImage, setProfileImage] = useState<string>(FALLBACK_AVATAR);
+  const [bio, setBio] = useState('');
+  const [bannerImage, setBannerImage] = useState<ImageSourcePropType | null>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(FALLBACK_AVATAR);
 
   const [showInstagramModal, setShowInstagramModal] = useState(false);
   const [showTwitterModal, setShowTwitterModal] = useState(false);
@@ -256,7 +255,7 @@ const CompleteProfileScreen: React.FC = () => {
 
   const handleImageSelected = (imageUri: string) => {
     if (uploadType === 'avatar') {
-      setProfileImage(imageUri || FALLBACK_AVATAR);
+      setProfileImage(imageUri || null);
     } else {
       setBannerImage(imageUri ? { uri: imageUri } : null);
     }
@@ -309,7 +308,13 @@ const CompleteProfileScreen: React.FC = () => {
           {/* Avatar */}
           <View style={styles.avatarWrapper}>
             <Pressable onPress={openProfileMenu} style={styles.avatarButton}>
-              <Image source={{ uri: profileImage }} style={styles.avatar} />
+              {profileImage ? (
+                <Image source={{ uri: profileImage }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                  <Feather name="user" size={44} color="#64748b" />
+                </View>
+              )}
               <View style={styles.avatarCamera}>
                 <View style={styles.overlayCircle}>
                   <Feather name="camera" size={16} color="#ffffff" />
@@ -325,8 +330,8 @@ const CompleteProfileScreen: React.FC = () => {
           <TextInput
             value={bio}
             onChangeText={(text) => setBio(text.slice(0, 500))}
-            placeholder="Tell people about yourself"
-            placeholderTextColor="#64748b"
+            placeholder="Tell about yourself..."
+            placeholderTextColor="#475569"
             style={[styles.input, styles.textarea]}
             multiline
             maxLength={500}
@@ -405,14 +410,17 @@ const CompleteProfileScreen: React.FC = () => {
       <Modal transparent visible={showInstagramModal} animationType="fade" onRequestClose={() => setShowInstagramModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Instagram</Text>
+            <Text style={styles.modalTitle}>Instagram Username</Text>
             <TextInput
               value={instagram}
-              onChangeText={setInstagram}
-              placeholder="@username or URL"
+              onChangeText={(text) => setInstagram(extractUsername(text))}
+              placeholder="username"
               placeholderTextColor="#64748b"
               style={styles.modalInput}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
+            <Text style={styles.modalHelper}>Will link to: instagram.com/{instagram || 'username'}</Text>
             <View style={styles.modalActions}>
               <Pressable style={[styles.modalBtn, styles.modalCancel]} onPress={() => setShowInstagramModal(false)}>
                 <Text style={styles.modalBtnLabel}>Cancel</Text>
@@ -429,14 +437,17 @@ const CompleteProfileScreen: React.FC = () => {
       <Modal transparent visible={showTwitterModal} animationType="fade" onRequestClose={() => setShowTwitterModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>X (Twitter)</Text>
+            <Text style={styles.modalTitle}>X (Twitter) Username</Text>
             <TextInput
               value={twitter}
-              onChangeText={setTwitter}
-              placeholder="@handle or URL"
+              onChangeText={(text) => setTwitter(extractUsername(text))}
+              placeholder="username"
               placeholderTextColor="#64748b"
               style={styles.modalInput}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
+            <Text style={styles.modalHelper}>Will link to: x.com/{twitter || 'username'}</Text>
             <View style={styles.modalActions}>
               <Pressable style={[styles.modalBtn, styles.modalCancel]} onPress={() => setShowTwitterModal(false)}>
                 <Text style={styles.modalBtnLabel}>Cancel</Text>
@@ -453,14 +464,17 @@ const CompleteProfileScreen: React.FC = () => {
       <Modal transparent visible={showLinkedinModal} animationType="fade" onRequestClose={() => setShowLinkedinModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>LinkedIn</Text>
+            <Text style={styles.modalTitle}>LinkedIn Username</Text>
             <TextInput
               value={linkedin}
-              onChangeText={setLinkedin}
-              placeholder="Profile URL"
+              onChangeText={(text) => setLinkedin(extractUsername(text))}
+              placeholder="username"
               placeholderTextColor="#64748b"
               style={styles.modalInput}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
+            <Text style={styles.modalHelper}>Will link to: linkedin.com/in/{linkedin || 'username'}</Text>
             <View style={styles.modalActions}>
               <Pressable style={[styles.modalBtn, styles.modalCancel]} onPress={() => setShowLinkedinModal(false)}>
                 <Text style={styles.modalBtnLabel}>Cancel</Text>
@@ -482,7 +496,7 @@ const CompleteProfileScreen: React.FC = () => {
         currentImage={uploadType === 'avatar' ? profileImage : (bannerImage as any)?.uri}
         onRemove={() => {
           if (uploadType === 'avatar') {
-            setProfileImage(FALLBACK_AVATAR);
+            setProfileImage(null);
           } else {
             setBannerImage(null);
           }
@@ -514,6 +528,7 @@ const styles = StyleSheet.create({
   avatarWrapper: { position: 'absolute', left: 20, bottom: -50 },
   avatarButton: { borderRadius: 8, borderWidth: 2, borderColor: '#000000', padding: 2, backgroundColor: '#000000' },
   avatar: { width: 100, height: 100, borderRadius: 8, backgroundColor: '#111827' },
+  avatarPlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#1e293b' },
   avatarCamera: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   formSection: { paddingHorizontal: 20 },
   label: { color: '#ffffff', fontSize: 14, fontWeight: '600', marginBottom: 8 },
@@ -548,6 +563,7 @@ const styles = StyleSheet.create({
   modalCancel: { backgroundColor: '#000000', borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.35)' },
   modalSave: { backgroundColor: '#6d28d9' },
   modalBtnLabel: { color: '#ffffff', fontSize: 15, fontWeight: '600' },
+  modalHelper: { color: '#94a3b8', fontSize: 12, marginTop: 8 },
 });
 
 export default CompleteProfileScreen;

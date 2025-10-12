@@ -1,8 +1,10 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   ImageSourcePropType,
+  Linking,
   Pressable,
   StatusBar,
   StyleProp,
@@ -24,10 +26,8 @@ import {
   ensureSocialUrl,
   getTwitterHandle,
 } from '../../src/constants/socialPlatforms';
-import { NEARBY_USERS } from '../../src/constants/nearbyUsers';
-import { mockPosts } from '../../src/constants/profileMock';
-
-const ME = NEARBY_USERS[0];
+import { getCurrentUserProfile, getUserPosts, deletePost as deletePostDb, Profile, SocialLinks, Post as PostType } from '../../src/lib/database';
+import { supabase } from '../../src/lib/supabase';
 
 const SOCIAL_ORDER: Array<'instagram' | 'linkedin' | 'twitter'> = [
   'instagram',
@@ -37,7 +37,6 @@ const SOCIAL_ORDER: Array<'instagram' | 'linkedin' | 'twitter'> = [
 
 const FALLBACK_BANNER_URI =
   'https://images.unsplash.com/photo-1519669556878-619358287bf8?auto=format&fit=crop&w=1200&q=80';
-const bannerImg = require('@/assets/images/profile-banner.jpg');
 
 const INSTAGRAM_GRADIENT = [
   '#f09433',
@@ -63,27 +62,55 @@ const ProfileScreen: React.FC = () => {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [socialLinks, setSocialLinks] = useState<SocialLinks | null>(null);
+  const [posts, setPosts] = useState<PostType[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    setLoading(true);
+
+    const { profile: userProfile, socialLinks: userSocialLinks } = await getCurrentUserProfile();
+
+    if (userProfile) {
+      setProfile(userProfile);
+      setSocialLinks(userSocialLinks);
+
+      const { posts: userPosts } = await getUserPosts(userProfile.id);
+      setPosts(userPosts);
+    }
+
+    setLoading(false);
+  };
 
   const socialEntries = useMemo(() => {
-    if (!ME.socialLinks) {
+    if (!socialLinks) {
       return [];
     }
     return SOCIAL_ORDER.map((id) => {
       if (id === 'instagram') {
-        const url = ensureSocialUrl('instagram', ME.socialLinks?.instagram);
+        const url = ensureSocialUrl('instagram', socialLinks.instagram);
         return { id, url: url ?? null } as const;
       }
       if (id === 'linkedin') {
-        const url = ensureSocialUrl('linkedin', ME.socialLinks?.linkedin);
+        const url = ensureSocialUrl('linkedin', socialLinks.linkedin);
         return { id, url: url ?? null } as const;
       }
-      const handle = getTwitterHandle(ME.socialLinks);
+      const handle = getTwitterHandle({ twitter: socialLinks.x_twitter });
       const url = ensureSocialUrl('twitter', handle);
       return { id, url: url ?? null } as const;
     });
-  }, []);
+  }, [socialLinks]);
 
-  const bannerSource: ImageSourcePropType = bannerImg || { uri: FALLBACK_BANNER_URI };
+  const bannerSource: ImageSourcePropType = socialLinks?.banner_url
+    ? { uri: socialLinks.banner_url }
+    : { uri: FALLBACK_BANNER_URI };
+
+  const avatarUri = socialLinks?.profile_pic_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.display_name || 'User')}&background=random&color=fff&size=128`;
 
   const handleCloseMenu = useCallback(() => {
     setMenuOpen(false);
@@ -108,30 +135,38 @@ const ProfileScreen: React.FC = () => {
     setLogoutOpen(false);
   }, []);
 
-  const handleConfirmLogout = useCallback(() => {
+  const handleConfirmLogout = useCallback(async () => {
     setLogoutOpen(false);
+    await supabase.auth.signOut();
     router.replace('/auth/signin');
   }, [router]);
 
-  const [posts, setPosts] = useState(mockPosts);
-
-  const handleDeletePost = useCallback((id: string) => {
-    setPosts((prev) => prev.filter((p) => p.id !== id));
+  const handleDeletePost = useCallback(async (id: string) => {
+    const { success } = await deletePostDb(id);
+    if (success) {
+      setPosts((prev) => prev.filter((p) => p.id !== id));
+    }
   }, []);
 
   const renderPost = useCallback(
-    ({ item }: { item: { id: string; dateISO: string; text: string; image?: string } }) => {
+    ({ item }: { item: PostType }) => {
+      if (!profile) return null;
+
       const feedPost = {
         id: item.id,
         author: {
-          name: ME.name,
-          username: ME.username,
-          avatar: ME.profilePhoto,
-          socialLinks: ME.socialLinks,
+          name: profile.display_name,
+          username: profile.user_name,
+          avatar: avatarUri,
+          socialLinks: {
+            instagram: socialLinks?.instagram,
+            twitter: socialLinks?.x_twitter,
+            linkedin: socialLinks?.linkedin,
+          },
         },
-        content: item.text,
-        image: item.image ?? undefined,
-        timestamp: formatDate(item.dateISO),
+        content: item.content,
+        image: item.image_url ?? undefined,
+        timestamp: formatDate(item.created_at),
       };
 
       return (
@@ -144,8 +179,35 @@ const ProfileScreen: React.FC = () => {
         />
       );
     },
-    [handleDeletePost],
+    [handleDeletePost, profile, avatarUri, socialLinks],
   );
+
+  if (loading) {
+    return (
+      <View style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <AppHeader title="Profile" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#60a5fa" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+        <Navigation activePath="/profile" />
+      </View>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <View style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <AppHeader title="Profile" />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.errorText}>Failed to load profile</Text>
+        </View>
+        <Navigation activePath="/profile" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
@@ -175,7 +237,7 @@ const ProfileScreen: React.FC = () => {
               <View style={styles.bannerGradient} />
               <View style={styles.bannerOverlayRow}>
                 <View style={styles.avatarWrapper}>
-                  <Image source={{ uri: ME.profilePhoto }} style={styles.avatar} />
+                  <Image source={{ uri: avatarUri }} style={styles.avatar} />
                 </View>
                 <View style={styles.socialCluster}>
                   {socialEntries.map(({ id, url }) => {
@@ -190,10 +252,13 @@ const ProfileScreen: React.FC = () => {
                           accessibilityRole="button"
                           accessibilityLabel={meta.label}
                           onPress={() => {
-                            if (!url) return;
-                            console.log('social link', id, url);
+                            if (url) {
+                              Linking.openURL(url);
+                            } else {
+                              router.push('/edit-profile');
+                            }
                           }}
-                          disabled={disabled}
+                          disabled={false}
                         >
                           <LinearGradient
                             colors={INSTAGRAM_GRADIENT}
@@ -223,10 +288,13 @@ const ProfileScreen: React.FC = () => {
                         accessibilityRole="button"
                         accessibilityLabel={meta.label}
                         onPress={() => {
-                          if (!url) return;
-                          console.log('social link', id, url);
+                          if (url) {
+                            Linking.openURL(url);
+                          } else {
+                            router.push('/edit-profile');
+                          }
                         }}
-                        disabled={disabled}
+                        disabled={false}
                       >
                         <View style={badgeStyle}>
                           {meta.renderIcon({ size: 18, color: '#ffffff' })}
@@ -239,13 +307,15 @@ const ProfileScreen: React.FC = () => {
             </View>
 
             <View style={styles.identityBlock}>
-              <Text style={styles.name}>{ME.name}</Text>
-              <Text style={styles.username}>@{ME.username}</Text>
+              <Text style={styles.name}>{profile.display_name}</Text>
+              <Text style={styles.username}>@{profile.user_name}</Text>
             </View>
 
-            <View style={styles.bioBlock}>
-              <Text style={styles.bioText}>{ME.bio}</Text>
-            </View>
+            {socialLinks?.bio ? (
+              <View style={styles.bioBlock}>
+                <Text style={styles.bioText}>{socialLinks.bio}</Text>
+              </View>
+            ) : null}
 
             <View style={styles.separatorWrapper}>
               <View style={styles.separator} />
@@ -264,6 +334,21 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#000000',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#94a3b8',
+    fontSize: 16,
+    marginTop: 12,
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 18,
+    fontWeight: '600',
   },
   listContent: {
     paddingHorizontal: 24,

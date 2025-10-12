@@ -86,8 +86,20 @@ export default function VerifyOTPScreen() {
       }
 
       if (data.user) {
-        // Success - navigate to onboarding or feed based on user status
-        router.replace('/onboarding/profile/basic');
+        // Check if user has completed profile setup
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', data.user.id)
+          .maybeSingle();
+
+        if (profile) {
+          // Profile exists, go to feed
+          router.replace('/feed');
+        } else {
+          // Profile doesn't exist, go to onboarding
+          router.replace('/onboarding/profile/basic');
+        }
       } else {
         setError('Verification failed. Please try again.');
         setVerifying(false);

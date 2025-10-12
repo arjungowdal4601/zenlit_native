@@ -3,8 +3,8 @@ import { supabase } from '../lib/supabase';
 export interface ProfileData {
   display_name: string;
   user_name: string;
-  date_of_birth?: string;
-  gender?: 'male' | 'female' | 'other';
+  date_of_birth: string;
+  gender: 'male' | 'female' | 'other';
 }
 
 export interface ValidationResult {
@@ -70,13 +70,13 @@ export const validateDisplayName = (displayName: string): ValidationResult => {
  */
 export const validateDateOfBirth = (dateOfBirth: string): ValidationResult => {
   if (!dateOfBirth) {
-    return { isValid: true }; // Optional field
+    return { isValid: false, error: 'Date of birth is required' };
   }
 
   const date = new Date(dateOfBirth);
   const today = new Date();
   const minAge = new Date();
-  minAge.setFullYear(today.getFullYear() - 13); // Minimum age 13
+  minAge.setFullYear(today.getFullYear() - 13);
 
   if (isNaN(date.getTime())) {
     return { isValid: false, error: 'Please enter a valid date' };
@@ -102,15 +102,15 @@ export const checkUsernameAvailability = async (username: string): Promise<Usern
       .from('profiles')
       .select('user_name')
       .eq('user_name', username)
-      .single();
-
-    if (error && error.code === 'PGRST116') {
-      // No rows found, username is available
-      return { isAvailable: true };
-    }
+      .maybeSingle();
 
     if (error) {
       throw error;
+    }
+
+    if (!data) {
+      // No rows found, username is available
+      return { isAvailable: true };
     }
 
     // Username is taken, generate suggestions
@@ -128,33 +128,40 @@ export const checkUsernameAvailability = async (username: string): Promise<Usern
 export const generateUsernameSuggestions = async (baseUsername: string): Promise<string[]> => {
   const suggestions: string[] = [];
   const maxSuggestions = 5;
+  const maxAttempts = 15;
 
   // Generate different types of suggestions
   const suggestionTypes = [
-    () => `${baseUsername}${Math.floor(Math.random() * 999) + 1}`, // Add random number
-    () => `${baseUsername}_${Math.floor(Math.random() * 99) + 1}`, // Add underscore and number
-    () => `${baseUsername}.${Math.floor(Math.random() * 99) + 1}`, // Add dot and number
-    () => `${baseUsername}${new Date().getFullYear()}`, // Add current year
-    () => `${baseUsername}_user`, // Add _user suffix
+    () => `${baseUsername}${Math.floor(Math.random() * 999) + 1}`,
+    () => `${baseUsername}_${Math.floor(Math.random() * 99) + 1}`,
+    () => `${baseUsername}.${Math.floor(Math.random() * 99) + 1}`,
+    () => `${baseUsername}${new Date().getFullYear()}`,
+    () => `${baseUsername}_user`,
+    () => `${baseUsername}${Math.floor(Math.random() * 9999) + 100}`,
   ];
 
-  for (let i = 0; i < maxSuggestions && suggestions.length < maxSuggestions; i++) {
+  for (let i = 0; i < maxAttempts && suggestions.length < maxSuggestions; i++) {
     const suggestion = suggestionTypes[i % suggestionTypes.length]();
-    
-    // Check if this suggestion is available
+
+    if (suggestions.includes(suggestion)) {
+      continue;
+    }
+
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('user_name')
         .eq('user_name', suggestion)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code === 'PGRST116') {
-        // Username is available
+      if (error) {
+        continue;
+      }
+
+      if (!data) {
         suggestions.push(suggestion);
       }
     } catch (error) {
-      // If there's an error checking, skip this suggestion
       continue;
     }
   }
@@ -176,11 +183,18 @@ export const validateProfileData = (profileData: ProfileData): ValidationResult 
     return usernameValidation;
   }
 
-  if (profileData.date_of_birth) {
-    const dobValidation = validateDateOfBirth(profileData.date_of_birth);
-    if (!dobValidation.isValid) {
-      return dobValidation;
-    }
+  const dobValidation = validateDateOfBirth(profileData.date_of_birth);
+  if (!dobValidation.isValid) {
+    return dobValidation;
+  }
+
+  if (!profileData.gender) {
+    return { isValid: false, error: 'Gender is required' };
+  }
+
+  const validGenders = ['male', 'female', 'other'];
+  if (!validGenders.includes(profileData.gender)) {
+    return { isValid: false, error: 'Invalid gender value' };
   }
 
   return { isValid: true };
