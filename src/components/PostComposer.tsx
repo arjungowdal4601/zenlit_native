@@ -5,23 +5,29 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import type { FeedPost } from '../constants/feedData';
 import { theme } from '../styles/theme';
-import AttachmentDialog from './AttachmentDialog';
+import ImageUploadDialog from './ImageUploadDialog';
 
 const AVATAR_SIZE = 48;
 const LINE_HEIGHT = 22;
 const MIN_INPUT_HEIGHT = LINE_HEIGHT * 3;
 const MAX_INPUT_HEIGHT = LINE_HEIGHT * 5;
 
+export type PostComposerSharePayload = {
+  content: string;
+  image?: string | null;
+};
+
 export type PostComposerProps = {
   author: FeedPost['author'];
-  onShare?: (content: string) => void;
+  onShare?: (payload: PostComposerSharePayload) => Promise<boolean> | boolean;
 };
 
 export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) => {
   const [value, setValue] = useState('');
   const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
-  const [showAttachmentDialog, setShowAttachmentDialog] = useState(false);
+  const [showImageDialog, setShowImageDialog] = useState(false);
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
 
   const avatarSource = useMemo(() => {
     const uri = author.avatar?.trim();
@@ -34,28 +40,48 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
     };
   }, [author.avatar, author.name]);
 
-  const handleShare = () => {
-    onShare?.(value.trim());
-    setValue('');
-    setInputHeight(MIN_INPUT_HEIGHT);
-    setAttachedImage(null);
+  const handleShare = async () => {
+    const trimmed = value.trim();
+
+    if (!trimmed.length) {
+      Alert.alert('Add Something', 'Please enter some content before sharing.');
+      return;
+    }
+
+    if (isSharing) {
+      return;
+    }
+
+    try {
+      setIsSharing(true);
+      const result = await onShare?.({
+        content: trimmed,
+        image: attachedImage,
+      });
+
+      if (result === false) {
+        return;
+      }
+
+      setValue('');
+      setInputHeight(MIN_INPUT_HEIGHT);
+      setAttachedImage(null);
+    } finally {
+      setIsSharing(false);
+    }
   };
 
   const handleAttachmentPress = () => {
     if (attachedImage) {
-      Alert.alert(
-        'One Image Only',
-        'You can only upload one image per post. Please remove the current image first to upload a different one.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Image Limit', 'You can only upload one image per post.');
       return;
     }
-    setShowAttachmentDialog(true);
+    setShowImageDialog(true);
   };
 
   const handleImageSelected = (uri: string) => {
     setAttachedImage(uri);
-    setShowAttachmentDialog(false);
+    setShowImageDialog(false);
   };
 
   const handleRemoveImage = () => {
@@ -75,19 +101,33 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
 
         <View style={styles.actions}>
           <Pressable
-            style={({ pressed }) => [styles.iconButton, pressed && styles.iconPressed]}
+            style={({ pressed }) => [
+              styles.iconButton,
+              attachedImage ? styles.iconButtonDisabled : null,
+              pressed && !attachedImage ? styles.iconPressed : null,
+            ]}
             accessibilityRole="button"
             accessibilityLabel="Attach media"
             onPress={handleAttachmentPress}
+            disabled={!!attachedImage}
           >
-            <Feather name="paperclip" size={18} color={theme.colors.icon} />
+            <Feather
+              name="paperclip"
+              size={18}
+              color={attachedImage ? theme.colors.iconInactive : theme.colors.icon}
+            />
           </Pressable>
 
           <Pressable
             onPress={handleShare}
             accessibilityRole="button"
             accessibilityLabel="Share post"
-            style={({ pressed }) => [styles.shareButton, pressed && styles.sharePressed]}
+            disabled={isSharing}
+            style={({ pressed }) => [
+              styles.shareButton,
+              isSharing ? styles.shareDisabled : null,
+              pressed && !isSharing ? styles.sharePressed : null,
+            ]}
           >
             <LinearGradient
               colors={[theme.gradients.header.from, theme.gradients.header.to]}
@@ -101,45 +141,54 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
         </View>
       </View>
 
-      <TextInput
-        value={value}
-        onChangeText={setValue}
-        placeholder={'Share your thoughts with the world!\nWhat\'s on your mind today?'}
-        placeholderTextColor={theme.colors.muted}
-        multiline
-        textAlignVertical="top"
-        style={[styles.input, { height: inputHeight }]}
-        onContentSizeChange={(event) => {
-          const nextHeight = Math.min(
-            MAX_INPUT_HEIGHT,
-            Math.max(MIN_INPUT_HEIGHT, event.nativeEvent.contentSize.height),
-          );
-          if (nextHeight !== inputHeight) {
-            setInputHeight(nextHeight);
-          }
-        }}
-      />
+      <View style={styles.composerBody}>
+        <TextInput
+          value={value}
+          onChangeText={setValue}
+          placeholder={'Share your thoughts with the world!\nWhat\'s on your mind today?'}
+          placeholderTextColor={theme.colors.muted}
+          multiline
+          editable={!isSharing}
+          textAlignVertical="top"
+          style={[styles.input, { height: inputHeight }]}
+          onContentSizeChange={(event) => {
+            const nextHeight = Math.min(
+              MAX_INPUT_HEIGHT,
+              Math.max(MIN_INPUT_HEIGHT, event.nativeEvent.contentSize.height),
+            );
+            if (nextHeight !== inputHeight) {
+              setInputHeight(nextHeight);
+            }
+          }}
+        />
 
-      {/* Attached Image Preview */}
-      {attachedImage && (
-        <View style={styles.attachedImageContainer}>
-          <Image source={{ uri: attachedImage }} style={styles.attachedImage} resizeMode="cover" />
-          <Pressable
-            style={styles.removeImageButton}
-            onPress={handleRemoveImage}
-            accessibilityRole="button"
-            accessibilityLabel="Remove image"
-          >
-            <Feather name="x" size={16} color="#ffffff" />
-          </Pressable>
-        </View>
-      )}
+        {attachedImage && (
+          <View style={styles.attachedImageContainer}>
+            <Image
+              source={{ uri: attachedImage }}
+              style={styles.attachedImage}
+              resizeMode="contain"
+            />
+            <Pressable
+              style={styles.removeImageButton}
+              onPress={handleRemoveImage}
+              accessibilityRole="button"
+              accessibilityLabel="Remove image"
+            >
+              <Feather name="x" size={16} color="#ffffff" />
+            </Pressable>
+          </View>
+        )}
+      </View>
 
-      {/* Attachment Dialog */}
-      <AttachmentDialog
-        visible={showAttachmentDialog}
-        onClose={() => setShowAttachmentDialog(false)}
+      <ImageUploadDialog
+        visible={showImageDialog}
+        onClose={() => setShowImageDialog(false)}
         onImageSelected={handleImageSelected}
+        currentImage={attachedImage || undefined}
+        onRemove={handleRemoveImage}
+        showRemoveOption={!!attachedImage}
+        title="Attach Image"
       />
     </View>
   );
@@ -186,9 +235,14 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   iconPressed: {
     opacity: 0.6,
+  },
+  iconButtonDisabled: {
+    backgroundColor: 'transparent',
+    opacity: 0.5,
   },
   shareButton: {
     borderRadius: 16,
@@ -205,34 +259,41 @@ const styles = StyleSheet.create({
   sharePressed: {
     opacity: 0.85,
   },
+  shareDisabled: {
+    opacity: 0.6,
+  },
   shareLabel: {
     color: '#ffffff',
     fontSize: 15,
     fontWeight: '600',
   },
+  composerBody: {
+    marginLeft: AVATAR_SIZE + theme.spacing.sm,
+    marginRight: theme.spacing.sm,
+  },
   input: {
-    alignSelf: 'stretch',
     color: theme.colors.text,
     fontSize: 16,
     lineHeight: LINE_HEIGHT,
     letterSpacing: 0.15,
-    marginLeft: AVATAR_SIZE + theme.spacing.sm,
+    alignSelf: 'stretch',
     paddingRight: theme.spacing.sm,
   },
   attachedImageContainer: {
     position: 'relative',
-    width: '100%',
-    height: 200,
+    alignSelf: 'stretch',
+    marginTop: theme.spacing.sm,
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#1e293b',
-    marginTop: theme.spacing.sm,
-    marginLeft: AVATAR_SIZE + theme.spacing.sm,
-    marginRight: theme.spacing.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 200,
   },
   attachedImage: {
     width: '100%',
-    height: '100%',
+    height: undefined,
+    aspectRatio: 4 / 3,
   },
   removeImageButton: {
     position: 'absolute',

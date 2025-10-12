@@ -164,8 +164,24 @@ export async function getFeedPosts(limit = 50): Promise<{ posts: PostWithAuthor[
   }
 }
 
-export async function createPost(content: string, imageUrl?: string): Promise<{ post: Post | null; error: Error | null }> {
+export async function createPost(
+  content: string,
+  imageInput?: string | string[] | null,
+): Promise<{ post: Post | null; error: Error | null }> {
   try {
+    const trimmedContent = content.trim();
+
+    if (!trimmedContent.length) {
+      return { post: null, error: new Error('Post content is required') };
+    }
+
+    if (Array.isArray(imageInput)) {
+      return { post: null, error: new Error('Only one image can be attached to a post') };
+    }
+
+    const normalizedImageUrl =
+      typeof imageInput === 'string' && imageInput.trim().length ? imageInput.trim() : null;
+
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
@@ -176,8 +192,8 @@ export async function createPost(content: string, imageUrl?: string): Promise<{ 
       .from('posts')
       .insert({
         user_id: user.id,
-        content,
-        image_url: imageUrl || null,
+        content: trimmedContent,
+        image_url: normalizedImageUrl,
       })
       .select()
       .single();
@@ -192,13 +208,30 @@ export async function createPost(content: string, imageUrl?: string): Promise<{ 
   }
 }
 
-export async function updatePost(postId: string, content: string, imageUrl?: string): Promise<{ post: Post | null; error: Error | null }> {
+export async function updatePost(
+  postId: string,
+  content: string,
+  imageInput?: string | string[] | null,
+): Promise<{ post: Post | null; error: Error | null }> {
   try {
+    const trimmedContent = content.trim();
+
+    if (!trimmedContent.length) {
+      return { post: null, error: new Error('Post content is required') };
+    }
+
+    if (Array.isArray(imageInput)) {
+      return { post: null, error: new Error('Only one image can be attached to a post') };
+    }
+
+    const normalizedImageUrl =
+      typeof imageInput === 'string' && imageInput.trim().length ? imageInput.trim() : null;
+
     const { data, error } = await supabase
       .from('posts')
       .update({
-        content,
-        image_url: imageUrl || null,
+        content: trimmedContent,
+        image_url: normalizedImageUrl,
       })
       .eq('id', postId)
       .select()

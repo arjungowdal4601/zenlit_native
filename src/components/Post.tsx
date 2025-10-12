@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -44,6 +44,7 @@ export const Post: React.FC<PostProps> = ({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
 
   const socialEntries = useMemo(() => {
     if (!author.socialLinks) {
@@ -97,6 +98,48 @@ export const Post: React.FC<PostProps> = ({
     setConfirmOpen(false);
     onDelete?.(post.id);
   }, [post.id, onDelete]);
+
+  useEffect(() => {
+    if (!image) {
+      setImageAspectRatio(null);
+      return;
+    }
+
+    let isMounted = true;
+
+    Image.getSize(
+      image,
+      (width, height) => {
+        if (!isMounted) return;
+        if (width > 0 && height > 0) {
+          setImageAspectRatio(width / height);
+        } else {
+          setImageAspectRatio(null);
+        }
+      },
+      () => {
+        if (isMounted) {
+          setImageAspectRatio(null);
+        }
+      },
+    );
+
+    return () => {
+      isMounted = false;
+    };
+  }, [image]);
+
+  const postMediaStyle = useMemo(() => {
+    if (!image) {
+      return styles.postMedia;
+    }
+
+    if (imageAspectRatio && Number.isFinite(imageAspectRatio) && imageAspectRatio > 0) {
+      return [styles.postMedia, { aspectRatio: imageAspectRatio }];
+    }
+
+    return styles.postMedia;
+  }, [image, imageAspectRatio]);
 
   return (
     <View style={styles.postContainer}>
@@ -167,11 +210,17 @@ export const Post: React.FC<PostProps> = ({
               </Text>
             </View>
 
-            <Text style={styles.postText}>{content}</Text>
+            <Text style={[styles.postText, image ? styles.postTextWithMedia : null]}>
+              {content}
+            </Text>
 
             {image ? (
               <View style={styles.postMediaWrapper}>
-                <Image source={{ uri: image }} style={styles.postMedia} />
+                <Image
+                  source={{ uri: image }}
+                  style={postMediaStyle}
+                  resizeMode="contain"
+                />
               </View>
             ) : null}
           </View>
@@ -285,15 +334,24 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 12,
   },
+  postTextWithMedia: {
+    marginBottom: 14,
+  },
   postMediaWrapper: {
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(71, 85, 105, 0.6)',
+    alignSelf: 'stretch',
+    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+    marginTop: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   postMedia: {
     width: '100%',
     aspectRatio: 4 / 3,
+    minHeight: 160,
   },
   dividerWrapper: {
     marginTop: 12,

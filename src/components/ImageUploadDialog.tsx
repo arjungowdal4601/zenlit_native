@@ -8,7 +8,7 @@ export type ImageUploadDialogProps = {
   onClose: () => void;
   onImageSelected: (imageUri: string) => void;
   title?: string;
-  currentImage?: string;
+  currentImage?: string | null;
   onRemove?: () => void;
   showRemoveOption?: boolean;
 };
