@@ -17,9 +17,8 @@ const UsernameSuggestions: React.FC<UsernameSuggestionsProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Suggestions:</Text>
       <View style={styles.suggestionsGrid}>
-        {suggestions.map((suggestion, index) => (
+        {suggestions.slice(0, 5).map((suggestion, index) => (
           <Pressable
             key={`${suggestion}-${index}`}
             onPress={() => onSelectSuggestion(suggestion)}
@@ -27,9 +26,11 @@ const UsernameSuggestions: React.FC<UsernameSuggestionsProps> = ({
               styles.suggestionItem,
               pressed && styles.suggestionItemPressed,
             ]}
+            accessibilityRole="button"
+            accessibilityLabel={`Use username ${suggestion}`}
           >
             <LinearGradient
-              colors={['rgba(37, 99, 235, 0.15)', 'rgba(126, 34, 206, 0.15)']}
+              colors={['rgba(37, 99, 235, 0.2)', 'rgba(126, 34, 206, 0.2)']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.suggestionGradient}
@@ -45,13 +46,7 @@ const UsernameSuggestions: React.FC<UsernameSuggestionsProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 12,
-  },
-  title: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#94a3b8',
-    marginBottom: 8,
+    marginTop: 10,
   },
   suggestionsGrid: {
     flexDirection: 'row',
@@ -59,22 +54,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   suggestionItem: {
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.3)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(96, 165, 250, 0.5)',
   },
   suggestionItemPressed: {
     opacity: 0.7,
-    transform: [{ scale: 0.98 }],
+    transform: [{ scale: 0.97 }],
   },
   suggestionGradient: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   suggestionText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#60a5fa',
   },
 });

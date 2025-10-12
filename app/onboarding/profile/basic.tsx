@@ -234,6 +234,7 @@ const OnboardingBasicScreen: React.FC = () => {
     setIsCheckingUsername(true);
     try {
       const result = await checkUsernameAvailability(usernameToCheck);
+      console.log('Username check result:', { username: usernameToCheck, available: result.isAvailable, suggestions: result.suggestions });
       setUsernameAvailable(result.isAvailable);
       setUsernameSuggestions(result.suggestions || []);
     } catch (error) {
@@ -423,7 +424,9 @@ const OnboardingBasicScreen: React.FC = () => {
                   </View>
                 )}
               </View>
-              <Text style={styles.helperText}>Only lowercase letters, numbers, dots, and underscores.</Text>
+              {!isCheckingUsername && usernameAvailable !== false && (
+                <Text style={styles.helperText}>Only lowercase letters, numbers, dots, and underscores.</Text>
+              )}
               {isCheckingUsername && (
                 <Text style={styles.checkingText}>Checking availability...</Text>
               )}
@@ -431,9 +434,9 @@ const OnboardingBasicScreen: React.FC = () => {
                 <Text style={styles.successText}>Username is available!</Text>
               )}
               {!isCheckingUsername && usernameAvailable === false && (
-                <Text style={styles.errorText}>Username is already taken</Text>
+                <Text style={styles.errorText}>Username '{username}' is already taken. Try one of these:</Text>
               )}
-              {errors.username ? <Text style={styles.errorText}>{errors.username}</Text> : null}
+              {errors.username && !isCheckingUsername && usernameAvailable !== false ? <Text style={styles.errorText}>{errors.username}</Text> : null}
               {!isCheckingUsername && usernameAvailable === false && usernameSuggestions.length > 0 && (
                 <UsernameSuggestions
                   suggestions={usernameSuggestions}
