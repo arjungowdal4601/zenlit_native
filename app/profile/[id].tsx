@@ -15,7 +15,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import AppHeader from '../../src/components/AppHeader';
 import Navigation from '../../src/components/Navigation';
 import Post from '../../src/components/Post';
 import {
@@ -106,8 +105,6 @@ const UserProfileScreen: React.FC = () => {
     };
   }, [requestedId]);
 
-  const headerTitle = (displayUser.name?.trim().length ? displayUser.name : 'Profile');
-
   const bannerSource = resolveImageSource(displayUser.banner, FALLBACK_BANNER);
   const avatarSource = resolveImageSource(displayUser.avatar, FALLBACK_AVATAR);
 
@@ -171,11 +168,6 @@ const UserProfileScreen: React.FC = () => {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      <AppHeader
-        title={headerTitle}
-        onBackPress={() => router.back()}
-        backAccessibilityLabel="Go back"
-      />
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id}
@@ -185,6 +177,17 @@ const UserProfileScreen: React.FC = () => {
             <View style={styles.bannerWrapper}>
               <Image source={bannerSource} style={styles.bannerImage} />
               <View style={styles.bannerGradient} />
+              {/* Overlaid back button for improved visibility */}
+              <Pressable
+                onPress={() => router.back()}
+                style={styles.backButton}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+              >
+                <View style={styles.backCircle}>
+                  <Feather name="arrow-left" size={22} color="#ffffff" />
+                </View>
+              </Pressable>
               <View style={styles.bannerOverlayRow}>
                 <View style={styles.avatarWrapper}>
                   <Image source={avatarSource} style={styles.avatar} />
@@ -285,7 +288,8 @@ const styles = StyleSheet.create({
   },
   listHeader: {
     gap: 18,
-    paddingTop: 16,
+    // Slightly reduce top padding now that the header title is removed
+    paddingTop: 8,
   },
   bannerWrapper: {
     position: 'relative',
@@ -301,6 +305,19 @@ const styles = StyleSheet.create({
   bannerGradient: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(15, 23, 42, 0.28)',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+  },
+  backCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(30, 41, 59, 0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bannerOverlayRow: {
     position: 'absolute',
