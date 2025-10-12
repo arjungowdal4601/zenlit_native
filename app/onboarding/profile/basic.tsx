@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import type { CSSProperties } from 'react';
 import {
   KeyboardAvoidingView,
@@ -25,7 +25,8 @@ import DateTimePicker, {
 import { createShadowStyle } from '../../../src/utils/shadow';
 import GradientTitle from '../../../src/components/GradientTitle';
 import { supabase } from '../../../src/lib/supabase';
-import { validateProfileData, validateDateOfBirth, validateUsername, validateDisplayName, type ProfileData } from '../../../src/utils/profileValidation';
+import { validateProfileData, validateDateOfBirth, validateUsername, validateDisplayName, checkUsernameAvailability, type ProfileData } from '../../../src/utils/profileValidation';
+import UsernameSuggestions from '../../../src/components/UsernameSuggestions';
 
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
@@ -70,6 +71,10 @@ const OnboardingBasicScreen: React.FC = () => {
   const [isWebDateFocused, setIsWebDateFocused] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({ displayName: '', username: '', dob: '', gender: '' });
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
+  const usernameCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const formatDate = (date: Date) => {
     const year = date.getFullYear();
@@ -177,8 +182,9 @@ const OnboardingBasicScreen: React.FC = () => {
     const hasUsername = username.trim().length > 0;
     const hasDob = dob.trim().length > 0 || !!dobDate;
     const hasGender = gender.trim().length > 0;
-    return hasDisplayName && hasUsername && hasDob && hasGender;
-  }, [displayName, username, dob, dobDate, gender]);
+    const isUsernameValid = usernameAvailable === true && !isCheckingUsername;
+    return hasDisplayName && hasUsername && hasDob && hasGender && isUsernameValid;
+  }, [displayName, username, dob, dobDate, gender, usernameAvailable, isCheckingUsername]);
 
   const validateForm = (): boolean => {
     const nextErrors = { displayName: '', username: '', dob: '', gender: '' };
@@ -211,9 +217,66 @@ const OnboardingBasicScreen: React.FC = () => {
     return !nextErrors.displayName && !nextErrors.username && !nextErrors.dob && !nextErrors.gender;
   };
 
+  const checkUsername = useCallback(async (usernameToCheck: string) => {
+    if (!usernameToCheck || usernameToCheck.length < 3) {
+      setUsernameAvailable(null);
+      setUsernameSuggestions([]);
+      return;
+    }
+
+    const validation = validateUsername(usernameToCheck);
+    if (!validation.isValid) {
+      setUsernameAvailable(null);
+      setUsernameSuggestions([]);
+      return;
+    }
+
+    setIsCheckingUsername(true);
+    try {
+      const result = await checkUsernameAvailability(usernameToCheck);
+      setUsernameAvailable(result.isAvailable);
+      setUsernameSuggestions(result.suggestions || []);
+    } catch (error) {
+      console.error('Error checking username:', error);
+      setUsernameAvailable(null);
+      setUsernameSuggestions([]);
+    } finally {
+      setIsCheckingUsername(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (usernameCheckTimeoutRef.current) {
+      clearTimeout(usernameCheckTimeoutRef.current);
+    }
+
+    if (username.trim().length >= 3) {
+      usernameCheckTimeoutRef.current = setTimeout(() => {
+        checkUsername(username.trim());
+      }, 500);
+    } else {
+      setUsernameAvailable(null);
+      setUsernameSuggestions([]);
+    }
+
+    return () => {
+      if (usernameCheckTimeoutRef.current) {
+        clearTimeout(usernameCheckTimeoutRef.current);
+      }
+    };
+  }, [username, checkUsername]);
+
   const handleUsernameChange = (value: string) => {
     const sanitized = value.replace(/[^a-zA-Z0-9_.-]/g, '').toLowerCase();
     setUsername(sanitized);
+    if (errors.username) setErrors((e) => ({ ...e, username: '' }));
+  };
+
+  const handleSuggestionSelect = (suggestion: string) => {
+    setUsername(suggestion);
+    setUsernameSuggestions([]);
+    setUsernameAvailable(true);
+    if (errors.username) setErrors((e) => ({ ...e, username: '' }));
   };
 
   const handleContinue = async () => {
@@ -221,20 +284,26 @@ const OnboardingBasicScreen: React.FC = () => {
       return;
     }
 
-    // Validate all fields and show inline errors
+    if (usernameAvailable !== true) {
+      Alert.alert('Username Unavailable', 'Please choose an available username.');
+      return;
+    }
+
     const isValid = validateForm();
     if (!isValid) {
       return;
     }
 
     const normalizedGender =
-      gender === 'Male' ? 'male' : gender === 'Female' ? 'female' : gender === 'Others' ? 'other' : '';
+      gender === 'Male' ? 'male' : gender === 'Female' ? 'female' : 'other';
+
+    const dobValue = dobDate ? formatDate(dobDate) : dob;
 
     const profileData: ProfileData = {
       display_name: displayName.trim(),
       user_name: username.trim().toLowerCase(),
-      date_of_birth: dob || undefined,
-      gender: normalizedGender || undefined,
+      date_of_birth: dobValue,
+      gender: normalizedGender as 'male' | 'female' | 'other',
     };
 
     const validation = validateProfileData(profileData);
@@ -324,20 +393,53 @@ const OnboardingBasicScreen: React.FC = () => {
 
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Username</Text>
-              <TextInput
-                value={username}
-                onChangeText={(v) => {
-                  handleUsernameChange(v);
-                  if (errors.username) setErrors((e) => ({ ...e, username: '' }));
-                }}
-                placeholder="username"
-                placeholderTextColor="rgba(148, 163, 184, 0.7)"
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={styles.input}
-              />
+              <View style={styles.usernameInputWrapper}>
+                <TextInput
+                  value={username}
+                  onChangeText={handleUsernameChange}
+                  placeholder="username"
+                  placeholderTextColor="rgba(148, 163, 184, 0.7)"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  style={[
+                    styles.input,
+                    usernameAvailable === true && styles.inputSuccess,
+                    usernameAvailable === false && styles.inputError,
+                  ]}
+                />
+                {isCheckingUsername && (
+                  <View style={styles.usernameStatusIcon}>
+                    <Feather name="loader" size={18} color="#60a5fa" />
+                  </View>
+                )}
+                {!isCheckingUsername && usernameAvailable === true && (
+                  <View style={styles.usernameStatusIcon}>
+                    <Feather name="check-circle" size={18} color="#10b981" />
+                  </View>
+                )}
+                {!isCheckingUsername && usernameAvailable === false && (
+                  <View style={styles.usernameStatusIcon}>
+                    <Feather name="x-circle" size={18} color="#ef4444" />
+                  </View>
+                )}
+              </View>
               <Text style={styles.helperText}>Only lowercase letters, numbers, dots, and underscores.</Text>
+              {isCheckingUsername && (
+                <Text style={styles.checkingText}>Checking availability...</Text>
+              )}
+              {!isCheckingUsername && usernameAvailable === true && (
+                <Text style={styles.successText}>Username is available!</Text>
+              )}
+              {!isCheckingUsername && usernameAvailable === false && (
+                <Text style={styles.errorText}>Username is already taken</Text>
+              )}
               {errors.username ? <Text style={styles.errorText}>{errors.username}</Text> : null}
+              {!isCheckingUsername && usernameAvailable === false && usernameSuggestions.length > 0 && (
+                <UsernameSuggestions
+                  suggestions={usernameSuggestions}
+                  onSelectSuggestion={handleSuggestionSelect}
+                />
+              )}
             </View>
 
             <View style={styles.fieldGroup}>
@@ -602,10 +704,36 @@ const styles = StyleSheet.create({
     color: 'rgba(148, 163, 184, 0.7)',
     fontSize: 16,
   },
+  usernameInputWrapper: {
+    position: 'relative',
+  },
+  usernameStatusIcon: {
+    position: 'absolute',
+    right: 16,
+    top: 15,
+  },
+  inputSuccess: {
+    borderColor: 'rgba(16, 185, 129, 0.5)',
+    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+  },
+  inputError: {
+    borderColor: 'rgba(239, 68, 68, 0.5)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+  },
   helperText: {
     marginTop: 8,
     fontSize: 12,
     color: '#94a3b8',
+  },
+  checkingText: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#60a5fa',
+  },
+  successText: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#10b981',
   },
   errorText: {
     marginTop: 6,
