@@ -68,7 +68,7 @@ const GetStartedScreen: React.FC = () => {
     runContainerAnimation(true);
 
     setTimeout(() => {
-      router.push('/auth/signup');
+      router.push('/auth');
     }, 420);
   }, [isNavigating, router, runContainerAnimation]);
 

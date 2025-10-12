@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import OptionsDialog from '../../../src/components/OptionsDialog';
 import ImageUploadDialog from '../../../src/components/ImageUploadDialog';
-import { SOCIAL_PLATFORMS } from '../../../src/constants/socialPlatforms';
+import { SOCIAL_PLATFORMS, extractUsername } from '../../../src/constants/socialPlatforms';
 import GradientTitle from '../../../src/components/GradientTitle';
 import { supabase, supabaseReady } from '../../../src/lib/supabase';
 
@@ -404,14 +404,17 @@ const CompleteProfileScreen: React.FC = () => {
       <Modal transparent visible={showInstagramModal} animationType="fade" onRequestClose={() => setShowInstagramModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Instagram</Text>
+            <Text style={styles.modalTitle}>Instagram Username</Text>
             <TextInput
               value={instagram}
-              onChangeText={setInstagram}
-              placeholder="@username or URL"
+              onChangeText={(text) => setInstagram(extractUsername(text))}
+              placeholder="username"
               placeholderTextColor="#64748b"
               style={styles.modalInput}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
+            <Text style={styles.modalHelper}>Will link to: instagram.com/{instagram || 'username'}</Text>
             <View style={styles.modalActions}>
               <Pressable style={[styles.modalBtn, styles.modalCancel]} onPress={() => setShowInstagramModal(false)}>
                 <Text style={styles.modalBtnLabel}>Cancel</Text>
@@ -428,14 +431,17 @@ const CompleteProfileScreen: React.FC = () => {
       <Modal transparent visible={showTwitterModal} animationType="fade" onRequestClose={() => setShowTwitterModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>X (Twitter)</Text>
+            <Text style={styles.modalTitle}>X (Twitter) Username</Text>
             <TextInput
               value={twitter}
-              onChangeText={setTwitter}
-              placeholder="@handle or URL"
+              onChangeText={(text) => setTwitter(extractUsername(text))}
+              placeholder="username"
               placeholderTextColor="#64748b"
               style={styles.modalInput}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
+            <Text style={styles.modalHelper}>Will link to: x.com/{twitter || 'username'}</Text>
             <View style={styles.modalActions}>
               <Pressable style={[styles.modalBtn, styles.modalCancel]} onPress={() => setShowTwitterModal(false)}>
                 <Text style={styles.modalBtnLabel}>Cancel</Text>
@@ -452,14 +458,17 @@ const CompleteProfileScreen: React.FC = () => {
       <Modal transparent visible={showLinkedinModal} animationType="fade" onRequestClose={() => setShowLinkedinModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>LinkedIn</Text>
+            <Text style={styles.modalTitle}>LinkedIn Username</Text>
             <TextInput
               value={linkedin}
-              onChangeText={setLinkedin}
-              placeholder="Profile URL"
+              onChangeText={(text) => setLinkedin(extractUsername(text))}
+              placeholder="username"
               placeholderTextColor="#64748b"
               style={styles.modalInput}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
+            <Text style={styles.modalHelper}>Will link to: linkedin.com/in/{linkedin || 'username'}</Text>
             <View style={styles.modalActions}>
               <Pressable style={[styles.modalBtn, styles.modalCancel]} onPress={() => setShowLinkedinModal(false)}>
                 <Text style={styles.modalBtnLabel}>Cancel</Text>
@@ -547,6 +556,7 @@ const styles = StyleSheet.create({
   modalCancel: { backgroundColor: '#000000', borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.35)' },
   modalSave: { backgroundColor: '#6d28d9' },
   modalBtnLabel: { color: '#ffffff', fontSize: 15, fontWeight: '600' },
+  modalHelper: { color: '#94a3b8', fontSize: 12, marginTop: 8 },
 });
 
 export default CompleteProfileScreen;

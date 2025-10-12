@@ -106,3 +106,31 @@ export const ensureSocialUrl = (
   return `${SOCIAL_URL_BASE[platform]}${normalised}`;
 };
 
+export const extractUsername = (value?: string | null): string => {
+  if (!value) {
+    return '';
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (trimmed.startsWith('@')) {
+    return trimmed.slice(1);
+  }
+
+  if (HAS_PROTOCOL.test(trimmed)) {
+    try {
+      const url = new URL(trimmed);
+      const pathname = url.pathname;
+      const parts = pathname.split('/').filter(Boolean);
+      return parts.length > 0 ? parts[parts.length - 1] : '';
+    } catch {
+      return trimmed;
+    }
+  }
+
+  return trimmed;
+};
+
