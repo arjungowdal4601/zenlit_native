@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -21,7 +21,7 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
   const [value, setValue] = useState('');
   const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
   const [showAttachmentDialog, setShowAttachmentDialog] = useState(false);
-  const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  const [attachedImage, setAttachedImage] = useState<string | null>(null);
 
   const avatarSource = useMemo(() => {
     const uri = author.avatar?.trim();
@@ -38,20 +38,28 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
     onShare?.(value.trim());
     setValue('');
     setInputHeight(MIN_INPUT_HEIGHT);
-    setAttachedImages([]);
+    setAttachedImage(null);
   };
 
   const handleAttachmentPress = () => {
+    if (attachedImage) {
+      Alert.alert(
+        'One Image Only',
+        'You can only upload one image per post. Please remove the current image first to upload a different one.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
     setShowAttachmentDialog(true);
   };
 
   const handleImageSelected = (uri: string) => {
-    setAttachedImages(prev => [...prev, uri]);
+    setAttachedImage(uri);
     setShowAttachmentDialog(false);
   };
 
-  const handleRemoveImage = (index: number) => {
-    setAttachedImages(prev => prev.filter((_, i) => i !== index));
+  const handleRemoveImage = () => {
+    setAttachedImage(null);
   };
 
   return (
@@ -112,22 +120,18 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
         }}
       />
 
-      {/* Attached Images Preview */}
-      {attachedImages.length > 0 && (
-        <View style={styles.attachedImagesContainer}>
-          {attachedImages.map((uri, index) => (
-            <View key={index} style={styles.attachedImageWrapper}>
-              <Image source={{ uri }} style={styles.attachedImage} />
-              <Pressable
-                style={styles.removeImageButton}
-                onPress={() => handleRemoveImage(index)}
-                accessibilityRole="button"
-                accessibilityLabel="Remove image"
-              >
-                <Feather name="x" size={16} color="#ffffff" />
-              </Pressable>
-            </View>
-          ))}
+      {/* Attached Image Preview */}
+      {attachedImage && (
+        <View style={styles.attachedImageContainer}>
+          <Image source={{ uri: attachedImage }} style={styles.attachedImage} resizeMode="cover" />
+          <Pressable
+            style={styles.removeImageButton}
+            onPress={handleRemoveImage}
+            accessibilityRole="button"
+            accessibilityLabel="Remove image"
+          >
+            <Feather name="x" size={16} color="#ffffff" />
+          </Pressable>
         </View>
       )}
 
@@ -215,36 +219,33 @@ const styles = StyleSheet.create({
     marginLeft: AVATAR_SIZE + theme.spacing.sm,
     paddingRight: theme.spacing.sm,
   },
-  attachedImagesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  attachedImageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#1e293b',
     marginTop: theme.spacing.sm,
     marginLeft: AVATAR_SIZE + theme.spacing.sm,
-  },
-  attachedImageWrapper: {
-    position: 'relative',
-    width: 80,
-    height: 80,
+    marginRight: theme.spacing.sm,
   },
   attachedImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: '#111827',
+    width: '100%',
+    height: '100%',
   },
   removeImageButton: {
     position: 'absolute',
-    top: -6,
-    right: -6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#ef4444',
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#000000',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
 });
 
