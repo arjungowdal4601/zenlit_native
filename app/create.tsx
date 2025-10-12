@@ -56,7 +56,7 @@ const CreateScreen: React.FC = () => {
   if (loading || !author) {
     return (
       <View style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
+        <StatusBar barStyle="light-content" backgroundColor="#000000" />
         <AppHeader title="Create Post" />
         <Navigation activePath="/create" />
       </View>
@@ -65,7 +65,7 @@ const CreateScreen: React.FC = () => {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
+      <StatusBar barStyle="light-content" backgroundColor="#000000" />
 
       <AppHeader title="Create Post" />
 
@@ -81,7 +81,7 @@ const CreateScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: '#000000',
   },
   content: {
     flex: 1,

@@ -9,16 +9,16 @@ import { SOCIAL_PLATFORMS, extractUsername } from '../../../src/constants/social
 import GradientTitle from '../../../src/components/GradientTitle';
 import { supabase, supabaseReady } from '../../../src/lib/supabase';
 
-const FALLBACK_AVATAR = 'https://api.dicebear.com/7.x/avataaars/png?seed=Alex&backgroundColor=b6e3f4';
+const FALLBACK_AVATAR = null;
 
 const CompleteProfileScreen: React.FC = () => {
   const router = useRouter();
 
   // Local state (UI-only)
   const [displayName, setDisplayName] = useState('Alex Johnson');
-  const [bio, setBio] = useState('Front-end developer passionate about building delightful UIs.');
+  const [bio, setBio] = useState('');
   const [bannerImage, setBannerImage] = useState<ImageSourcePropType | null>(null);
-  const [profileImage, setProfileImage] = useState<string>(FALLBACK_AVATAR);
+  const [profileImage, setProfileImage] = useState<string | null>(FALLBACK_AVATAR);
 
   const [showInstagramModal, setShowInstagramModal] = useState(false);
   const [showTwitterModal, setShowTwitterModal] = useState(false);
@@ -255,7 +255,7 @@ const CompleteProfileScreen: React.FC = () => {
 
   const handleImageSelected = (imageUri: string) => {
     if (uploadType === 'avatar') {
-      setProfileImage(imageUri || FALLBACK_AVATAR);
+      setProfileImage(imageUri || null);
     } else {
       setBannerImage(imageUri ? { uri: imageUri } : null);
     }
@@ -308,7 +308,13 @@ const CompleteProfileScreen: React.FC = () => {
           {/* Avatar */}
           <View style={styles.avatarWrapper}>
             <Pressable onPress={openProfileMenu} style={styles.avatarButton}>
-              <Image source={{ uri: profileImage }} style={styles.avatar} />
+              {profileImage ? (
+                <Image source={{ uri: profileImage }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                  <Feather name="user" size={44} color="#64748b" />
+                </View>
+              )}
               <View style={styles.avatarCamera}>
                 <View style={styles.overlayCircle}>
                   <Feather name="camera" size={16} color="#ffffff" />
@@ -324,8 +330,8 @@ const CompleteProfileScreen: React.FC = () => {
           <TextInput
             value={bio}
             onChangeText={(text) => setBio(text.slice(0, 500))}
-            placeholder="Tell people about yourself"
-            placeholderTextColor="#64748b"
+            placeholder="Tell about yourself..."
+            placeholderTextColor="#475569"
             style={[styles.input, styles.textarea]}
             multiline
             maxLength={500}
@@ -490,7 +496,7 @@ const CompleteProfileScreen: React.FC = () => {
         currentImage={uploadType === 'avatar' ? profileImage : (bannerImage as any)?.uri}
         onRemove={() => {
           if (uploadType === 'avatar') {
-            setProfileImage(FALLBACK_AVATAR);
+            setProfileImage(null);
           } else {
             setBannerImage(null);
           }
@@ -522,6 +528,7 @@ const styles = StyleSheet.create({
   avatarWrapper: { position: 'absolute', left: 20, bottom: -50 },
   avatarButton: { borderRadius: 8, borderWidth: 2, borderColor: '#000000', padding: 2, backgroundColor: '#000000' },
   avatar: { width: 100, height: 100, borderRadius: 8, backgroundColor: '#111827' },
+  avatarPlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#1e293b' },
   avatarCamera: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
   formSection: { paddingHorizontal: 20 },
   label: { color: '#ffffff', fontSize: 14, fontWeight: '600', marginBottom: 8 },

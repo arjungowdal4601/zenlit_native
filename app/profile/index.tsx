@@ -4,6 +4,7 @@ import {
   FlatList,
   Image,
   ImageSourcePropType,
+  Linking,
   Pressable,
   StatusBar,
   StyleProp,
@@ -251,10 +252,13 @@ const ProfileScreen: React.FC = () => {
                           accessibilityRole="button"
                           accessibilityLabel={meta.label}
                           onPress={() => {
-                            if (!url) return;
-                            console.log('social link', id, url);
+                            if (url) {
+                              Linking.openURL(url);
+                            } else {
+                              router.push('/edit-profile');
+                            }
                           }}
-                          disabled={disabled}
+                          disabled={false}
                         >
                           <LinearGradient
                             colors={INSTAGRAM_GRADIENT}
@@ -284,10 +288,13 @@ const ProfileScreen: React.FC = () => {
                         accessibilityRole="button"
                         accessibilityLabel={meta.label}
                         onPress={() => {
-                          if (!url) return;
-                          console.log('social link', id, url);
+                          if (url) {
+                            Linking.openURL(url);
+                          } else {
+                            router.push('/edit-profile');
+                          }
                         }}
-                        disabled={disabled}
+                        disabled={false}
                       >
                         <View style={badgeStyle}>
                           {meta.renderIcon({ size: 18, color: '#ffffff' })}
