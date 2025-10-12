@@ -37,7 +37,6 @@ const SOCIAL_ORDER: Array<'instagram' | 'linkedin' | 'twitter'> = [
 
 const FALLBACK_BANNER_URI =
   'https://images.unsplash.com/photo-1519669556878-619358287bf8?auto=format&fit=crop&w=1200&q=80';
-const bannerImg = require('@/assets/images/profile-banner.jpg');
 
 const INSTAGRAM_GRADIENT = [
   '#f09433',

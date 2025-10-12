@@ -7,7 +7,6 @@ import ImageUploadDialog from '../src/components/ImageUploadDialog';
 import { SOCIAL_PLATFORMS } from '../src/constants/socialPlatforms';
 import GradientTitle from '../src/components/GradientTitle';
 
-const FALLBACK_BANNER = require('@/assets/images/profile-banner.jpg');
 const FALLBACK_AVATAR = 'https://api.dicebear.com/7.x/avataaars/png?seed=Alex&backgroundColor=b6e3f4';
 
 const EditProfileScreen: React.FC = () => {
@@ -16,7 +15,7 @@ const EditProfileScreen: React.FC = () => {
   // Local state (UI-only)
   const [displayName, setDisplayName] = useState('Alex Johnson');
   const [bio, setBio] = useState('Front-end developer passionate about building delightful UIs.');
-  const [bannerImage, setBannerImage] = useState<ImageSourcePropType | null>(FALLBACK_BANNER as ImageSourcePropType);
+  const [bannerImage, setBannerImage] = useState<ImageSourcePropType | null>(null);
   const [profileImage, setProfileImage] = useState<string>(FALLBACK_AVATAR);
 
   const [showInstagramModal, setShowInstagramModal] = useState(false);
