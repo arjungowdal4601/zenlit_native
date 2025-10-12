@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import * as React from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Image,
@@ -11,6 +12,7 @@ import {
   Text,
   TextInput,
   View,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +21,7 @@ import { useRouter } from 'expo-router';
 
 import { createShadowStyle } from '../../src/utils/shadow';
 import GradientTitle from '../../src/components/GradientTitle';
+import { supabase } from '../../src/lib/supabase';
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const CARD_ELEVATION = createShadowStyle({
@@ -86,21 +89,39 @@ const SignUpScreen: React.FC = () => {
       return;
     }
     setGoogleLoading(true);
+    // Dummy implementation - just show alert and reset loading
     setTimeout(() => {
       setGoogleLoading(false);
-      router.push('/onboarding/profile/basic');
+      Alert.alert('Coming Soon', 'Google Sign Up will be available soon!');
     }, 450);
   };
 
-  const handleEmail = () => {
+  const handleEmail = async () => {
     if (!isValidEmail || emailLoading) {
       return;
     }
     setEmailLoading(true);
-    setTimeout(() => {
-      setEmailLoading(false);
+    
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          shouldCreateUser: true, // Create user if they don't exist
+        }
+      });
+
+      if (error) {
+        Alert.alert('Error', error.message);
+        setEmailLoading(false);
+        return;
+      }
+
+      // Success - navigate to OTP verification
       router.push(`/auth/verify-otp?email=${encodeURIComponent(email.trim())}`);
-    }, 350);
+    } catch (error) {
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+      setEmailLoading(false);
+    }
   };
 
   const navigateWithExit = (path: string) => {

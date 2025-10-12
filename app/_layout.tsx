@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { VisibilityProvider } from '../src/contexts/VisibilityContext';
 import { theme } from '../src/styles/theme';
+import { supabase, clearInvalidSession } from '../src/lib/supabase';
 
 const RootLayout: React.FC = () => {
   const pathname = usePathname();
@@ -20,6 +21,23 @@ const RootLayout: React.FC = () => {
       });
     }
   }, [pathname]);
+
+  useEffect(() => {
+    // Handle auth errors globally
+    const handleAuthError = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error && error.message.includes('refresh_token_not_found')) {
+          console.log('Invalid refresh token detected, clearing session');
+          await clearInvalidSession();
+        }
+      } catch (err) {
+        console.error('Error checking session:', err);
+      }
+    };
+
+    handleAuthError();
+  }, []);
 
   return (
     <SafeAreaProvider>

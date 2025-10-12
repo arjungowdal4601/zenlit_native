@@ -23,6 +23,7 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
   showRemoveOption = false
 }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedUploadUri, setSelectedUploadUri] = useState<string | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   const requestCameraPermission = async () => {
@@ -79,14 +80,18 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
-        base64: false,
+        base64: true,
       });
 
       console.log('Camera result:', result);
 
       if (!result.canceled && result.assets && result.assets[0]) {
-        console.log('Image captured successfully:', result.assets[0].uri);
-        setSelectedImage(result.assets[0].uri);
+        const asset = result.assets[0];
+        console.log('Image captured successfully:', asset.uri);
+        const displayUri = asset.uri;
+        const uploadUri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        setSelectedImage(displayUri);
+        setSelectedUploadUri(uploadUri);
         setIsPreviewMode(true);
       } else {
         console.log('Camera capture was canceled or failed');
@@ -108,10 +113,15 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
+        base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
-        setSelectedImage(result.assets[0].uri);
+        const asset = result.assets[0];
+        const displayUri = asset.uri;
+        const uploadUri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
+        setSelectedImage(displayUri);
+        setSelectedUploadUri(uploadUri);
         setIsPreviewMode(true);
       }
     } catch (error) {
@@ -120,20 +130,23 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
   };
 
   const handleConfirmUpload = () => {
-    if (selectedImage) {
-      onImageSelected(selectedImage);
+    const finalUri = selectedUploadUri ?? selectedImage;
+    if (finalUri) {
+      onImageSelected(finalUri);
       handleClose();
     }
   };
 
   const handleClose = () => {
     setSelectedImage(null);
+    setSelectedUploadUri(null);
     setIsPreviewMode(false);
     onClose();
   };
 
   const handleBackToOptions = () => {
     setSelectedImage(null);
+    setSelectedUploadUri(null);
     setIsPreviewMode(false);
   };
 

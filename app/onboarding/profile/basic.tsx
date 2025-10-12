@@ -11,6 +11,7 @@ import {
   Text,
   TextInput,
   View,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,6 +24,8 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import { createShadowStyle } from '../../../src/utils/shadow';
 import GradientTitle from '../../../src/components/GradientTitle';
+import { supabase } from '../../../src/lib/supabase';
+import { validateProfileData, validateDateOfBirth, validateUsername, validateDisplayName, type ProfileData } from '../../../src/utils/profileValidation';
 
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
@@ -65,6 +68,8 @@ const OnboardingBasicScreen: React.FC = () => {
   const [gender, setGender] = useState<typeof GENDERS[number] | ''>('');
   const webDateInputRef = useRef<HTMLInputElement | null>(null);
   const [isWebDateFocused, setIsWebDateFocused] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState({ displayName: '', username: '', dob: '', gender: '' });
 
   const formatDate = (date: Date) => {
     const year = date.getFullYear();
@@ -167,25 +172,111 @@ const OnboardingBasicScreen: React.FC = () => {
     setShowIosPicker(false);
   };
 
-  const isComplete = useMemo(() => {
-    return (
-      displayName.trim().length > 0 &&
-      username.trim().length > 0 &&
-      dobDate !== null &&
-      gender !== ''
-    );
-  }, [displayName, username, dobDate, gender]);
+  const isFilled = useMemo(() => {
+    const hasDisplayName = displayName.trim().length > 0;
+    const hasUsername = username.trim().length > 0;
+    const hasDob = dob.trim().length > 0 || !!dobDate;
+    const hasGender = gender.trim().length > 0;
+    return hasDisplayName && hasUsername && hasDob && hasGender;
+  }, [displayName, username, dob, dobDate, gender]);
+
+  const validateForm = (): boolean => {
+    const nextErrors = { displayName: '', username: '', dob: '', gender: '' };
+
+    const dnRes = validateDisplayName(displayName.trim());
+    if (!dnRes.isValid) {
+      nextErrors.displayName = dnRes.error || 'Display name is invalid';
+    }
+
+    const unRes = validateUsername(username.trim());
+    if (!unRes.isValid) {
+      nextErrors.username = unRes.error || 'Username is invalid';
+    }
+
+    if (!(dob.trim().length > 0 || dobDate)) {
+      nextErrors.dob = 'Date of birth is required';
+    } else {
+      const dobStr = dobDate ? formatDate(dobDate) : dob;
+      const dobRes = validateDateOfBirth(dobStr);
+      if (!dobRes.isValid) {
+        nextErrors.dob = dobRes.error || 'Date of birth is invalid';
+      }
+    }
+
+    if (!gender.trim().length) {
+      nextErrors.gender = 'Please select your gender';
+    }
+
+    setErrors(nextErrors);
+    return !nextErrors.displayName && !nextErrors.username && !nextErrors.dob && !nextErrors.gender;
+  };
 
   const handleUsernameChange = (value: string) => {
     const sanitized = value.replace(/[^a-zA-Z0-9_.-]/g, '').toLowerCase();
     setUsername(sanitized);
   };
 
-  const handleContinue = () => {
-    if (!isComplete) {
+  const handleContinue = async () => {
+    if (!isFilled || isSubmitting) {
       return;
     }
-    router.push('/onboarding/profile/complete');
+
+    // Validate all fields and show inline errors
+    const isValid = validateForm();
+    if (!isValid) {
+      return;
+    }
+
+    const normalizedGender =
+      gender === 'Male' ? 'male' : gender === 'Female' ? 'female' : gender === 'Others' ? 'other' : '';
+
+    const profileData: ProfileData = {
+      display_name: displayName.trim(),
+      user_name: username.trim().toLowerCase(),
+      date_of_birth: dob || undefined,
+      gender: normalizedGender || undefined,
+    };
+
+    const validation = validateProfileData(profileData);
+    if (!validation.isValid) {
+      // Surface general errors via Alert, but keep inline errors for fields
+      Alert.alert('Validation Error', validation.error);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          display_name: profileData.display_name,
+          user_name: profileData.user_name,
+          date_of_birth: profileData.date_of_birth,
+          gender: profileData.gender,
+          email: user.email,
+        });
+
+      if (profileError) {
+        if ((profileError as any).code === '23505') {
+          Alert.alert('Username Unavailable', 'That username is already taken. Please choose another.');
+          return;
+        }
+        throw profileError;
+      }
+
+      router.push('/onboarding/profile/complete');
+    } catch (err: any) {
+      console.error('Error saving profile:', err);
+      Alert.alert('Save Failed', err?.message || 'Could not save your profile. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -220,18 +311,25 @@ const OnboardingBasicScreen: React.FC = () => {
               <Text style={styles.fieldLabel}>Display Name</Text>
               <TextInput
                 value={displayName}
-                onChangeText={setDisplayName}
+                onChangeText={(v) => {
+                  setDisplayName(v);
+                  if (errors.displayName) setErrors((e) => ({ ...e, displayName: '' }));
+                }}
                 placeholder="How should we call you?"
                 placeholderTextColor="rgba(148, 163, 184, 0.7)"
                 style={styles.input}
               />
+              {errors.displayName ? <Text style={styles.errorText}>{errors.displayName}</Text> : null}
             </View>
 
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Username</Text>
               <TextInput
                 value={username}
-                onChangeText={handleUsernameChange}
+                onChangeText={(v) => {
+                  handleUsernameChange(v);
+                  if (errors.username) setErrors((e) => ({ ...e, username: '' }));
+                }}
                 placeholder="username"
                 placeholderTextColor="rgba(148, 163, 184, 0.7)"
                 autoCapitalize="none"
@@ -239,6 +337,7 @@ const OnboardingBasicScreen: React.FC = () => {
                 style={styles.input}
               />
               <Text style={styles.helperText}>Only lowercase letters, numbers, dots, and underscores.</Text>
+              {errors.username ? <Text style={styles.errorText}>{errors.username}</Text> : null}
             </View>
 
             <View style={styles.fieldGroup}>
@@ -304,6 +403,7 @@ const OnboardingBasicScreen: React.FC = () => {
                   </View>
                 </Pressable>
               )}
+              {errors.dob ? <Text style={styles.errorText}>{errors.dob}</Text> : null}
             </View>
 
             <View style={styles.fieldGroup}>
@@ -315,7 +415,10 @@ const OnboardingBasicScreen: React.FC = () => {
                     <Pressable
                       key={option}
                       accessibilityRole="button"
-                      onPress={() => setGender(option)}
+                      onPress={() => {
+                        setGender(option);
+                        if (errors.gender) setErrors((e) => ({ ...e, gender: '' }));
+                      }}
                       style={[styles.genderPill, isSelected ? styles.genderPillActive : null]}
                     >
                       <Text style={[styles.genderLabel, isSelected ? styles.genderLabelActive : null]}>{option}</Text>
@@ -323,16 +426,17 @@ const OnboardingBasicScreen: React.FC = () => {
                   );
                 })}
               </View>
+              {errors.gender ? <Text style={styles.errorText}>{errors.gender}</Text> : null}
             </View>
 
             <Pressable
               accessibilityRole="button"
-              disabled={!isComplete}
+              disabled={!isFilled || isSubmitting}
               onPress={handleContinue}
               style={({ pressed }) => [
                 styles.primaryButton,
-                !isComplete ? styles.disabled : null,
-                pressed && isComplete ? styles.primaryButtonPressed : null,
+                (!isFilled || isSubmitting) ? styles.disabled : null,
+                pressed && isFilled && !isSubmitting ? styles.primaryButtonPressed : null,
               ]}
         >
           <LinearGradient
@@ -502,6 +606,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 12,
     color: '#94a3b8',
+  },
+  errorText: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#fca5a5',
   },
   genderRow: {
     flexDirection: 'row',
