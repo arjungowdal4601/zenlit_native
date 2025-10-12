@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, Image, ImageSourcePropType } from 'react-native';
+import { Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, Image, ImageSourcePropType, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -7,6 +7,7 @@ import OptionsDialog from '../../../src/components/OptionsDialog';
 import ImageUploadDialog from '../../../src/components/ImageUploadDialog';
 import { SOCIAL_PLATFORMS } from '../../../src/constants/socialPlatforms';
 import GradientTitle from '../../../src/components/GradientTitle';
+import { supabase, supabaseReady } from '../../../src/lib/supabase';
 
 const FALLBACK_BANNER = require('@/assets/images/profile-banner.jpg');
 const FALLBACK_AVATAR = 'https://api.dicebear.com/7.x/avataaars/png?seed=Alex&backgroundColor=b6e3f4';
@@ -29,6 +30,7 @@ const CompleteProfileScreen: React.FC = () => {
   const [linkedin, setLinkedin] = useState('');
 
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [showAvatarDialog, setShowAvatarDialog] = useState(false);
   const [showBannerDialog, setShowBannerDialog] = useState(false);
   const [showImageUploadDialog, setShowImageUploadDialog] = useState(false);
@@ -47,22 +49,192 @@ const CompleteProfileScreen: React.FC = () => {
     router.back();
   };
 
-  const handleSave = () => {
-    const payload = {
-      displayName,
-      bio,
-      social: { instagram, x: twitter, linkedin },
-      profileImage,
-      bannerImage,
+  // Track mounted state to prevent setState on unmounted
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      clearSuccessTimeout();
     };
-    console.log('Complete profile save', payload);
-    clearSuccessTimeout();
-    setShowSuccess(true);
-    successTimeoutRef.current = setTimeout(() => {
-      setShowSuccess(false);
-      router.replace('/feed');
-      successTimeoutRef.current = null;
-    }, 800);
+  }, []);
+
+  const uploadImageIfNeeded = async (uri: string | null | undefined, filePrefix: 'avatar' | 'banner', userId: string): Promise<string | undefined> => {
+    try {
+      if (!uri) return undefined;
+      const isRemote = uri.startsWith('http');
+      const isLocal = uri.startsWith('file:') || uri.startsWith('data:') || uri.startsWith('blob:');
+
+      // If it's a remote URL and not a local selection, use as-is
+      if (isRemote && !isLocal) {
+        return uri;
+      }
+
+      // Determine content type and file name
+      const extMatch = uri.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
+      let contentType = 'image/jpeg';
+      let ext = (extMatch && extMatch[1]) ? extMatch[1].toLowerCase() : 'jpg';
+
+      // If data URI, parse mime type as contentType
+      if (uri.startsWith('data:')) {
+        const mimeMatch = uri.match(/^data:(.*?);base64,/);
+        if (mimeMatch && mimeMatch[1]) {
+          contentType = mimeMatch[1];
+          if (contentType.includes('png')) ext = 'png';
+          else if (contentType.includes('webp')) ext = 'webp';
+          else ext = 'jpg';
+        }
+      } else {
+        contentType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      }
+
+      const fileName = `${userId}/${filePrefix}-${Date.now()}.${ext}`;
+
+      // Helper to decode base64 to Uint8Array (no atob reliance)
+      const base64ToUint8Array = (b64: string): Uint8Array => {
+        const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+        let bufferLength = b64.length * 0.75;
+        const len = b64.length;
+        let p = 0;
+        let encoded1, encoded2, encoded3, encoded4;
+
+        if (b64[len - 1] === '=') bufferLength--;
+        if (b64[len - 2] === '=') bufferLength--;
+
+        const bytes = new Uint8Array(bufferLength | 0);
+
+        for (let i = 0; i < len; i += 4) {
+          encoded1 = base64Chars.indexOf(b64[i]);
+          encoded2 = base64Chars.indexOf(b64[i + 1]);
+          encoded3 = base64Chars.indexOf(b64[i + 2]);
+          encoded4 = base64Chars.indexOf(b64[i + 3]);
+
+          const triplet = (encoded1 << 18) | (encoded2 << 12) | ((encoded3 & 63) << 6) | (encoded4 & 63);
+
+          if (b64[i + 2] === '=') {
+            bytes[p++] = (triplet >> 16) & 0xFF;
+          } else if (b64[i + 3] === '=') {
+            bytes[p++] = (triplet >> 16) & 0xFF;
+            bytes[p++] = (triplet >> 8) & 0xFF;
+          } else {
+            bytes[p++] = (triplet >> 16) & 0xFF;
+            bytes[p++] = (triplet >> 8) & 0xFF;
+            bytes[p++] = triplet & 0xFF;
+          }
+        }
+        return bytes;
+      };
+
+      let uploadBody: Uint8Array | Blob | ArrayBuffer;
+
+      if (uri.startsWith('data:')) {
+        // data URI path: decode base64 on native; on web use fetch as fallback
+        const commaIndex = uri.indexOf(',');
+        const base64Data = commaIndex !== -1 ? uri.slice(commaIndex + 1) : '';
+        // Prefer Uint8Array which supabase-js accepts
+        uploadBody = base64ToUint8Array(base64Data);
+      } else if (Platform.OS === 'web') {
+        // Web can handle blob fetch
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        uploadBody = blob;
+      } else {
+        // Fallback: try arrayBuffer fetch; if not supported, bail out
+        const response = await fetch(uri);
+        const arrayBuffer = await (response as any).arrayBuffer?.();
+        if (!arrayBuffer) {
+          console.error('Unable to read file for upload in native environment');
+          return undefined;
+        }
+        uploadBody = arrayBuffer as ArrayBuffer;
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('profile-images')
+        .upload(fileName, uploadBody as any, { contentType, upsert: true });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        return undefined;
+      }
+
+      const { data } = supabase.storage.from('profile-images').getPublicUrl(fileName);
+      return data.publicUrl;
+    } catch (err) {
+      console.error('Failed to upload image:', err);
+      return undefined;
+    }
+  };
+
+  const handleSave = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+
+    try {
+      // Guard against missing Supabase configuration in preview-safe mode
+      if (!supabase || !(supabase as any).auth || !(supabase as any).from) {
+        throw new Error('Backend not configured');
+      }
+
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Upload images if needed
+      const profileImageUri = typeof profileImage === 'string' ? profileImage : undefined;
+      const bannerUri = (bannerImage as any)?.uri as string | undefined;
+
+      const uploadedAvatarUrl = await uploadImageIfNeeded(profileImageUri, 'avatar', user.id);
+      const uploadedBannerUrl = await uploadImageIfNeeded(bannerUri, 'banner', user.id);
+
+      // Prepare payload for social_links using actual schema columns
+      const payload: Record<string, any> = {
+        id: user.id,
+        bio: bio?.trim() || null,
+        instagram: instagram?.trim() || null,
+        x_twitter: twitter?.trim() || null,
+        linkedin: linkedin?.trim() || null,
+        profile_pic_url: uploadedAvatarUrl || null,
+        banner_url: uploadedBannerUrl || null,
+      };
+
+      const { error: upsertError } = await supabase
+        .from('social_links')
+        .upsert(payload, { onConflict: 'id' });
+
+      if (upsertError) {
+        throw upsertError;
+      }
+
+      // Success UI
+      clearSuccessTimeout();
+      if (mountedRef.current) {
+        setShowSuccess(true);
+        successTimeoutRef.current = setTimeout(() => {
+          if (mountedRef.current) {
+            setShowSuccess(false);
+            router.replace('/feed');
+            successTimeoutRef.current = null;
+          }
+        }, 800);
+      }
+    } catch (error: any) {
+      console.error('Error saving social profile:', error);
+      const message =
+        error?.message === 'Backend not configured'
+          ? 'Backend not configured. Please set Supabase env variables.'
+          : 'Failed to save profile. Please try again.';
+      if (mountedRef.current) {
+        setShowSuccess(false);
+      }
+      // Optionally surface message via a lightweight inline mechanism in the future
+    } finally {
+      if (mountedRef.current) {
+        setIsSaving(false);
+      }
+    }
   };
 
   const handleSkip = () => {
@@ -214,8 +386,17 @@ const CompleteProfileScreen: React.FC = () => {
           <Pressable style={[styles.actionButton, styles.cancelButton]} onPress={handleSkip} accessibilityRole="button">
             <Text style={[styles.actionLabel, styles.cancelLabel]}>Skip</Text>
           </Pressable>
-          <Pressable style={[styles.actionButton, styles.saveButton]} onPress={handleSave} accessibilityRole="button">
-            <Text style={styles.actionLabel}>Save</Text>
+          <Pressable
+            style={[
+              styles.actionButton,
+              styles.saveButton,
+              (!supabaseReady || isSaving) && { opacity: 0.5 },
+            ]}
+            onPress={handleSave}
+            disabled={!supabaseReady || isSaving}
+            accessibilityRole="button"
+          >
+            <Text style={styles.actionLabel}>{isSaving ? 'Saving…' : 'Save'}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -355,6 +536,7 @@ const styles = StyleSheet.create({
   actionButton: { flex: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderWidth: 1 },
   cancelButton: { backgroundColor: '#000000', borderColor: 'rgba(148, 163, 184, 0.35)' },
   saveButton: { backgroundColor: '#6d28d9', borderColor: '#6d28d9' },
+  disabledButton: { opacity: 0.5 },
   actionLabel: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
   cancelLabel: { color: '#cbd5f5' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center' },
