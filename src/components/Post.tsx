@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, Text, View, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import ConfirmDialog from './ConfirmDialog';
@@ -80,10 +80,12 @@ export const Post: React.FC<PostProps> = ({
 
   const handleOpenLink = useCallback(async (url: string) => {
     try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
+      if (Platform.OS === 'web') {
+        // On web, directly open in new tab to avoid canOpenURL limitations
+        window.open(url, '_blank', 'noopener,noreferrer');
+        return;
       }
+      await Linking.openURL(url);
     } catch (error) {
       console.warn('Unable to open url', error);
     }
@@ -167,6 +169,7 @@ export const Post: React.FC<PostProps> = ({
                   accessibilityRole="button"
                   accessibilityLabel={meta.label}
                   onPress={() => handleOpenLink(url)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={styles.socialButton}
                 >
                   {id === 'instagram' ? (
@@ -270,8 +273,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 8,
-    // allow touches to pass through outside of badges
-    pointerEvents: 'box-none',
+    // Ensure clickable on web by stacking above content
+    zIndex: 5,
   },
   menuButton: {
     position: 'absolute',
@@ -289,6 +292,8 @@ const styles = StyleSheet.create({
   },
   socialButton: {
     marginLeft: 12,
+    // Improve web UX: show pointer cursor on hover
+    cursor: 'pointer',
   },
   socialBadge: {
     width: 32,
