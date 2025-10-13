@@ -6,18 +6,24 @@ import { getFeedPosts, PostWithAuthor } from '../lib/database';
 import Post from './Post';
 
 export const FeedList: React.FC = () => {
-  const { selectedAccounts } = useVisibility();
+  const { selectedAccounts, isVisible, locationPermissionDenied } = useVisibility();
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadPosts();
-  }, []);
+  }, [isVisible, locationPermissionDenied]);
 
   const loadPosts = async () => {
     setLoading(true);
     setError(null);
+
+    if (!isVisible || locationPermissionDenied) {
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
 
     const { posts: fetchedPosts, error: fetchError } = await getFeedPosts();
 
@@ -70,11 +76,20 @@ export const FeedList: React.FC = () => {
     );
   }
 
+  if (!isVisible || locationPermissionDenied) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.emptyText}>Location visibility required</Text>
+        <Text style={styles.emptySubtext}>Enable visibility to see nearby posts</Text>
+      </View>
+    );
+  }
+
   if (posts.length === 0) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <Text style={styles.emptyText}>No posts yet</Text>
-        <Text style={styles.emptySubtext}>Be the first to create a post!</Text>
+        <Text style={styles.emptyText}>No posts nearby</Text>
+        <Text style={styles.emptySubtext}>No posts from nearby users yet</Text>
       </View>
     );
   }
