@@ -837,6 +837,18 @@ export async function updateAllConversationAnonymity(): Promise<{ success: boole
       return { success: false, error: new Error('Not authenticated') };
     }
 
+    const { data: myLocation, error: myLocError } = await supabase
+      .from('locations')
+      .select('lat_short, long_short')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (myLocError) {
+      return { success: false, error: myLocError };
+    }
+
+    const myLocationActive = myLocation && myLocation.lat_short !== null && myLocation.long_short !== null;
+
     const { data: conversations, error: convError } = await supabase
       .from('conversations')
       .select('*')
@@ -852,9 +864,30 @@ export async function updateAllConversationAnonymity(): Promise<{ success: boole
 
     for (const conv of conversations) {
       const otherUserId = conv.user_a_id === user.id ? conv.user_b_id : conv.user_a_id;
-      const { isNearby } = await checkProximity(user.id, otherUserId);
 
-      const shouldBeAnonymous = !isNearby;
+      const { data: otherLocation, error: otherLocError } = await supabase
+        .from('locations')
+        .select('lat_short, long_short')
+        .eq('id', otherUserId)
+        .maybeSingle();
+
+      if (otherLocError) {
+        continue;
+      }
+
+      const otherLocationActive = otherLocation && otherLocation.lat_short !== null && otherLocation.long_short !== null;
+
+      let shouldBeAnonymous = true;
+
+      if (myLocationActive && otherLocationActive) {
+        const latDiff = Math.abs(myLocation.lat_short - otherLocation.lat_short);
+        const longDiff = Math.abs(myLocation.long_short - otherLocation.long_short);
+        const isNearby = latDiff <= 0.01 && longDiff <= 0.01;
+
+        if (isNearby) {
+          shouldBeAnonymous = false;
+        }
+      }
 
       await updateConversationAnonymity(
         conv.id,

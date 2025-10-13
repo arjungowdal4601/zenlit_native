@@ -62,19 +62,6 @@ const MessagesScreen: React.FC = () => {
     };
   });
 
-  if (!isVisible || locationPermissionDenied) {
-    return (
-      <View style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor="#000000" />
-        <AppHeader title="Messages" />
-        <View style={styles.centerContainer}>
-          <Text style={styles.emptyText}>Location visibility is required to view messages</Text>
-        </View>
-        <Navigation activePath="/messages" />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
