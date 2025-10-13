@@ -18,15 +18,17 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import Navigation from '../../src/components/Navigation';
 import Post from '../../src/components/Post';
 import {
-  mockPosts,
-  mockUser,
-  type MockPost,
-} from '../../src/constants/profileMock';
-import {
   SOCIAL_PLATFORMS,
   ensureSocialUrl,
   type SocialPlatformId,
 } from '../../src/constants/socialPlatforms';
+import {
+  getProfileById,
+  getUserPosts,
+  type Profile,
+  type SocialLinks,
+  type Post as DbPost,
+} from '../../src/lib/database';
 
 const FALLBACK_BANNER =
   'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1600&q=80';
@@ -53,10 +55,10 @@ const formatDate = (value: string) => {
   });
 };
 
-const SOCIAL_ORDER: Array<{ id: SocialPlatformId; key: 'instagram' | 'linkedin' | 'x' }> = [
+const SOCIAL_ORDER: Array<{ id: SocialPlatformId; key: 'instagram' | 'linkedin' | 'twitter' }> = [
   { id: 'instagram', key: 'instagram' },
   { id: 'linkedin', key: 'linkedin' },
-  { id: 'twitter', key: 'x' },
+  { id: 'twitter', key: 'twitter' },
 ];
 
 const resolveImageSource = (uri?: string | null, fallback?: string): ImageSourcePropType => {
@@ -69,48 +71,73 @@ const resolveImageSource = (uri?: string | null, fallback?: string): ImageSource
   return { uri: FALLBACK_AVATAR };
 };
 
-const normaliseRequestedId = (raw: string | undefined) => (raw ?? '').trim();
-
-const deriveHandle = (rawId: string): string => {
-  const base = rawId.replace(/^@/, '');
-  if (/^\d+$/.test(base)) {
-    return `user${base}`;
-  }
-  return base.length > 0 ? base : mockUser.handle;
-};
-
 const UserProfileScreen: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [socialLinks, setSocialLinks] = useState<SocialLinks | null>(null);
+  const [posts, setPosts] = useState<DbPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const requestedId = useMemo(() => {
     const value = params.id;
     const asString = Array.isArray(value) ? value[0] : value;
-    return normaliseRequestedId(asString);
+    return (asString ?? '').trim();
   }, [params.id]);
 
-  const displayUser = useMemo(() => {
-    if (
-      requestedId.length === 0 ||
-      requestedId === mockUser.id ||
-      requestedId === mockUser.handle
-    ) {
-      return mockUser;
-    }
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!requestedId) {
+        setLoading(false);
+        return;
+      }
 
-    return {
-      ...mockUser,
-      id: requestedId,
-      handle: deriveHandle(requestedId),
+      setLoading(true);
+      setError(null);
+
+      const { profile: profileData, socialLinks: socialData, error: profileError } = await getProfileById(requestedId);
+
+      if (profileError || !profileData) {
+        setError('Profile not found');
+        setLoading(false);
+        return;
+      }
+
+      setProfile(profileData);
+      setSocialLinks(socialData);
+
+      const { posts: postsData, error: postsError } = await getUserPosts(requestedId);
+
+      if (postsError) {
+        setError('Error loading posts');
+      } else {
+        setPosts(postsData);
+      }
+
+      setLoading(false);
     };
+
+    loadProfile();
   }, [requestedId]);
 
-  const bannerSource = resolveImageSource(displayUser.banner, FALLBACK_BANNER);
-  const avatarSource = resolveImageSource(displayUser.avatar, FALLBACK_AVATAR);
+  const bannerSource = useMemo(
+    () => resolveImageSource(socialLinks?.banner_url, FALLBACK_BANNER),
+    [socialLinks?.banner_url]
+  );
+
+  const avatarSource = useMemo(
+    () => resolveImageSource(socialLinks?.profile_pic_url, FALLBACK_AVATAR),
+    [socialLinks?.profile_pic_url]
+  );
 
   const socialEntries = useMemo(() => {
+    if (!socialLinks) {
+      return SOCIAL_ORDER.map(({ id }) => ({ id, url: null, disabled: true }));
+    }
+
     return SOCIAL_ORDER.map(({ id, key }) => {
-      const handle = displayUser.socials[key];
+      const handle = key === 'twitter' ? socialLinks.x_twitter : socialLinks[key];
       const url = ensureSocialUrl(id, handle);
       return {
         id,
@@ -118,52 +145,55 @@ const UserProfileScreen: React.FC = () => {
         disabled: !url,
       };
     });
-  }, [displayUser.socials]);
-
-  const initialPosts = useMemo(() =>
-    mockPosts.map<MockPost>((post) => ({
-      ...post,
-      authorName: displayUser.name,
-      authorHandle: displayUser.handle,
-    })),
-    [displayUser.handle, displayUser.name],
-  );
-
-  const [posts, setPosts] = useState<MockPost[]>(initialPosts);
-
-  useEffect(() => {
-    setPosts(initialPosts);
-  }, [initialPosts]);
-
-  const handleDeletePost = useCallback((postId: string) => {
-    setPosts((prev) => prev.filter((post) => post.id !== postId));
-  }, []);
+  }, [socialLinks]);
 
   const renderPost = useCallback(
-    ({ item }: { item: MockPost }) => {
+    ({ item }: { item: DbPost }) => {
+      if (!profile || !socialLinks) return null;
+
       const feedPost = {
         id: item.id,
         author: {
-          name: item.authorName,
-          username: item.authorHandle,
-          avatar: displayUser.avatar,
+          name: profile.display_name,
+          username: profile.user_name,
+          avatar: socialLinks.profile_pic_url || undefined,
           socialLinks: {
-            instagram: displayUser.socials.instagram,
-            linkedin: displayUser.socials.linkedin,
-            twitter: displayUser.socials.x,
+            instagram: socialLinks.instagram,
+            linkedin: socialLinks.linkedin,
+            twitter: socialLinks.x_twitter,
           },
         },
-        content: item.text,
-        image: item.image ?? undefined,
-        timestamp: formatDate(item.dateISO),
+        content: item.content,
+        image: item.image_url ?? undefined,
+        timestamp: formatDate(item.created_at),
       };
 
       return <Post post={feedPost} showSocialLinks={false} />;
     },
-    [displayUser.avatar, displayUser.socials],
+    [profile, socialLinks],
   );
 
-  const activePath = `/profile/${requestedId.length > 0 ? requestedId : displayUser.id}`;
+  const activePath = `/profile/${requestedId}`;
+
+  if (loading) {
+    return (
+      <View style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <Text style={{ color: '#94a3b8', fontSize: 16 }}>Loading profile...</Text>
+        <Navigation activePath={activePath} />
+      </View>
+    );
+  }
+
+  if (error || !profile) {
+    return (
+      <View style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
+        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <Text style={{ color: '#ef4444', fontSize: 16 }}>{error || 'Profile not found'}</Text>
+        <Navigation activePath={activePath} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>
@@ -253,11 +283,11 @@ const UserProfileScreen: React.FC = () => {
             </View>
 
             <View style={styles.identityBlock}>
-              <Text style={styles.name}>{displayUser.name}</Text>
-              <Text style={styles.handle}>@{displayUser.handle}</Text>
+              <Text style={styles.name}>{profile.display_name}</Text>
+              <Text style={styles.handle}>@{profile.user_name}</Text>
             </View>
 
-            <Text style={styles.bio}>{displayUser.bio}</Text>
+            <Text style={styles.bio}>{socialLinks?.bio || 'No bio yet'}</Text>
 
             <View style={{ marginLeft: -24, marginRight: -24, marginTop: 6 }}>
               <View style={styles.divider} />

@@ -2,15 +2,38 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import type { Thread } from '../../constants/messagesData';
-import {
-  formatDayLabel,
-  formatMessageTime,
-  getLastMessageForThread,
-} from '../../constants/messagesData';
 import ChatListItem from './ChatListItem';
 import EmptyState from './EmptyState';
 import SkeletonRows from './Skeletons';
+
+export type Thread = {
+  id: string;
+  peer: {
+    id: string;
+    name: string;
+    avatar: string;
+  };
+  isAnonymous: boolean;
+  lastMessageAt: string;
+  unreadCount?: number;
+};
+
+const formatDayLabel = (isoDate: string): string => {
+  const date = new Date(isoDate);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return date.toLocaleDateString(undefined, { weekday: 'long' });
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const formatMessageTime = (isoDate: string): string => {
+  const date = new Date(isoDate);
+  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
+};
 
 export type ChatListProps = {
   threads: Thread[];
@@ -55,15 +78,6 @@ const ChatList: React.FC<ChatListProps> = ({ threads, onPressThread }) => {
     return sameDay ? formatMessageTime(iso) : formatDayLabel(iso);
   };
 
-  const previewFor = (threadId: string) => {
-    const last = getLastMessageForThread(threadId);
-    if (!last) {
-      return '';
-    }
-    const prefix = last.fromMe ? 'You: ' : '';
-    return `${prefix}${last.text}`;
-  };
-
   if (loading) {
     return (
       <View style={styles.sectionContainer}>
@@ -82,7 +96,7 @@ const ChatList: React.FC<ChatListProps> = ({ threads, onPressThread }) => {
             <ChatListItem
               key={thread.id}
               title={thread.peer.name}
-              subtitle={previewFor(thread.id)}
+              subtitle="Tap to view conversation"
               timeLabel={timeLabelFor(thread.lastMessageAt)}
               unreadCount={thread.unreadCount || undefined}
               avatarUrl={thread.peer.avatar}
@@ -109,7 +123,7 @@ const ChatList: React.FC<ChatListProps> = ({ threads, onPressThread }) => {
             <ChatListItem
               key={thread.id}
               title={thread.peer.name}
-              subtitle={previewFor(thread.id)}
+              subtitle="Tap to view conversation"
               timeLabel={timeLabelFor(thread.lastMessageAt)}
               unreadCount={thread.unreadCount || undefined}
               isAnonymous
