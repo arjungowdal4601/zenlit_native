@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { PropsWithChildren } from 'react';
+import { Platform } from 'react-native';
 
 import type { SocialPlatformId } from '../constants/socialPlatforms';
 import { DEFAULT_VISIBLE_PLATFORMS } from '../constants/socialPlatforms';
+import { updateUserLocation, deleteUserLocation } from '../lib/database';
 
 type VisibilityContextValue = {
   isVisible: boolean;
@@ -31,6 +33,35 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
   const [selectedAccounts, setSelectedAccounts] = useState<SocialPlatformId[]>(
     [...DEFAULT_VISIBLE_PLATFORMS],
   );
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      handleLocationUpdate();
+    }
+  }, [isVisible]);
+
+  const handleLocationUpdate = async () => {
+    if (isVisible) {
+      if (Platform.OS === 'web' && 'geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords;
+            await updateUserLocation(latitude, longitude);
+          },
+          (error) => {
+            console.warn('Geolocation error:', error);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0,
+          }
+        );
+      }
+    } else {
+      await deleteUserLocation();
+    }
+  };
 
   const toggleAccount = (platformId: SocialPlatformId) => {
     setSelectedAccounts((prev) =>

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   StatusBar,
   StyleSheet,
@@ -13,38 +14,61 @@ import { AppHeader } from '../src/components/AppHeader';
 import Navigation from '../src/components/Navigation';
 import { SocialProfileCard } from '../src/components/SocialProfileCard';
 import VisibilitySheet from '../src/components/VisibilitySheet';
-import { NEARBY_USERS } from '../src/constants/nearbyUsers';
 import { useVisibility } from '../src/contexts/VisibilityContext';
 import { theme } from '../src/styles/theme';
+import { getNearbyUsers, type NearbyUserData } from '../src/lib/database';
 
 const DEBOUNCE_DELAY = 120;
 
 type SearchableUser = {
-  user: (typeof NEARBY_USERS)[number];
+  user: NearbyUserData;
   lowerName: string;
   lowerUsername: string;
   lowerHandle: string;
 };
 
 const RadarScreen: React.FC = () => {
-  const { selectedAccounts } = useVisibility();
+  const { selectedAccounts, isVisible } = useVisibility();
   const insets = useSafeAreaInsets();
 
   const [isSearchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [isSheetVisible, setSheetVisible] = useState(false);
+  const [nearbyUsers, setNearbyUsers] = useState<NearbyUserData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    loadNearbyUsers();
+  }, [isVisible]);
+
+  const loadNearbyUsers = async () => {
+    setLoading(true);
+    setError(null);
+
+    const { users, error: fetchError } = await getNearbyUsers();
+
+    if (fetchError) {
+      setError(fetchError.message);
+      setNearbyUsers([]);
+    } else {
+      setNearbyUsers(users);
+    }
+
+    setLoading(false);
+  };
 
   const searchableUsers = useMemo<SearchableUser[]>(
     () =>
-      NEARBY_USERS.map((user) => ({
+      nearbyUsers.map((user) => ({
         user,
         lowerName: user.name.toLowerCase(),
         lowerUsername: user.username.toLowerCase(),
         lowerHandle: `@${user.username.toLowerCase()}`,
       })),
-    [],
+    [nearbyUsers],
   );
 
   useEffect(() => {
@@ -85,11 +109,11 @@ const RadarScreen: React.FC = () => {
 
   const filteredUsers = useMemo(() => {
     if (!hasQuery) {
-      return NEARBY_USERS;
+      return nearbyUsers;
     }
 
     return matchingUsers.map((entry) => entry.user);
-  }, [hasQuery, matchingUsers]);
+  }, [hasQuery, matchingUsers, nearbyUsers]);
 
   const closeSearch = useCallback(() => {
     setSearchOpen(false);
@@ -143,7 +167,18 @@ const RadarScreen: React.FC = () => {
         </View>
       ) : null}
 
-      <FlatList
+      {loading ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#60a5fa" />
+          <Text style={styles.loadingText}>Finding nearby users...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>Error loading nearby users</Text>
+          <Text style={styles.errorDetail}>{error}</Text>
+        </View>
+      ) : (
+        <FlatList
         data={filteredUsers}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
@@ -168,9 +203,17 @@ const RadarScreen: React.FC = () => {
                 Try a different name or handle.
               </Text>
             </View>
-          ) : null
+          ) : (
+            <View style={styles.listEmpty}>
+              <Text style={styles.listEmptyTitle}>No nearby users</Text>
+              <Text style={styles.listEmptySubtitle}>
+                No one is visible within your area at the moment.
+              </Text>
+            </View>
+          )
         }
       />
+      )}
 
       <Navigation activePath="/radar" />
 
@@ -201,6 +244,28 @@ const styles = StyleSheet.create({
     color: theme.colors.text,
     fontSize: 16,
   },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  loadingText: {
+    color: '#94a3b8',
+    fontSize: 16,
+    marginTop: 12,
+  },
+  errorText: {
+    color: '#ef4444',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  errorDetail: {
+    color: '#94a3b8',
+    fontSize: 14,
+    textAlign: 'center',
+  },
   listEmpty: {
     paddingVertical: 48,
     alignItems: 'center',
@@ -214,6 +279,7 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 14,
     marginTop: 6,
+    textAlign: 'center',
   },
 });
 
