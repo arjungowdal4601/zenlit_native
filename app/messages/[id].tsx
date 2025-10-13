@@ -131,7 +131,7 @@ const ChatDetailScreen: React.FC = () => {
       listRef.current?.scrollToEnd({ animated: false });
     }, 0);
     return () => clearTimeout(timeout);
-  }, [thread?.id]);
+  }, [conversationId]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {

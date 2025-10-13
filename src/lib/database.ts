@@ -519,8 +519,8 @@ export async function getNearbyUsers(): Promise<{ users: NearbyUserData[]; error
 }
 
 export async function uploadImage(
-  file: Blob | File | ArrayBuffer | Uint8Array,
-  bucket: 'profile-images' | 'post-images',
+  fileOrUri: Blob | File | ArrayBuffer | Uint8Array | string,
+  bucket: 'profile-images' | 'post-images' | 'feedback-images',
   fileName: string
 ): Promise<{ url: string | null; error: Error | null }> {
   try {
@@ -530,11 +530,21 @@ export async function uploadImage(
       return { url: null, error: new Error('Not authenticated') };
     }
 
+    let fileToUpload: Blob | File | ArrayBuffer | Uint8Array;
+
+    if (typeof fileOrUri === 'string') {
+      const response = await fetch(fileOrUri);
+      const blob = await response.blob();
+      fileToUpload = blob;
+    } else {
+      fileToUpload = fileOrUri;
+    }
+
     const filePath = `${user.id}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(filePath, file as any, {
+      .upload(filePath, fileToUpload as any, {
         upsert: true,
       });
 

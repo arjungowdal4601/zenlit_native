@@ -8,6 +8,7 @@ import { SOCIAL_PLATFORMS, extractUsername } from '../src/constants/socialPlatfo
 import GradientTitle from '../src/components/GradientTitle';
 import { supabase } from '../src/lib/supabase';
 import { getCurrentUserProfile, updateSocialLinks, uploadImage } from '../src/lib/database';
+import { compressImage } from '../src/utils/imageCompression';
 
 const EditProfileScreen: React.FC = () => {
   const router = useRouter();
@@ -76,6 +77,31 @@ const EditProfileScreen: React.FC = () => {
   };
 
   const uploadImageIfNeeded = async (uri: string | null | undefined, filePrefix: 'avatar' | 'banner', userId: string): Promise<string | undefined> => {
+    try {
+      if (!uri) return undefined;
+      const isRemote = uri.startsWith('http');
+      const isLocal = uri.startsWith('file:') || uri.startsWith('data:') || uri.startsWith('blob:');
+
+      if (isRemote && !isLocal) {
+        return uri;
+      }
+
+      const compressed = await compressImage(uri);
+      const fileName = `${userId}/${filePrefix}-${Date.now()}.jpg`;
+      const { url, error } = await uploadImage(compressed.uri, 'profile-images', fileName);
+
+      if (error || !url) {
+        throw error ?? new Error('Upload failed');
+      }
+
+      return url;
+    } catch (error) {
+      console.error('Failed to upload image:', error);
+      return undefined;
+    }
+  };
+
+  const uploadImageIfNeededOld = async (uri: string | null | undefined, filePrefix: 'avatar' | 'banner', userId: string): Promise<string | undefined> => {
     try {
       if (!uri) return undefined;
       const isRemote = uri.startsWith('http');
