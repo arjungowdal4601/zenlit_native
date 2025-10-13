@@ -28,7 +28,7 @@ type SearchableUser = {
 };
 
 const RadarScreen: React.FC = () => {
-  const { selectedAccounts, isVisible } = useVisibility();
+  const { selectedAccounts, isVisible, locationPermissionDenied } = useVisibility();
   const insets = useSafeAreaInsets();
 
   const [isSearchOpen, setSearchOpen] = useState(false);
@@ -41,8 +41,14 @@ const RadarScreen: React.FC = () => {
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    loadNearbyUsers();
-  }, [isVisible]);
+    if (!isVisible || locationPermissionDenied) {
+      setNearbyUsers([]);
+      setLoading(false);
+      setError(null);
+    } else {
+      loadNearbyUsers();
+    }
+  }, [isVisible, locationPermissionDenied]);
 
   const loadNearbyUsers = async () => {
     setLoading(true);
@@ -167,7 +173,21 @@ const RadarScreen: React.FC = () => {
         </View>
       ) : null}
 
-      {loading ? (
+      {locationPermissionDenied ? (
+        <View style={styles.centerContainer}>
+          <Text style={styles.warningText}>Location access is off</Text>
+          <Text style={styles.warningDetail}>
+            Turn on location access in your browser to appear on radar and see nearby users.
+          </Text>
+        </View>
+      ) : !isVisible ? (
+        <View style={styles.centerContainer}>
+          <Text style={styles.warningText}>Radar visibility is off</Text>
+          <Text style={styles.warningDetail}>
+            Turn on visibility to appear on radar and see nearby users.
+          </Text>
+        </View>
+      ) : loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#60a5fa" />
           <Text style={styles.loadingText}>Finding nearby users...</Text>
@@ -265,6 +285,18 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 14,
     textAlign: 'center',
+  },
+  warningText: {
+    color: '#f59e0b',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  warningDetail: {
+    color: '#94a3b8',
+    fontSize: 14,
+    textAlign: 'center',
+    paddingHorizontal: 24,
   },
   listEmpty: {
     paddingVertical: 48,

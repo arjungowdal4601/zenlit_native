@@ -359,8 +359,14 @@ export async function deleteUserLocation(): Promise<{ success: boolean; error: E
 
     const { error } = await supabase
       .from('locations')
-      .delete()
-      .eq('id', user.id);
+      .upsert({
+        id: user.id,
+        lat_full: null,
+        long_full: null,
+        lat_short: null,
+        long_short: null,
+        updated_at: new Date().toISOString(),
+      });
 
     if (error) {
       return { success: false, error };
@@ -403,6 +409,8 @@ export async function getNearbyUsers(): Promise<{ users: NearbyUserData[]; error
       .from('locations')
       .select('id')
       .neq('id', user.id)
+      .not('lat_short', 'is', null)
+      .not('long_short', 'is', null)
       .gte('lat_short', latMin)
       .lte('lat_short', latMax)
       .gte('long_short', longMin)
