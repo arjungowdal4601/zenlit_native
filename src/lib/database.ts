@@ -160,7 +160,9 @@ export async function getFeedPosts(limit = 50): Promise<{ posts: PostWithAuthor[
       return { posts: [], error: null };
     }
 
-    const nearbyUserIds = nearbyLocations.map((loc) => loc.id);
+    const nearbyUserIds: string[] = (nearbyLocations as Array<{ id: string }>).map(
+      (loc: { id: string }) => loc.id
+    );
 
     const { data: postsData, error: postsError } = await supabase
       .from('posts')
@@ -177,7 +179,7 @@ export async function getFeedPosts(limit = 50): Promise<{ posts: PostWithAuthor[
       return { posts: [], error: null };
     }
 
-    const userIds = [...new Set(postsData.map((p: Post) => p.user_id))];
+    const userIds: string[] = [...new Set((postsData as Post[]).map((p: Post) => p.user_id))];
 
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
@@ -193,10 +195,17 @@ export async function getFeedPosts(limit = 50): Promise<{ posts: PostWithAuthor[
       .select('*')
       .in('id', userIds);
 
-    const profilesMap = new Map(profiles?.map((p: Profile) => [p.id, p]) || []);
-    const socialLinksMap = new Map(socialLinks?.map((s: SocialLinks) => [s.id, s]) || []);
+    const profilesArr: Profile[] = (profiles || []) as Profile[];
+    const socialArr: SocialLinks[] = (socialLinks || []) as SocialLinks[];
 
-    const postsWithAuthors: PostWithAuthor[] = postsData.map((post: Post) => ({
+    const profilesMap: Map<string, Profile> = new Map(
+      profilesArr.map((p) => [p.id, p])
+    );
+    const socialLinksMap: Map<string, SocialLinks> = new Map(
+      socialArr.map((s) => [s.id, s])
+    );
+
+    const postsWithAuthors: PostWithAuthor[] = (postsData as Post[]).map((post: Post) => ({
       ...post,
       author: {
         ...profilesMap.get(post.user_id)!,
@@ -493,7 +502,9 @@ export async function getNearbyUsers(): Promise<{ users: NearbyUserData[]; error
       return { users: [], error: null };
     }
 
-    const nearbyUserIds = nearbyLocations.map((loc) => loc.id);
+    const nearbyUserIds: string[] = (nearbyLocations as Array<{ id: string }>).map(
+      (loc: { id: string }) => loc.id
+    );
 
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
@@ -509,31 +520,40 @@ export async function getNearbyUsers(): Promise<{ users: NearbyUserData[]; error
       .select('*')
       .in('id', nearbyUserIds);
 
-    const profilesMap = new Map(profiles?.map((p: Profile) => [p.id, p]) || []);
-    const socialLinksMap = new Map(socialLinks?.map((s: SocialLinks) => [s.id, s]) || []);
+    const profilesArr: Profile[] = (profiles || []) as Profile[];
+    const socialArr: SocialLinks[] = (socialLinks || []) as SocialLinks[];
 
-    const nearbyUsers: NearbyUserData[] = nearbyUserIds.map((userId) => {
-      const profile = profilesMap.get(userId);
-      const social = socialLinksMap.get(userId);
+    const profilesMap: Map<string, Profile> = new Map(
+      profilesArr.map((p) => [p.id, p])
+    );
+    const socialLinksMap: Map<string, SocialLinks> = new Map(
+      socialArr.map((s) => [s.id, s])
+    );
 
-      if (!profile) {
-        return null;
-      }
+    const nearbyUsers: NearbyUserData[] = nearbyUserIds
+      .map<NearbyUserData | null>((userId: string) => {
+        const profile = profilesMap.get(userId);
+        const social = socialLinksMap.get(userId);
 
-      return {
-        id: profile.id,
-        name: profile.display_name,
-        username: profile.user_name,
-        profilePhoto: social?.profile_pic_url || null,
-        bio: social?.bio || null,
-        distance: 'Nearby',
-        socialLinks: {
-          instagram: social?.instagram || null,
-          linkedin: social?.linkedin || null,
-          twitter: social?.x_twitter || null,
-        },
-      };
-    }).filter((user): user is NearbyUserData => user !== null);
+        if (!profile) {
+          return null;
+        }
+
+        return {
+          id: profile.id,
+          name: profile.display_name,
+          username: profile.user_name,
+          profilePhoto: social?.profile_pic_url || null,
+          bio: social?.bio || null,
+          distance: 'Nearby',
+          socialLinks: {
+            instagram: social?.instagram || null,
+            linkedin: social?.linkedin || null,
+            twitter: social?.x_twitter || null,
+          },
+        };
+      })
+      .filter((user: NearbyUserData | null): user is NearbyUserData => user !== null);
 
     return { users: nearbyUsers, error: null };
   } catch (error) {
@@ -550,12 +570,16 @@ export async function deleteImageFromStorage(
   }
 
   try {
-    const urlParts = imageUrl.split('/');
-    const fileName = urlParts.slice(-2).join('/');
+    // Extract path relative to the bucket root, handling any nesting depth
+    // Expected public URL: .../storage/v1/object/public/<bucket>/<path>
+    const cleanUrl = imageUrl.split('?')[0];
+    const regex = new RegExp(`/storage/v1/object/public/${bucket}/(.+)$`);
+    const match = cleanUrl.match(regex);
+    const filePath = match && match[1] ? match[1] : cleanUrl.split('/').slice(-2).join('/');
 
     const { error } = await supabase.storage
       .from(bucket)
-      .remove([fileName]);
+      .remove([filePath]);
 
     if (error) {
       console.error('Error deleting image:', error);
@@ -571,7 +595,8 @@ export async function deleteImageFromStorage(
 export async function uploadImage(
   fileOrUri: Blob | File | ArrayBuffer | Uint8Array | string,
   bucket: 'profile-images' | 'post-images' | 'feedback-images',
-  fileName: string
+  fileName: string,
+  options?: { contentType?: string }
 ): Promise<{ url: string | null; error: Error | null }> {
   try {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -590,13 +615,24 @@ export async function uploadImage(
       fileToUpload = fileOrUri;
     }
 
+    const uploadPayload =
+      fileToUpload instanceof Uint8Array
+        ? fileToUpload.buffer
+        : fileToUpload;
+
+    const uploadOptions: { upsert: boolean; contentType?: string } = {
+      upsert: true,
+    };
+
+    if (options?.contentType) {
+      uploadOptions.contentType = options.contentType;
+    }
+
     const filePath = `${user.id}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(filePath, fileToUpload as any, {
-        upsert: true,
-      });
+      .upload(filePath, uploadPayload as any, uploadOptions);
 
     if (uploadError) {
       return { url: null, error: uploadError };

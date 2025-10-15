@@ -87,6 +87,7 @@ const CompleteProfileScreen: React.FC = () => {
         contentType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
       }
 
+      // Store under the user's directory for consistency
       const fileName = `${userId}/${filePrefix}-${Date.now()}.${ext}`;
 
       // Helper to decode base64 to Uint8Array (no atob reliance)

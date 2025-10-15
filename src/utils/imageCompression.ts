@@ -21,6 +21,19 @@ async function getImageSize(uri: string): Promise<number> {
 
 export async function compressImage(uri: string): Promise<CompressedImage> {
   try {
+    if (uri.startsWith('data:')) {
+      const base64Match = uri.match(/^data:(.*?);base64,(.+)$/);
+      if (base64Match && base64Match[2]) {
+        return {
+          uri,
+          width: 0,
+          height: 0,
+          base64: base64Match[2],
+        };
+      }
+      throw new Error('Invalid data URI supplied for image compression');
+    }
+
     let quality = 0.9;
     let currentUri = uri;
     let currentSize = await getImageSize(uri);
@@ -29,7 +42,7 @@ export async function compressImage(uri: string): Promise<CompressedImage> {
       const result = await ImageManipulator.manipulateAsync(
         uri,
         [],
-        { compress: quality, format: ImageManipulator.SaveFormat.JPEG }
+        { compress: quality, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
       return result;
     }
@@ -38,7 +51,7 @@ export async function compressImage(uri: string): Promise<CompressedImage> {
       const result = await ImageManipulator.manipulateAsync(
         currentUri,
         [],
-        { compress: quality, format: ImageManipulator.SaveFormat.JPEG }
+        { compress: quality, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
 
       currentUri = result.uri;
@@ -56,7 +69,7 @@ export async function compressImage(uri: string): Promise<CompressedImage> {
       const result = await ImageManipulator.manipulateAsync(
         uri,
         [{ resize: { width: maxDimension } }],
-        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG, base64: true }
       );
 
       currentUri = result.uri;
@@ -67,7 +80,7 @@ export async function compressImage(uri: string): Promise<CompressedImage> {
         return await ImageManipulator.manipulateAsync(
           uri,
           [{ resize: { width: smallerDimension } }],
-          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
         );
       }
 
@@ -77,7 +90,7 @@ export async function compressImage(uri: string): Promise<CompressedImage> {
     const finalResult = await ImageManipulator.manipulateAsync(
       currentUri,
       [],
-      { compress: quality, format: ImageManipulator.SaveFormat.JPEG }
+      { compress: quality, format: ImageManipulator.SaveFormat.JPEG, base64: true }
     );
 
     return finalResult;

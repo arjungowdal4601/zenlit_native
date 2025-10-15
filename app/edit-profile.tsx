@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, Image, ImageSourcePropType, Platform, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, Image, ImageSourcePropType, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -29,6 +29,8 @@ const EditProfileScreen: React.FC = () => {
 
   const [pendingBannerRemoval, setPendingBannerRemoval] = useState(false);
   const [pendingProfileRemoval, setPendingProfileRemoval] = useState(false);
+  const [pendingBannerUpload, setPendingBannerUpload] = useState<string | null>(null);
+  const [pendingAvatarUpload, setPendingAvatarUpload] = useState<string | null>(null);
   const [oldBannerUrl, setOldBannerUrl] = useState<string | null>(null);
   const [oldProfileUrl, setOldProfileUrl] = useState<string | null>(null);
 
@@ -40,13 +42,48 @@ const EditProfileScreen: React.FC = () => {
   const [twitter, setTwitter] = useState('');
   const [linkedin, setLinkedin] = useState('');
 
-  const [showSuccess, setShowSuccess] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'info' | 'success' | 'warning' | 'error' } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showImageUploadDialog, setShowImageUploadDialog] = useState(false);
   const [uploadType, setUploadType] = useState<'avatar' | 'banner'>('avatar');
 
   const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+
+  const clearSuccessTimeout = useCallback(() => {
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = null;
+    }
+  }, []);
+
+  const clearToastTimeout = useCallback(() => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+      toastTimeoutRef.current = null;
+    }
+  }, []);
+
+  const showToastMessage = useCallback(
+    (message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info', duration = 2500) => {
+      clearToastTimeout();
+      if (!mountedRef.current) {
+        return;
+      }
+      setToast({ message, type });
+
+      if (duration > 0) {
+        toastTimeoutRef.current = setTimeout(() => {
+          if (mountedRef.current) {
+            setToast(null);
+            toastTimeoutRef.current = null;
+          }
+        }, duration);
+      }
+    },
+    [clearToastTimeout],
+  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -54,15 +91,9 @@ const EditProfileScreen: React.FC = () => {
     return () => {
       mountedRef.current = false;
       clearSuccessTimeout();
+      clearToastTimeout();
     };
-  }, []);
-
-  const clearSuccessTimeout = () => {
-    if (successTimeoutRef.current) {
-      clearTimeout(successTimeoutRef.current);
-      successTimeoutRef.current = null;
-    }
-  };
+  }, [clearSuccessTimeout, clearToastTimeout]);
 
   const loadUserData = async () => {
     setLoading(true);
@@ -96,6 +127,10 @@ const EditProfileScreen: React.FC = () => {
 
         setOldProfileUrl(profImg);
         setOldBannerUrl(socialLinks?.banner_url || null);
+        setPendingProfileRemoval(false);
+        setPendingBannerRemoval(false);
+        setPendingAvatarUpload(null);
+        setPendingBannerUpload(null);
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -106,65 +141,31 @@ const EditProfileScreen: React.FC = () => {
     }
   };
 
-  const uploadImageIfNeeded = async (uri: string | null | undefined, filePrefix: 'avatar' | 'banner', userId: string): Promise<string | undefined> => {
+  const uploadImageIfNeeded = async (uri: string | null | undefined, filePrefix: 'avatar' | 'banner', _userId: string): Promise<string | undefined> => {
     try {
       if (!uri) return undefined;
-      const isRemote = uri.startsWith('http');
-      const isLocal = uri.startsWith('file:') || uri.startsWith('data:') || uri.startsWith('blob:');
 
-      if (isRemote && !isLocal) {
-        return uri;
+      const normalizedUri = uri.trim();
+      if (!normalizedUri.length) {
+        return undefined;
       }
 
-      const compressed = await compressImage(uri);
-      const fileName = `${userId}/${filePrefix}-${Date.now()}.jpg`;
-      const { url, error } = await uploadImage(compressed.uri, 'profile-images', fileName);
+      const isRemote = normalizedUri.startsWith('http');
+      const isDataUri = normalizedUri.startsWith('data:');
 
-      if (error || !url) {
-        throw error ?? new Error('Upload failed');
+      if (isRemote && !isDataUri) {
+        return normalizedUri;
       }
-
-      return url;
-    } catch (error) {
-      console.error('Failed to upload image:', error);
-      return undefined;
-    }
-  };
-
-  const uploadImageIfNeededOld = async (uri: string | null | undefined, filePrefix: 'avatar' | 'banner', userId: string): Promise<string | undefined> => {
-    try {
-      if (!uri) return undefined;
-      const isRemote = uri.startsWith('http');
-      const isLocal = uri.startsWith('file:') || uri.startsWith('data:') || uri.startsWith('blob:');
-
-      if (isRemote && !isLocal) {
-        return uri;
-      }
-
-      const extMatch = uri.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
-      let contentType = 'image/jpeg';
-      let ext = (extMatch && extMatch[1]) ? extMatch[1].toLowerCase() : 'jpg';
-
-      if (uri.startsWith('data:')) {
-        const mimeMatch = uri.match(/^data:(.*?);base64,/);
-        if (mimeMatch && mimeMatch[1]) {
-          contentType = mimeMatch[1];
-          if (contentType.includes('png')) ext = 'png';
-          else if (contentType.includes('webp')) ext = 'webp';
-          else ext = 'jpg';
-        }
-      } else {
-        contentType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-      }
-
-      const fileName = `${userId}/${filePrefix}-${Date.now()}.${ext}`;
 
       const base64ToUint8Array = (b64: string): Uint8Array => {
         const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
         let bufferLength = b64.length * 0.75;
         const len = b64.length;
         let p = 0;
-        let encoded1, encoded2, encoded3, encoded4;
+        let encoded1: number;
+        let encoded2: number;
+        let encoded3: number;
+        let encoded4: number;
 
         if (b64[len - 1] === '=') bufferLength--;
         if (b64[len - 2] === '=') bufferLength--;
@@ -180,144 +181,267 @@ const EditProfileScreen: React.FC = () => {
           const triplet = (encoded1 << 18) | (encoded2 << 12) | ((encoded3 & 63) << 6) | (encoded4 & 63);
 
           if (b64[i + 2] === '=') {
-            bytes[p++] = (triplet >> 16) & 0xFF;
+            bytes[p++] = (triplet >> 16) & 0xff;
           } else if (b64[i + 3] === '=') {
-            bytes[p++] = (triplet >> 16) & 0xFF;
-            bytes[p++] = (triplet >> 8) & 0xFF;
+            bytes[p++] = (triplet >> 16) & 0xff;
+            bytes[p++] = (triplet >> 8) & 0xff;
           } else {
-            bytes[p++] = (triplet >> 16) & 0xFF;
-            bytes[p++] = (triplet >> 8) & 0xFF;
-            bytes[p++] = triplet & 0xFF;
+            bytes[p++] = (triplet >> 16) & 0xff;
+            bytes[p++] = (triplet >> 8) & 0xff;
+            bytes[p++] = triplet & 0xff;
           }
         }
         return bytes;
       };
 
-      let uploadBody: Uint8Array | Blob | ArrayBuffer;
+      let contentType = 'image/jpeg';
+      let extension = 'jpg';
+      let uploadBody: Uint8Array | string;
 
-      if (uri.startsWith('data:')) {
-        const commaIndex = uri.indexOf(',');
-        const base64Data = commaIndex !== -1 ? uri.slice(commaIndex + 1) : '';
-        uploadBody = base64ToUint8Array(base64Data);
-      } else if (Platform.OS === 'web') {
-        const response = await fetch(uri);
-        const blob = await response.blob();
-        uploadBody = blob;
-      } else {
-        const response = await fetch(uri);
-        const arrayBuffer = await (response as any).arrayBuffer?.();
-        if (!arrayBuffer) {
-          console.error('Unable to read file for upload in native environment');
-          return undefined;
+      if (isDataUri) {
+        const match = normalizedUri.match(/^data:(.*?);base64,(.+)$/);
+        if (!match || !match[2]) {
+          throw new Error('Invalid image data provided.');
         }
-        uploadBody = arrayBuffer as ArrayBuffer;
+        contentType = match[1] || 'image/jpeg';
+        if (contentType.includes('png')) {
+          extension = 'png';
+        } else if (contentType.includes('webp')) {
+          extension = 'webp';
+        } else {
+          extension = 'jpg';
+          contentType = 'image/jpeg';
+        }
+        uploadBody = base64ToUint8Array(match[2]);
+      } else {
+        const compressed = await compressImage(normalizedUri);
+        if (compressed.base64) {
+          uploadBody = base64ToUint8Array(compressed.base64);
+        } else {
+          uploadBody = compressed.uri;
+        }
+        // We always save JPEGs when compressing.
+        extension = 'jpg';
+        contentType = 'image/jpeg';
       }
 
-      const { error: uploadError } = await supabase.storage
-        .from('profile-images')
-        .upload(fileName, uploadBody as any, { contentType, upsert: true });
+      const fileName = `${filePrefix}-${Date.now()}.${extension}`;
+      const { url, error } = await uploadImage(uploadBody, 'profile-images', fileName, { contentType });
 
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        return undefined;
+      if (error || !url) {
+        throw error ?? new Error('Upload failed');
       }
 
-      const { data } = supabase.storage.from('profile-images').getPublicUrl(fileName);
-      return data.publicUrl;
-    } catch (err) {
-      console.error('Failed to upload image:', err);
+      return url;
+    } catch (error) {
+      console.error('Failed to upload image:', error);
       return undefined;
     }
   };
 
   const handleSave = async () => {
-    if (isSaving) return;
+    if (isSaving) {
+      return;
+    }
+
+    clearSuccessTimeout();
     setIsSaving(true);
 
+    let previousAvatarUrl = oldProfileUrl;
+    let previousBannerUrl = oldBannerUrl;
+    let uploadedAvatarUrl: string | undefined;
+    let uploadedBannerUrl: string | undefined;
+    let socialLinksUpdated = false;
+
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
       if (userError || !user) {
         throw new Error('User not authenticated');
       }
 
-      if (displayName.trim() !== originalDisplayName) {
-        const { error: nameError } = await updateProfileDisplayName(displayName.trim());
-        if (nameError) {
-          throw nameError;
+      const trimmedDisplayName = displayName.trim();
+      const displayNameChanged = trimmedDisplayName !== originalDisplayName;
+
+      if (pendingAvatarUpload) {
+        uploadedAvatarUrl = await uploadImageIfNeeded(pendingAvatarUpload, 'avatar', user.id);
+        if (!uploadedAvatarUrl) {
+          throw new Error('Failed to upload the new profile picture. Please try again.');
         }
       }
 
-      const profileImageUri = typeof profileImage === 'string' ? profileImage : undefined;
-      const bannerUri = (bannerImage as any)?.uri as string | undefined;
-
-      let uploadedAvatarUrl: string | undefined = undefined;
-      let uploadedBannerUrl: string | undefined = undefined;
-
-      if (pendingProfileRemoval) {
-        if (oldProfileUrl) {
-          await deleteImageFromStorage(oldProfileUrl, 'profile-images');
+      if (pendingBannerUpload) {
+        uploadedBannerUrl = await uploadImageIfNeeded(pendingBannerUpload, 'banner', user.id);
+        if (!uploadedBannerUrl) {
+          throw new Error('Failed to upload the new banner image. Please try again.');
         }
-        uploadedAvatarUrl = null as any;
-      } else if (profileImageUri && profileImageUri !== originalProfileImage) {
-        if (oldProfileUrl && profileImageUri !== oldProfileUrl) {
-          await deleteImageFromStorage(oldProfileUrl, 'profile-images');
-        }
-        uploadedAvatarUrl = await uploadImageIfNeeded(profileImageUri, 'avatar', user.id);
       }
 
-      if (pendingBannerRemoval) {
-        if (oldBannerUrl) {
-          await deleteImageFromStorage(oldBannerUrl, 'profile-images');
+      const warnings: string[] = [];
+
+      const deleteWithRetry = async (url: string | null, label: 'profile picture' | 'banner image') => {
+        if (!url) {
+          return;
         }
-        uploadedBannerUrl = null as any;
-      } else if (bannerUri && bannerUri !== (originalBannerImage as any)?.uri) {
-        if (oldBannerUrl && bannerUri !== oldBannerUrl) {
-          await deleteImageFromStorage(oldBannerUrl, 'profile-images');
+
+        let attempt = 0;
+        let lastError: Error | null = null;
+
+        while (attempt < 2) {
+          attempt += 1;
+          const { success, error } = await deleteImageFromStorage(url, 'profile-images');
+          if (success) {
+            return;
+          }
+          lastError = error ?? null;
         }
-        uploadedBannerUrl = await uploadImageIfNeeded(bannerUri, 'banner', user.id);
-      }
+
+        if (lastError) {
+          console.warn(`Failed to delete ${label}:`, lastError);
+        } else {
+          console.warn(`Failed to delete ${label}: unknown error`);
+        }
+
+        warnings.push(`We couldn't remove your previous ${label}. It may remain temporarily.`);
+      };
+
+      const shouldDeleteAvatar =
+        pendingProfileRemoval ||
+        (uploadedAvatarUrl && previousAvatarUrl && previousAvatarUrl !== uploadedAvatarUrl);
+      const shouldDeleteBanner =
+        pendingBannerRemoval ||
+        (uploadedBannerUrl && previousBannerUrl && previousBannerUrl !== uploadedBannerUrl);
+
+      const trimmedBio = bio?.trim() ?? '';
+      const trimmedInstagram = instagram?.trim() ?? '';
+      const trimmedTwitter = twitter?.trim() ?? '';
+      const trimmedLinkedin = linkedin?.trim() ?? '';
 
       const payload: Record<string, any> = {
-        bio: bio?.trim() || null,
-        instagram: instagram?.trim() || null,
-        x_twitter: twitter?.trim() || null,
-        linkedin: linkedin?.trim() || null,
+        bio: trimmedBio || null,
+        instagram: trimmedInstagram || null,
+        x_twitter: trimmedTwitter || null,
+        linkedin: trimmedLinkedin || null,
       };
 
       if (pendingProfileRemoval) {
         payload.profile_pic_url = null;
-      } else if (uploadedAvatarUrl) {
+      } else if (uploadedAvatarUrl !== undefined) {
         payload.profile_pic_url = uploadedAvatarUrl;
       }
 
       if (pendingBannerRemoval) {
         payload.banner_url = null;
-      } else if (uploadedBannerUrl) {
+      } else if (uploadedBannerUrl !== undefined) {
         payload.banner_url = uploadedBannerUrl;
       }
 
-      const { error: updateError } = await updateSocialLinks(payload);
+      const { error: updateError, socialLinks } = await updateSocialLinks(payload);
 
       if (updateError) {
         throw updateError;
       }
+      socialLinksUpdated = true;
 
-      clearSuccessTimeout();
-      if (mountedRef.current) {
-        setShowSuccess(true);
-        successTimeoutRef.current = setTimeout(() => {
-          if (mountedRef.current) {
-            setShowSuccess(false);
-            router.back();
-            successTimeoutRef.current = null;
-          }
-        }, 1500);
+      const nextProfileUrl =
+        pendingProfileRemoval
+          ? null
+          : uploadedAvatarUrl !== undefined
+            ? uploadedAvatarUrl
+            : socialLinks?.profile_pic_url ?? previousAvatarUrl ?? null;
+
+      const nextBannerUrl =
+        pendingBannerRemoval
+          ? null
+          : uploadedBannerUrl !== undefined
+            ? uploadedBannerUrl
+            : socialLinks?.banner_url ?? previousBannerUrl ?? null;
+
+      setProfileImage(nextProfileUrl);
+      setOriginalProfileImage(nextProfileUrl);
+      setOldProfileUrl(nextProfileUrl);
+
+      const bannerSource = nextBannerUrl ? { uri: nextBannerUrl } : null;
+      setBannerImage(bannerSource);
+      setOriginalBannerImage(bannerSource);
+      setOldBannerUrl(nextBannerUrl);
+
+      setBio(trimmedBio);
+      setOriginalBio(trimmedBio);
+      setInstagram(trimmedInstagram);
+      setOriginalInstagram(trimmedInstagram);
+      setTwitter(trimmedTwitter);
+      setOriginalTwitter(trimmedTwitter);
+      setLinkedin(trimmedLinkedin);
+      setOriginalLinkedin(trimmedLinkedin);
+
+      setPendingProfileRemoval(false);
+      setPendingBannerRemoval(false);
+      setPendingAvatarUpload(null);
+      setPendingBannerUpload(null);
+
+      if (shouldDeleteAvatar) {
+        await deleteWithRetry(previousAvatarUrl, 'profile picture');
       }
+
+      if (shouldDeleteBanner) {
+        await deleteWithRetry(previousBannerUrl, 'banner image');
+      }
+
+      if (displayNameChanged) {
+        const { error: nameError } = await updateProfileDisplayName(trimmedDisplayName);
+        if (nameError) {
+          throw nameError;
+        }
+      }
+
+      setDisplayName(trimmedDisplayName);
+      setOriginalDisplayName(trimmedDisplayName);
+
+      showToastMessage('Profile updated successfully.', 'success');
+
+      if (warnings.length > 0) {
+        const warningMessage = warnings.join(' ');
+        setTimeout(() => {
+          if (mountedRef.current) {
+            showToastMessage(warningMessage, 'warning', 4000);
+          }
+        }, 2600);
+      }
+
+      const navigationDelay = warnings.length > 0 ? 4500 : 1500;
+
+      successTimeoutRef.current = setTimeout(() => {
+        if (mountedRef.current) {
+          router.back();
+          successTimeoutRef.current = null;
+        }
+      }, navigationDelay);
     } catch (error: any) {
       console.error('Error saving profile:', error);
-      if (mountedRef.current) {
-        setShowSuccess(false);
+      if (!socialLinksUpdated) {
+        const cleanupTargets: Array<{ url: string | undefined; previous: string | null; label: 'profile picture' | 'banner image' }> = [
+          { url: uploadedAvatarUrl, previous: previousAvatarUrl, label: 'profile picture' },
+          { url: uploadedBannerUrl, previous: previousBannerUrl, label: 'banner image' },
+        ];
+
+        for (const target of cleanupTargets) {
+          if (target.url && target.url !== target.previous) {
+            const { success, error: cleanupError } = await deleteImageFromStorage(target.url, 'profile-images');
+            if (!success && cleanupError) {
+              console.warn(`Cleanup failed for pending ${target.label}:`, cleanupError);
+            }
+          }
+        }
       }
+      clearSuccessTimeout();
+      const message =
+        typeof error?.message === 'string'
+          ? error.message
+          : 'Failed to update profile. Please try again.';
+      showToastMessage(message, 'error', 3500);
     } finally {
       if (mountedRef.current) {
         setIsSaving(false);
@@ -335,6 +459,10 @@ const EditProfileScreen: React.FC = () => {
     setLinkedin(originalLinkedin);
     setPendingBannerRemoval(false);
     setPendingProfileRemoval(false);
+    setPendingBannerUpload(null);
+    setPendingAvatarUpload(null);
+    clearToastTimeout();
+    setToast(null);
     router.back();
   };
 
@@ -353,12 +481,32 @@ const EditProfileScreen: React.FC = () => {
   };
 
   const handleImageSelected = (imageUri: string) => {
+    const normalizedUri = imageUri ? imageUri.trim() : '';
+    const finalUri = normalizedUri.length > 0 ? normalizedUri : null;
+
+    const hasImage = Boolean(finalUri);
+
     if (uploadType === 'avatar') {
-      setProfileImage(imageUri || null);
-      setPendingProfileRemoval(false);
+      setProfileImage(finalUri);
+      setPendingAvatarUpload(hasImage ? finalUri : null);
+      setPendingProfileRemoval(!hasImage);
+      showToastMessage(
+        hasImage
+          ? 'New profile picture selected. Save to apply.'
+          : 'Profile picture removed (pending). Save to confirm.',
+        'info',
+      );
     } else {
-      setBannerImage(imageUri ? { uri: imageUri } : null);
-      setPendingBannerRemoval(false);
+      const bannerSource = finalUri ? { uri: finalUri } : null;
+      setBannerImage(bannerSource);
+      setPendingBannerUpload(hasImage ? finalUri : null);
+      setPendingBannerRemoval(!hasImage);
+      showToastMessage(
+        hasImage
+          ? 'New banner image selected. Save to apply.'
+          : 'Banner image removed (pending). Save to confirm.',
+        'info',
+      );
     }
   };
 
@@ -366,9 +514,13 @@ const EditProfileScreen: React.FC = () => {
     if (uploadType === 'avatar') {
       setProfileImage(null);
       setPendingProfileRemoval(true);
+      setPendingAvatarUpload(null);
+      showToastMessage('Profile picture removed (pending). Save to confirm.', 'info');
     } else {
       setBannerImage(null);
       setPendingBannerRemoval(true);
+      setPendingBannerUpload(null);
+      showToastMessage('Banner image removed (pending). Save to confirm.', 'info');
     }
   };
 
@@ -411,12 +563,35 @@ const EditProfileScreen: React.FC = () => {
         </View>
       </SafeAreaView>
 
-      {showSuccess && (
-        <View style={styles.successBar}>
-          <Feather name="check" size={18} color="#ffffff" />
-          <Text style={styles.successText}>Profile updated successfully!</Text>
+      {toast ? (
+        <View
+          style={[
+            styles.toastBar,
+            toast.type === 'success'
+              ? styles.toastSuccess
+              : toast.type === 'error'
+                ? styles.toastError
+                : toast.type === 'warning'
+                  ? styles.toastWarning
+                  : styles.toastInfo,
+          ]}
+        >
+          <Feather
+            name={
+              toast.type === 'success'
+                ? 'check-circle'
+                : toast.type === 'error'
+                  ? 'alert-triangle'
+                  : toast.type === 'warning'
+                    ? 'alert-circle'
+                    : 'info'
+            }
+            size={18}
+            color="#ffffff"
+          />
+          <Text style={styles.toastText}>{toast.message}</Text>
         </View>
-      )}
+      ) : null}
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.bannerWrapper}>
@@ -525,7 +700,7 @@ const EditProfileScreen: React.FC = () => {
             disabled={isSaving}
             accessibilityRole="button"
           >
-            <Text style={styles.actionLabel}>{isSaving ? 'Saving…' : 'Save'}</Text>
+            <Text style={styles.actionLabel}>{isSaving ? 'Saving...' : 'Save'}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -633,8 +808,36 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 24, fontWeight: '700', color: '#ffffff' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: '#94a3b8', fontSize: 16, marginTop: 12 },
-  successBar: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#16a34a', paddingHorizontal: 16, paddingVertical: 10 },
-  successText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
+  toastBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 20,
+    marginTop: 12,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.35)',
+  },
+  toastText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  toastSuccess: {
+    backgroundColor: '#166534',
+  },
+  toastInfo: {
+    backgroundColor: '#1e3a8a',
+  },
+  toastWarning: {
+    backgroundColor: '#92400e',
+  },
+  toastError: {
+    backgroundColor: '#7f1d1d',
+  },
   content: { paddingBottom: 120 },
   bannerWrapper: { position: 'relative', marginBottom: 60 },
   bannerImage: { width: '100%', height: 200, borderRadius: 0 },

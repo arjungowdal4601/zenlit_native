@@ -153,6 +153,26 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
   };
 
   const handleRemoveImage = () => {
+    if (Platform.OS === 'web') {
+      const confirmRemoval =
+        typeof window !== 'undefined' && typeof window.confirm === 'function'
+          ? window.confirm.bind(window)
+          : () => true;
+
+      const confirmed = confirmRemoval('Are you sure you want to remove this image?');
+      if (!confirmed) {
+        return;
+      }
+
+      if (onRemove) {
+        onRemove();
+      } else {
+        onImageSelected('');
+      }
+      handleClose();
+      return;
+    }
+
     Alert.alert(
       'Remove Image',
       'Are you sure you want to remove this image?',
