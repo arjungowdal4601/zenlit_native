@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -17,6 +17,7 @@ const MessagesScreen: React.FC = () => {
   const [conversations, setConversations] = useState<ConversationWithParticipant[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [refreshSignal, setRefreshSignal] = useState(0);
 
   useEffect(() => {
     const loadCurrentUser = async () => {
@@ -28,21 +29,25 @@ const MessagesScreen: React.FC = () => {
     loadCurrentUser();
   }, []);
 
+  const loadConversations = useCallback(async () => {
+    setLoading(true);
+    const { conversations: conversationsData, error } = await getUserConversations();
+
+    if (error) {
+      console.error('Error loading conversations:', error);
+    } else {
+      setConversations(conversationsData);
+    }
+
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
-    const loadConversations = async () => {
-      setLoading(true);
-      const { conversations: conversationsData, error } = await getUserConversations();
-
-      if (error) {
-        console.error('Error loading conversations:', error);
-      } else {
-        setConversations(conversationsData);
-      }
-
-      setLoading(false);
-    };
-
     loadConversations();
+  }, [loadConversations, refreshSignal]);
+
+  const handleHeaderRefresh = useCallback(() => {
+    setRefreshSignal((value) => value + 1);
   }, []);
 
   const threads = conversations.map((conv) => {
@@ -65,7 +70,7 @@ const MessagesScreen: React.FC = () => {
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
-      <AppHeader title="Messages" />
+      <AppHeader title="Messages" onTitlePress={handleHeaderRefresh} />
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#60a5fa" />

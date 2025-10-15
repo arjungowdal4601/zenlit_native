@@ -137,12 +137,12 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
   return (
     <View style={[styles.card, { borderRadius }]}>
       <View style={styles.topRow}>
-        <Pressable style={styles.avatarWrapper} onPress={handleProfilePress}>
+        <View style={styles.avatarWrapper}>
           <Image source={avatarSource} style={styles.avatar} />
-        </Pressable>
+        </View>
 
         <View style={styles.topContent}>
-          <Pressable style={styles.nameWrapper} onPress={handleMessagePress}>
+          <View style={styles.nameWrapper}>
             <Text style={styles.name} numberOfLines={1}>
               {user.name}
             </Text>
@@ -151,7 +151,7 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
                 @{user.username}
               </Text>
             ) : null}
-          </Pressable>
+          </View>
 
           <Text style={styles.bio} numberOfLines={2}>
             {displayBio}

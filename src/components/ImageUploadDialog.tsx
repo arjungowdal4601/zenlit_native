@@ -76,7 +76,8 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
     
     try {
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        // Use string media types per Expo SDK 52+ changes
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -109,7 +110,8 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        // Use string media types per Expo SDK 52+ changes
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,

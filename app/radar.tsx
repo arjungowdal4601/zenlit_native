@@ -28,7 +28,7 @@ type SearchableUser = {
 };
 
 const RadarScreen: React.FC = () => {
-  const { selectedAccounts, isVisible, locationPermissionDenied, requestLocationPermission } = useVisibility();
+  const { selectedAccounts, isVisible, locationPermissionDenied } = useVisibility();
   const insets = useSafeAreaInsets();
 
   const [isSearchOpen, setSearchOpen] = useState(false);
@@ -38,27 +38,16 @@ const RadarScreen: React.FC = () => {
   const [nearbyUsers, setNearbyUsers] = useState<NearbyUserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hasRequestedPermission, setHasRequestedPermission] = useState(false);
   const inputRef = useRef<TextInput>(null);
 
-  useEffect(() => {
-    if (!hasRequestedPermission) {
-      setHasRequestedPermission(true);
-      requestLocationPermission();
-    }
-  }, [hasRequestedPermission, requestLocationPermission]);
-
-  useEffect(() => {
+  const loadNearbyUsers = useCallback(async () => {
     if (!isVisible || locationPermissionDenied) {
       setNearbyUsers([]);
       setLoading(false);
       setError(null);
-    } else {
-      loadNearbyUsers();
+      return;
     }
-  }, [isVisible, locationPermissionDenied]);
 
-  const loadNearbyUsers = async () => {
     setLoading(true);
     setError(null);
 
@@ -72,7 +61,11 @@ const RadarScreen: React.FC = () => {
     }
 
     setLoading(false);
-  };
+  }, [isVisible, locationPermissionDenied]);
+
+  useEffect(() => {
+    loadNearbyUsers();
+  }, [loadNearbyUsers]);
 
   const searchableUsers = useMemo<SearchableUser[]>(
     () =>
@@ -158,6 +151,7 @@ const RadarScreen: React.FC = () => {
 
       <AppHeader
         title="Radar"
+        onTitlePress={loadNearbyUsers}
         onToggleSearch={handleToggleSearch}
         isSearchActive={isSearchOpen}
         onOpenVisibility={handleOpenVisibility}

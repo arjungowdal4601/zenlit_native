@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -8,6 +8,12 @@ import Navigation from '../src/components/Navigation';
 import { theme } from '../src/styles/theme';
 
 const FeedScreen: React.FC = () => {
+  const [refreshSignal, setRefreshSignal] = useState(0);
+
+  const handleHeaderRefresh = useCallback(() => {
+    setRefreshSignal((value) => value + 1);
+  }, []);
+
   return (
     <View style={styles.root}>
       <LinearGradient
@@ -17,9 +23,9 @@ const FeedScreen: React.FC = () => {
         style={[StyleSheet.absoluteFill, { pointerEvents: 'none' }]}
       />
       <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
-      <AppHeader title="Feed" />
+      <AppHeader title="Feed" onTitlePress={handleHeaderRefresh} />
       <View style={styles.content}>
-        <FeedList />
+        <FeedList refreshSignal={refreshSignal} />
       </View>
       <Navigation activePath="/feed" />
     </View>

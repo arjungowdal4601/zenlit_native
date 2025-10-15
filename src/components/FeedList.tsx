@@ -1,21 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { useVisibility } from '../contexts/VisibilityContext';
 import { getFeedPosts, PostWithAuthor } from '../lib/database';
 import Post from './Post';
 
-export const FeedList: React.FC = () => {
+type FeedListProps = {
+  refreshSignal?: number;
+};
+
+export const FeedList: React.FC<FeedListProps> = ({ refreshSignal }) => {
   const { selectedAccounts, isVisible, locationPermissionDenied } = useVisibility();
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadPosts();
-  }, [isVisible, locationPermissionDenied]);
-
-  const loadPosts = async () => {
+  const loadPosts = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -34,7 +34,11 @@ export const FeedList: React.FC = () => {
     }
 
     setLoading(false);
-  };
+  }, [isVisible, locationPermissionDenied]);
+
+  useEffect(() => {
+    loadPosts();
+  }, [loadPosts, refreshSignal]);
 
   const convertPostToFeedFormat = (post: PostWithAuthor) => {
     const author = post.author;

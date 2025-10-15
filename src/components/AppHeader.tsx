@@ -19,6 +19,7 @@ export type AppHeaderProps = {
   isSearchActive?: boolean;
   onOpenVisibility?: () => void;
   onMenuPress?: () => void;
+  onTitlePress?: () => void;
 };
 
 const shadowStyle = createShadowStyle({
@@ -39,6 +40,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   isSearchActive,
   onOpenVisibility,
   onMenuPress,
+  onTitlePress,
 }) => {
   const showBack = typeof onBackPress === 'function';
   const showSearch = typeof onToggleSearch === 'function';
@@ -46,6 +48,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const showMenu = typeof menuHandler === 'function';
   const searchLabel = isSearchActive ? 'Close search' : 'Open search';
   const backLabel = backAccessibilityLabel ?? 'Go back';
+  const titleWrapperStyles = [styles.titleWrapper, showBack ? styles.titleWithBack : null];
 
   return (
     <View style={[styles.wrapper, shadowStyle]}>
@@ -64,9 +67,22 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
             </Pressable>
           ) : null}
 
-          <View style={[styles.titleWrapper, showBack ? styles.titleWithBack : null]}>
-            <GradientTitle text={title} style={styles.title} />
-          </View>
+          {typeof onTitlePress === 'function' ? (
+            <Pressable
+              onPress={onTitlePress}
+              style={({ pressed }) => [...titleWrapperStyles, pressed && styles.titlePressed]}
+              android_ripple={{ color: 'rgba(255, 255, 255, 0.12)' }}
+              accessibilityRole="button"
+              accessibilityLabel={`Refresh ${title}`}
+              hitSlop={ICON_HIT_SLOP}
+            >
+              <GradientTitle text={title} style={styles.title} />
+            </Pressable>
+          ) : (
+            <View style={titleWrapperStyles}>
+              <GradientTitle text={title} style={styles.title} />
+            </View>
+          )}
 
           {showSearch || showMenu ? (
             <View style={styles.actions}>
@@ -136,6 +152,9 @@ const styles = StyleSheet.create({
   },
   title: {
     flexShrink: 1,
+  },
+  titlePressed: {
+    opacity: 0.6,
   },
   actions: {
     flexDirection: 'row',
