@@ -7,7 +7,7 @@ import ImageUploadDialog from '../src/components/ImageUploadDialog';
 import { SOCIAL_PLATFORMS, extractUsername } from '../src/constants/socialPlatforms';
 import GradientTitle from '../src/components/GradientTitle';
 import { supabase } from '../src/lib/supabase';
-import { getCurrentUserProfile, updateSocialLinks, uploadImage } from '../src/lib/database';
+import { getCurrentUserProfile, updateSocialLinks, uploadImage, deleteImageFromStorage, updateProfileDisplayName } from '../src/lib/database';
 import { compressImage } from '../src/utils/imageCompression';
 
 const EditProfileScreen: React.FC = () => {
@@ -18,6 +18,19 @@ const EditProfileScreen: React.FC = () => {
   const [bio, setBio] = useState('');
   const [bannerImage, setBannerImage] = useState<ImageSourcePropType | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  const [originalDisplayName, setOriginalDisplayName] = useState('');
+  const [originalBio, setOriginalBio] = useState('');
+  const [originalBannerImage, setOriginalBannerImage] = useState<ImageSourcePropType | null>(null);
+  const [originalProfileImage, setOriginalProfileImage] = useState<string | null>(null);
+  const [originalInstagram, setOriginalInstagram] = useState('');
+  const [originalTwitter, setOriginalTwitter] = useState('');
+  const [originalLinkedin, setOriginalLinkedin] = useState('');
+
+  const [pendingBannerRemoval, setPendingBannerRemoval] = useState(false);
+  const [pendingProfileRemoval, setPendingProfileRemoval] = useState(false);
+  const [oldBannerUrl, setOldBannerUrl] = useState<string | null>(null);
+  const [oldProfileUrl, setOldProfileUrl] = useState<string | null>(null);
 
   const [showInstagramModal, setShowInstagramModal] = useState(false);
   const [showTwitterModal, setShowTwitterModal] = useState(false);
@@ -57,15 +70,32 @@ const EditProfileScreen: React.FC = () => {
       const { profile, socialLinks } = await getCurrentUserProfile();
 
       if (profile && mountedRef.current) {
-        setDisplayName(profile.display_name);
-        if (socialLinks) {
-          setBio(socialLinks.bio || '');
-          setProfileImage(socialLinks.profile_pic_url || null);
-          setBannerImage(socialLinks.banner_url ? { uri: socialLinks.banner_url } : null);
-          setInstagram(socialLinks.instagram || '');
-          setTwitter(socialLinks.x_twitter || '');
-          setLinkedin(socialLinks.linkedin || '');
-        }
+        const dName = profile.display_name;
+        const bioText = socialLinks?.bio || '';
+        const profImg = socialLinks?.profile_pic_url || null;
+        const bannImg = socialLinks?.banner_url ? { uri: socialLinks.banner_url } : null;
+        const insta = socialLinks?.instagram || '';
+        const twit = socialLinks?.x_twitter || '';
+        const link = socialLinks?.linkedin || '';
+
+        setDisplayName(dName);
+        setBio(bioText);
+        setProfileImage(profImg);
+        setBannerImage(bannImg);
+        setInstagram(insta);
+        setTwitter(twit);
+        setLinkedin(link);
+
+        setOriginalDisplayName(dName);
+        setOriginalBio(bioText);
+        setOriginalProfileImage(profImg);
+        setOriginalBannerImage(bannImg);
+        setOriginalInstagram(insta);
+        setOriginalTwitter(twit);
+        setOriginalLinkedin(link);
+
+        setOldProfileUrl(profImg);
+        setOldBannerUrl(socialLinks?.banner_url || null);
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -210,11 +240,42 @@ const EditProfileScreen: React.FC = () => {
         throw new Error('User not authenticated');
       }
 
+      if (displayName.trim() !== originalDisplayName) {
+        const { error: nameError } = await updateProfileDisplayName(displayName.trim());
+        if (nameError) {
+          throw nameError;
+        }
+      }
+
       const profileImageUri = typeof profileImage === 'string' ? profileImage : undefined;
       const bannerUri = (bannerImage as any)?.uri as string | undefined;
 
-      const uploadedAvatarUrl = await uploadImageIfNeeded(profileImageUri, 'avatar', user.id);
-      const uploadedBannerUrl = await uploadImageIfNeeded(bannerUri, 'banner', user.id);
+      let uploadedAvatarUrl: string | undefined = undefined;
+      let uploadedBannerUrl: string | undefined = undefined;
+
+      if (pendingProfileRemoval) {
+        if (oldProfileUrl) {
+          await deleteImageFromStorage(oldProfileUrl, 'profile-images');
+        }
+        uploadedAvatarUrl = null as any;
+      } else if (profileImageUri && profileImageUri !== originalProfileImage) {
+        if (oldProfileUrl && profileImageUri !== oldProfileUrl) {
+          await deleteImageFromStorage(oldProfileUrl, 'profile-images');
+        }
+        uploadedAvatarUrl = await uploadImageIfNeeded(profileImageUri, 'avatar', user.id);
+      }
+
+      if (pendingBannerRemoval) {
+        if (oldBannerUrl) {
+          await deleteImageFromStorage(oldBannerUrl, 'profile-images');
+        }
+        uploadedBannerUrl = null as any;
+      } else if (bannerUri && bannerUri !== (originalBannerImage as any)?.uri) {
+        if (oldBannerUrl && bannerUri !== oldBannerUrl) {
+          await deleteImageFromStorage(oldBannerUrl, 'profile-images');
+        }
+        uploadedBannerUrl = await uploadImageIfNeeded(bannerUri, 'banner', user.id);
+      }
 
       const payload: Record<string, any> = {
         bio: bio?.trim() || null,
@@ -223,11 +284,15 @@ const EditProfileScreen: React.FC = () => {
         linkedin: linkedin?.trim() || null,
       };
 
-      if (uploadedAvatarUrl) {
+      if (pendingProfileRemoval) {
+        payload.profile_pic_url = null;
+      } else if (uploadedAvatarUrl) {
         payload.profile_pic_url = uploadedAvatarUrl;
       }
 
-      if (uploadedBannerUrl) {
+      if (pendingBannerRemoval) {
+        payload.banner_url = null;
+      } else if (uploadedBannerUrl) {
         payload.banner_url = uploadedBannerUrl;
       }
 
@@ -260,8 +325,21 @@ const EditProfileScreen: React.FC = () => {
     }
   };
 
-  const handleBack = () => {
+  const handleCancel = () => {
+    setDisplayName(originalDisplayName);
+    setBio(originalBio);
+    setProfileImage(originalProfileImage);
+    setBannerImage(originalBannerImage);
+    setInstagram(originalInstagram);
+    setTwitter(originalTwitter);
+    setLinkedin(originalLinkedin);
+    setPendingBannerRemoval(false);
+    setPendingProfileRemoval(false);
     router.back();
+  };
+
+  const handleBack = () => {
+    handleCancel();
   };
 
   const openBannerMenu = () => {
@@ -277,8 +355,20 @@ const EditProfileScreen: React.FC = () => {
   const handleImageSelected = (imageUri: string) => {
     if (uploadType === 'avatar') {
       setProfileImage(imageUri || null);
+      setPendingProfileRemoval(false);
     } else {
       setBannerImage(imageUri ? { uri: imageUri } : null);
+      setPendingBannerRemoval(false);
+    }
+  };
+
+  const handleImageRemove = () => {
+    if (uploadType === 'avatar') {
+      setProfileImage(null);
+      setPendingProfileRemoval(true);
+    } else {
+      setBannerImage(null);
+      setPendingBannerRemoval(true);
     }
   };
 
@@ -359,7 +449,17 @@ const EditProfileScreen: React.FC = () => {
         </View>
 
         <View style={styles.formSection}>
-          <Text style={[styles.label, { marginTop: 0 }]}>Bio</Text>
+          <Text style={[styles.label, { marginTop: 0 }]}>Display Name</Text>
+          <TextInput
+            value={displayName}
+            onChangeText={(text) => setDisplayName(text.slice(0, 50))}
+            placeholder="Your display name"
+            placeholderTextColor="#475569"
+            style={styles.input}
+            maxLength={50}
+          />
+
+          <Text style={[styles.label, { marginTop: 16 }]}>Bio</Text>
           <TextInput
             value={bio}
             onChangeText={(text) => setBio(text.slice(0, 500))}
@@ -416,7 +516,7 @@ const EditProfileScreen: React.FC = () => {
         </View>
 
         <View style={styles.footerActions}>
-          <Pressable style={[styles.actionButton, styles.cancelButton]} onPress={handleBack} accessibilityRole="button">
+          <Pressable style={[styles.actionButton, styles.cancelButton]} onPress={handleCancel} accessibilityRole="button">
             <Text style={[styles.actionLabel, styles.cancelLabel]}>Cancel</Text>
           </Pressable>
           <Pressable
@@ -514,13 +614,7 @@ const EditProfileScreen: React.FC = () => {
         onImageSelected={handleImageSelected}
         title={uploadType === 'avatar' ? 'Profile Picture' : 'Banner Image'}
         currentImage={uploadType === 'avatar' ? profileImage : (bannerImage as any)?.uri}
-        onRemove={() => {
-          if (uploadType === 'avatar') {
-            setProfileImage(null);
-          } else {
-            setBannerImage(null);
-          }
-        }}
+        onRemove={handleImageRemove}
         showRemoveOption={true}
       />
     </View>
