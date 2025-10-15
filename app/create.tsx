@@ -7,6 +7,7 @@ import Navigation from '../src/components/Navigation';
 import { PostComposer, PostComposerSharePayload } from '../src/components/PostComposer';
 import { theme } from '../src/styles/theme';
 import { createPost, getCurrentUserProfile, uploadImage } from '../src/lib/database';
+import { compressImage } from '../src/utils/imageCompression';
 
 const REMOTE_PROTOCOL_REGEX = /^https?:\/\//i;
 
@@ -108,9 +109,9 @@ const uploadPostImageIfNeeded = async (imageUri: string | null | undefined): Pro
   }
 
   try {
-    const { body, extension } = await resolveUploadPayload(trimmed);
-    const fileName = `post-${Date.now()}.${extension}`;
-    const { url, error } = await uploadImage(body, 'post-images', fileName);
+    const compressed = await compressImage(trimmed);
+    const fileName = `post-${Date.now()}.jpg`;
+    const { url, error } = await uploadImage(compressed.uri, 'post-images', fileName);
 
     if (error || !url) {
       throw error ?? new Error('Upload failed');

@@ -15,13 +15,39 @@ import ChatHeader from '../../src/components/messaging/ChatHeader';
 import Composer from '../../src/components/messaging/Composer';
 import DayDivider from '../../src/components/messaging/DayDivider';
 import MessageBubble from '../../src/components/messaging/MessageBubble';
-import type { ChatMsg } from '../../src/constants/messagesData';
-import {
-  MESSAGES_BY_THREAD,
-  THREADS,
-  formatDayLabel,
-} from '../../src/constants/messagesData';
 import { theme } from '../../src/styles/theme';
+import {
+  getConversationById,
+  getMessagesForConversation,
+  sendMessage,
+  type Message,
+  type Conversation,
+  getProfileById,
+  type Profile,
+  type SocialLinks,
+} from '../../src/lib/database';
+import { supabase } from '../../src/lib/supabase';
+
+const FALLBACK_AVATAR = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png';
+
+const formatDayLabel = (isoDate: string): string => {
+  const date = new Date(isoDate);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return date.toLocaleDateString(undefined, { weekday: 'long' });
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+type ChatMsg = {
+  id: string;
+  text: string;
+  sentAt: string;
+  fromMe: boolean;
+};
 
 type RenderItem =
   | { type: 'day'; id: string; label: string }
@@ -29,19 +55,74 @@ type RenderItem =
 
 const ChatDetailScreen: React.FC = () => {
   const params = useLocalSearchParams<{ id?: string }>();
-  const threadId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : undefined;
+  const conversationId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : undefined;
 
-  const thread = useMemo(() => THREADS.find((item) => item.id === threadId), [threadId]);
-
-  const [messages, setMessages] = useState<ChatMsg[]>(() =>
-    thread ? [...(MESSAGES_BY_THREAD[thread.id] ?? [])] : [],
-  );
+  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [otherUser, setOtherUser] = useState<Profile | null>(null);
+  const [socialLinks, setSocialLinks] = useState<SocialLinks | null>(null);
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   useEffect(() => {
-    if (thread) {
-      setMessages([...(MESSAGES_BY_THREAD[thread.id] ?? [])]);
-    }
-  }, [thread]);
+    const loadCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+      }
+    };
+    loadCurrentUser();
+  }, []);
+
+  useEffect(() => {
+    const loadConversation = async () => {
+      if (!conversationId || !currentUserId) return;
+
+      setLoading(true);
+
+      const { conversation: convData, error: convError } = await getConversationById(conversationId);
+
+      if (convError || !convData) {
+        console.error('Error loading conversation:', convError);
+        setLoading(false);
+        return;
+      }
+
+      setConversation(convData);
+
+      const otherUserId = convData.user_a_id === currentUserId ? convData.user_b_id : convData.user_a_id;
+      const isAnon = convData.user_a_id === currentUserId ? convData.is_anonymous_for_a : convData.is_anonymous_for_b;
+      setIsAnonymous(isAnon);
+
+      const { profile, socialLinks: social, error: profileError } = await getProfileById(otherUserId);
+
+      if (profileError || !profile) {
+        console.error('Error loading profile:', profileError);
+      } else {
+        setOtherUser(profile);
+        setSocialLinks(social);
+      }
+
+      const { messages: messagesData, error: messagesError } = await getMessagesForConversation(conversationId);
+
+      if (messagesError) {
+        console.error('Error loading messages:', messagesError);
+      } else {
+        const chatMessages: ChatMsg[] = messagesData.map((msg: Message) => ({
+          id: msg.id,
+          text: msg.text || '',
+          sentAt: msg.created_at,
+          fromMe: msg.sender_id === currentUserId,
+        }));
+        setMessages(chatMessages);
+      }
+
+      setLoading(false);
+    };
+
+    loadConversation();
+  }, [conversationId, currentUserId]);
 
   const listRef = useRef<FlatList<RenderItem>>(null);
 
@@ -50,7 +131,7 @@ const ChatDetailScreen: React.FC = () => {
       listRef.current?.scrollToEnd({ animated: false });
     }, 0);
     return () => clearTimeout(timeout);
-  }, [thread?.id]);
+  }, [conversationId]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -73,20 +154,51 @@ const ChatDetailScreen: React.FC = () => {
     return entries;
   }, [messages]);
 
-  const handleSend = (text: string) => {
-    if (!thread) {
+  const handleSend = async (text: string) => {
+    if (!conversationId || !text.trim()) {
       return;
     }
-    const newMessage: ChatMsg = {
+
+    const optimisticMessage: ChatMsg = {
       id: `local-${Date.now()}`,
       text,
       sentAt: new Date().toISOString(),
       fromMe: true,
     };
-    setMessages((prev) => [...prev, newMessage]);
+    setMessages((prev) => [...prev, optimisticMessage]);
+
+    const { message, error } = await sendMessage(conversationId, text);
+
+    if (error) {
+      console.error('Error sending message:', error);
+    } else if (message) {
+      setMessages((prev) => {
+        const filtered = prev.filter((m) => m.id !== optimisticMessage.id);
+        return [...filtered, {
+          id: message.id,
+          text: message.text || '',
+          sentAt: message.created_at,
+          fromMe: true,
+        }];
+      });
+    }
   };
 
-  if (!thread) {
+  if (loading) {
+    return (
+      <View style={styles.missingRoot}>
+        <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+          <ChatHeader title="Loading..." />
+        </SafeAreaView>
+        <View style={styles.missingContent}>
+          <Text style={styles.missingText}>Loading conversation...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!conversation || !otherUser) {
     return (
       <View style={styles.missingRoot}>
         <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
@@ -100,17 +212,17 @@ const ChatDetailScreen: React.FC = () => {
     );
   }
 
-  // Remove online status text entirely per request
-  const subtitle = undefined;
+  const displayName = isAnonymous ? 'Anonymous' : otherUser.display_name;
+  const displayAvatar = isAnonymous ? FALLBACK_AVATAR : (socialLinks?.profile_pic_url || FALLBACK_AVATAR);
 
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ChatHeader
-          title={thread.peer.name}
-          avatarUrl={thread.isAnonymous ? undefined : thread.peer.avatar}
-          isAnonymous={thread.isAnonymous}
+          title={displayName}
+          avatarUrl={displayAvatar}
+          isAnonymous={isAnonymous}
         />
       </SafeAreaView>
 

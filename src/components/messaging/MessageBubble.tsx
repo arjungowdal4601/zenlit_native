@@ -1,8 +1,17 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import type { ChatMsg } from '../../constants/messagesData';
-import { formatMessageTime } from '../../constants/messagesData';
+export type ChatMsg = {
+  id: string;
+  text: string;
+  sentAt: string;
+  fromMe: boolean;
+};
+
+const formatMessageTime = (isoDate: string): string => {
+  const date = new Date(isoDate);
+  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
+};
 
 export type MessageBubbleProps = {
   message: ChatMsg;

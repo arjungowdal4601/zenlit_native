@@ -10,9 +10,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { MessageSquare, User } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
-import { THREADS } from '../constants/messagesData';
 
-import type { NearbyUser } from '../constants/nearbyUsers';
+import type { NearbyUserData } from '../lib/database';
+import { findOrCreateConversation } from '../lib/database';
 import {
   DEFAULT_VISIBLE_PLATFORMS,
   SOCIAL_PLATFORMS,
@@ -75,7 +75,7 @@ const getVisiblePlatforms = (
 };
 
 export type SocialProfileCardProps = {
-  user: NearbyUser;
+  user: NearbyUserData;
   selectedAccounts?: SocialPlatformId[];
   borderRadius?: number;
 };
@@ -88,9 +88,10 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
   const router = useRouter();
 
   const displayBio = useMemo(() => {
-    return user.bio.length > MAX_BIO_LENGTH
-      ? `${user.bio.slice(0, MAX_BIO_LENGTH)}...`
-      : user.bio;
+    const bio = user.bio || '';
+    return bio.length > MAX_BIO_LENGTH
+      ? `${bio.slice(0, MAX_BIO_LENGTH)}...`
+      : bio;
   }, [user.bio]);
 
   const avatarSource = useMemo(
@@ -107,21 +108,18 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
     router.push(`/profile/${user.id}`);
   };
 
-  const toPeerId = (name: string) =>
-    name
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9\s-]/g, '')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-');
+  const handleMessagePress = async () => {
+    try {
+      const { conversation, error } = await findOrCreateConversation(user.id);
 
-  const handleMessagePress = () => {
-    const peerId = toPeerId(user.name);
-    const thread = THREADS.find((t) => t.peer.id === peerId);
-    if (thread) {
-      router.push(`/messages/${thread.id}`);
-    } else {
-      router.push('/messages');
+      if (error || !conversation) {
+        console.error('Error creating conversation:', error);
+        return;
+      }
+
+      router.push(`/messages/${conversation.id}`);
+    } catch (error) {
+      console.error('Error in handleMessagePress:', error);
     }
   };
 

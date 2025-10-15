@@ -117,9 +117,55 @@ export async function getUserPosts(userId: string): Promise<{ posts: Post[]; err
 
 export async function getFeedPosts(limit = 50): Promise<{ posts: PostWithAuthor[]; error: Error | null }> {
   try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { posts: [], error: new Error('Not authenticated') };
+    }
+
+    const { data: currentLocation, error: locationError } = await supabase
+      .from('locations')
+      .select('lat_short, long_short')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (locationError) {
+      return { posts: [], error: locationError };
+    }
+
+    if (!currentLocation || currentLocation.lat_short === null || currentLocation.long_short === null) {
+      return { posts: [], error: null };
+    }
+
+    const latMin = currentLocation.lat_short - 0.01;
+    const latMax = currentLocation.lat_short + 0.01;
+    const longMin = currentLocation.long_short - 0.01;
+    const longMax = currentLocation.long_short + 0.01;
+
+    const { data: nearbyLocations, error: nearbyError } = await supabase
+      .from('locations')
+      .select('id')
+      .not('lat_short', 'is', null)
+      .not('long_short', 'is', null)
+      .gte('lat_short', latMin)
+      .lte('lat_short', latMax)
+      .gte('long_short', longMin)
+      .lte('long_short', longMax);
+
+    if (nearbyError) {
+      return { posts: [], error: nearbyError };
+    }
+
+    if (!nearbyLocations || nearbyLocations.length === 0) {
+      return { posts: [], error: null };
+    }
+
+    const nearbyUserIds = nearbyLocations.map((loc) => loc.id);
+
     const { data: postsData, error: postsError } = await supabase
       .from('posts')
       .select('*')
+      .in('user_id', nearbyUserIds)
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -473,8 +519,8 @@ export async function getNearbyUsers(): Promise<{ users: NearbyUserData[]; error
 }
 
 export async function uploadImage(
-  file: Blob | File | ArrayBuffer | Uint8Array,
-  bucket: 'profile-images' | 'post-images',
+  fileOrUri: Blob | File | ArrayBuffer | Uint8Array | string,
+  bucket: 'profile-images' | 'post-images' | 'feedback-images',
   fileName: string
 ): Promise<{ url: string | null; error: Error | null }> {
   try {
@@ -484,11 +530,21 @@ export async function uploadImage(
       return { url: null, error: new Error('Not authenticated') };
     }
 
+    let fileToUpload: Blob | File | ArrayBuffer | Uint8Array;
+
+    if (typeof fileOrUri === 'string') {
+      const response = await fetch(fileOrUri);
+      const blob = await response.blob();
+      fileToUpload = blob;
+    } else {
+      fileToUpload = fileOrUri;
+    }
+
     const filePath = `${user.id}/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(filePath, file as any, {
+      .upload(filePath, fileToUpload as any, {
         upsert: true,
       });
 
@@ -503,5 +559,355 @@ export async function uploadImage(
     return { url: data.publicUrl, error: null };
   } catch (error) {
     return { url: null, error: error as Error };
+  }
+}
+
+export interface Conversation {
+  id: string;
+  user_a_id: string;
+  user_b_id: string;
+  is_anonymous_for_a: boolean;
+  is_anonymous_for_b: boolean;
+  last_message_at: string;
+  created_at: string;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  text: string | null;
+  image_url: string | null;
+  created_at: string;
+}
+
+export interface ConversationWithParticipant extends Conversation {
+  other_user: Profile & { social_links?: SocialLinks };
+}
+
+export async function findOrCreateConversation(
+  otherUserId: string
+): Promise<{ conversation: Conversation | null; error: Error | null }> {
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { conversation: null, error: new Error('Not authenticated') };
+    }
+
+    const { data: existing, error: findError } = await supabase
+      .from('conversations')
+      .select('*')
+      .or(`and(user_a_id.eq.${user.id},user_b_id.eq.${otherUserId}),and(user_a_id.eq.${otherUserId},user_b_id.eq.${user.id})`)
+      .maybeSingle();
+
+    if (findError) {
+      return { conversation: null, error: findError };
+    }
+
+    if (existing) {
+      return { conversation: existing as Conversation, error: null };
+    }
+
+    const { data: created, error: createError } = await supabase
+      .from('conversations')
+      .insert({
+        user_a_id: user.id,
+        user_b_id: otherUserId,
+        is_anonymous_for_a: false,
+        is_anonymous_for_b: false,
+      })
+      .select()
+      .single();
+
+    if (createError) {
+      return { conversation: null, error: createError };
+    }
+
+    return { conversation: created as Conversation, error: null };
+  } catch (error) {
+    return { conversation: null, error: error as Error };
+  }
+}
+
+export async function getConversationById(
+  conversationId: string
+): Promise<{ conversation: Conversation | null; error: Error | null }> {
+  try {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('id', conversationId)
+      .maybeSingle();
+
+    if (error) {
+      return { conversation: null, error };
+    }
+
+    return { conversation: data as Conversation | null, error: null };
+  } catch (error) {
+    return { conversation: null, error: error as Error };
+  }
+}
+
+export async function getUserConversations(): Promise<{ conversations: ConversationWithParticipant[]; error: Error | null }> {
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { conversations: [], error: new Error('Not authenticated') };
+    }
+
+    const { data: conversationsData, error: conversationsError } = await supabase
+      .from('conversations')
+      .select('*')
+      .or(`user_a_id.eq.${user.id},user_b_id.eq.${user.id}`)
+      .order('last_message_at', { ascending: false });
+
+    if (conversationsError) {
+      return { conversations: [], error: conversationsError };
+    }
+
+    if (!conversationsData || conversationsData.length === 0) {
+      return { conversations: [], error: null };
+    }
+
+    const otherUserIds = conversationsData.map((conv: Conversation) =>
+      conv.user_a_id === user.id ? conv.user_b_id : conv.user_a_id
+    );
+
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', otherUserIds);
+
+    if (profilesError) {
+      return { conversations: [], error: profilesError };
+    }
+
+    const { data: socialLinks } = await supabase
+      .from('social_links')
+      .select('*')
+      .in('id', otherUserIds);
+
+    const profilesMap = new Map(profiles?.map((p: Profile) => [p.id, p]) || []);
+    const socialLinksMap = new Map(socialLinks?.map((s: SocialLinks) => [s.id, s]) || []);
+
+    const conversationsWithParticipants: ConversationWithParticipant[] = conversationsData.map((conv: Conversation) => {
+      const otherUserId = conv.user_a_id === user.id ? conv.user_b_id : conv.user_a_id;
+      const profile = profilesMap.get(otherUserId);
+      const social = socialLinksMap.get(otherUserId);
+
+      return {
+        ...conv,
+        other_user: {
+          ...profile!,
+          social_links: social,
+        },
+      };
+    });
+
+    return { conversations: conversationsWithParticipants, error: null };
+  } catch (error) {
+    return { conversations: [], error: error as Error };
+  }
+}
+
+export async function getMessagesForConversation(
+  conversationId: string,
+  limit = 100
+): Promise<{ messages: Message[]; error: Error | null }> {
+  try {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true })
+      .limit(limit);
+
+    if (error) {
+      return { messages: [], error };
+    }
+
+    return { messages: (data || []) as Message[], error: null };
+  } catch (error) {
+    return { messages: [], error: error as Error };
+  }
+}
+
+export async function sendMessage(
+  conversationId: string,
+  text?: string,
+  imageUrl?: string
+): Promise<{ message: Message | null; error: Error | null }> {
+  try {
+    if (!text && !imageUrl) {
+      return { message: null, error: new Error('Message must have text or image') };
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { message: null, error: new Error('Not authenticated') };
+    }
+
+    const { data: message, error: messageError } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: conversationId,
+        sender_id: user.id,
+        text: text || null,
+        image_url: imageUrl || null,
+      })
+      .select()
+      .single();
+
+    if (messageError) {
+      return { message: null, error: messageError };
+    }
+
+    await supabase
+      .from('conversations')
+      .update({ last_message_at: new Date().toISOString() })
+      .eq('id', conversationId);
+
+    return { message: message as Message, error: null };
+  } catch (error) {
+    return { message: null, error: error as Error };
+  }
+}
+
+export async function updateConversationAnonymity(
+  conversationId: string,
+  isAnonymousForA: boolean,
+  isAnonymousForB: boolean
+): Promise<{ success: boolean; error: Error | null }> {
+  try {
+    const { error } = await supabase
+      .from('conversations')
+      .update({
+        is_anonymous_for_a: isAnonymousForA,
+        is_anonymous_for_b: isAnonymousForB,
+      })
+      .eq('id', conversationId);
+
+    if (error) {
+      return { success: false, error };
+    }
+
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error: error as Error };
+  }
+}
+
+export async function checkProximity(
+  userId1: string,
+  userId2: string
+): Promise<{ isNearby: boolean; error: Error | null }> {
+  try {
+    const { data: loc1, error: error1 } = await supabase
+      .from('locations')
+      .select('lat_short, long_short')
+      .eq('id', userId1)
+      .maybeSingle();
+
+    const { data: loc2, error: error2 } = await supabase
+      .from('locations')
+      .select('lat_short, long_short')
+      .eq('id', userId2)
+      .maybeSingle();
+
+    if (error1 || error2) {
+      return { isNearby: false, error: error1 || error2 };
+    }
+
+    if (!loc1 || !loc2 ||
+        loc1.lat_short === null || loc1.long_short === null ||
+        loc2.lat_short === null || loc2.long_short === null) {
+      return { isNearby: false, error: null };
+    }
+
+    const latDiff = Math.abs(loc1.lat_short - loc2.lat_short);
+    const longDiff = Math.abs(loc1.long_short - loc2.long_short);
+
+    const isNearby = latDiff <= 0.01 && longDiff <= 0.01;
+
+    return { isNearby, error: null };
+  } catch (error) {
+    return { isNearby: false, error: error as Error };
+  }
+}
+
+export async function updateAllConversationAnonymity(): Promise<{ success: boolean; error: Error | null }> {
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { success: false, error: new Error('Not authenticated') };
+    }
+
+    const { data: myLocation, error: myLocError } = await supabase
+      .from('locations')
+      .select('lat_short, long_short')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (myLocError) {
+      return { success: false, error: myLocError };
+    }
+
+    const myLocationActive = myLocation && myLocation.lat_short !== null && myLocation.long_short !== null;
+
+    const { data: conversations, error: convError } = await supabase
+      .from('conversations')
+      .select('*')
+      .or(`user_a_id.eq.${user.id},user_b_id.eq.${user.id}`);
+
+    if (convError) {
+      return { success: false, error: convError };
+    }
+
+    if (!conversations || conversations.length === 0) {
+      return { success: true, error: null };
+    }
+
+    for (const conv of conversations) {
+      const otherUserId = conv.user_a_id === user.id ? conv.user_b_id : conv.user_a_id;
+
+      const { data: otherLocation, error: otherLocError } = await supabase
+        .from('locations')
+        .select('lat_short, long_short')
+        .eq('id', otherUserId)
+        .maybeSingle();
+
+      if (otherLocError) {
+        continue;
+      }
+
+      const otherLocationActive = otherLocation && otherLocation.lat_short !== null && otherLocation.long_short !== null;
+
+      let shouldBeAnonymous = true;
+
+      if (myLocationActive && otherLocationActive) {
+        const latDiff = Math.abs(myLocation.lat_short - otherLocation.lat_short);
+        const longDiff = Math.abs(myLocation.long_short - otherLocation.long_short);
+        const isNearby = latDiff <= 0.01 && longDiff <= 0.01;
+
+        if (isNearby) {
+          shouldBeAnonymous = false;
+        }
+      }
+
+      await updateConversationAnonymity(
+        conv.id,
+        shouldBeAnonymous,
+        shouldBeAnonymous
+      );
+    }
+
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error: error as Error };
   }
 }

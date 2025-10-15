@@ -28,7 +28,7 @@ type SearchableUser = {
 };
 
 const RadarScreen: React.FC = () => {
-  const { selectedAccounts, isVisible, locationPermissionDenied } = useVisibility();
+  const { selectedAccounts, isVisible, locationPermissionDenied, requestLocationPermission } = useVisibility();
   const insets = useSafeAreaInsets();
 
   const [isSearchOpen, setSearchOpen] = useState(false);
@@ -38,7 +38,15 @@ const RadarScreen: React.FC = () => {
   const [nearbyUsers, setNearbyUsers] = useState<NearbyUserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasRequestedPermission, setHasRequestedPermission] = useState(false);
   const inputRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (!hasRequestedPermission) {
+      setHasRequestedPermission(true);
+      requestLocationPermission();
+    }
+  }, [hasRequestedPermission, requestLocationPermission]);
 
   useEffect(() => {
     if (!isVisible || locationPermissionDenied) {
@@ -175,9 +183,9 @@ const RadarScreen: React.FC = () => {
 
       {locationPermissionDenied ? (
         <View style={styles.centerContainer}>
-          <Text style={styles.warningText}>Location access is off</Text>
+          <Text style={styles.warningText}>Location access is needed</Text>
           <Text style={styles.warningDetail}>
-            Turn on location access in your browser to appear on radar and see nearby users.
+            Turn on location access to see nearby users.
           </Text>
         </View>
       ) : !isVisible ? (
