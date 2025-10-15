@@ -310,6 +310,29 @@ export async function deletePost(postId: string): Promise<{ success: boolean; er
   }
 }
 
+export async function updateProfileDisplayName(displayName: string): Promise<{ success: boolean; error: Error | null }> {
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { success: false, error: new Error('Not authenticated') };
+    }
+
+    const { error: updateError } = await supabase
+      .from('profiles')
+      .update({ display_name: displayName })
+      .eq('id', user.id);
+
+    if (updateError) {
+      return { success: false, error: updateError };
+    }
+
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error: error as Error };
+  }
+}
+
 export async function updateSocialLinks(data: Partial<Omit<SocialLinks, 'id' | 'created_at' | 'updated_at'>>): Promise<{ socialLinks: SocialLinks | null; error: Error | null }> {
   try {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -515,6 +538,33 @@ export async function getNearbyUsers(): Promise<{ users: NearbyUserData[]; error
     return { users: nearbyUsers, error: null };
   } catch (error) {
     return { users: [], error: error as Error };
+  }
+}
+
+export async function deleteImageFromStorage(
+  imageUrl: string | null,
+  bucket: 'profile-images' | 'post-images' | 'feedback-images'
+): Promise<{ success: boolean; error: Error | null }> {
+  if (!imageUrl) {
+    return { success: true, error: null };
+  }
+
+  try {
+    const urlParts = imageUrl.split('/');
+    const fileName = urlParts.slice(-2).join('/');
+
+    const { error } = await supabase.storage
+      .from(bucket)
+      .remove([fileName]);
+
+    if (error) {
+      console.error('Error deleting image:', error);
+      return { success: false, error };
+    }
+
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error: error as Error };
   }
 }
 
