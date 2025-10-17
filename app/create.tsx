@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { AppHeader } from '../src/components/AppHeader';
 import Navigation from '../src/components/Navigation';
 import { PostComposer, PostComposerSharePayload } from '../src/components/PostComposer';
+import SuccessPopup from '../src/components/SuccessPopup';
 import { theme } from '../src/styles/theme';
 import { createPost, getCurrentUserProfile, uploadImage } from '../src/lib/database';
 import { compressImage } from '../src/utils/imageCompression';
@@ -128,6 +129,7 @@ const CreateScreen: React.FC = () => {
   const router = useRouter();
   const [author, setAuthor] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [successVisible, setSuccessVisible] = useState(false);
 
   useEffect(() => {
     loadAuthor();
@@ -172,13 +174,8 @@ const CreateScreen: React.FC = () => {
       return false;
     }
 
-    Alert.alert('Success', 'Post created successfully!', [
-      {
-        text: 'OK',
-        onPress: () => router.push('/feed'),
-      },
-    ]);
-
+    // Show success popup and auto navigate after it dismisses
+    setSuccessVisible(true);
     return true;
   }, [router]);
 
@@ -201,6 +198,15 @@ const CreateScreen: React.FC = () => {
       <View style={styles.content}>
         <PostComposer author={author} onShare={handleShare} />
       </View>
+
+      <SuccessPopup
+        visible={successVisible}
+        message="Post created successfully"
+        onDismiss={() => {
+          setSuccessVisible(false);
+          router.push('/feed');
+        }}
+      />
 
       <Navigation activePath="/create" />
     </View>
