@@ -20,40 +20,70 @@ const ChatListItem: React.FC<ChatListItemProps> = ({
   avatarUrl,
   isAnonymous = false,
   onPress,
-}) => (
-  <Pressable style={styles.container} onPress={onPress}>
-    <View style={styles.avatarFrame}>
-      {avatarUrl ? (
-        <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
-      ) : (
-        <View style={styles.avatarFallback} />
+}) => {
+  const hasUnread = !!unreadCount && unreadCount > 0;
+  const unreadLabel = hasUnread ? (unreadCount > 99 ? '99+' : String(unreadCount)) : '';
+  const accessibilityLabelParts = [
+    isAnonymous ? 'Anonymous' : title,
+    subtitle,
+    timeLabel,
+  ].filter(Boolean);
+  if (hasUnread) {
+    accessibilityLabelParts.push(
+      unreadCount === 1 ? '1 unread message' : `${unreadLabel} unread messages`,
+    );
+  }
+
+  return (
+    <Pressable
+      style={styles.container}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabelParts.join(', ')}
+    >
+      <View style={styles.avatarFrame}>
+        {avatarUrl ? (
+          <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatarFallback} />
       )}
     </View>
 
-    <View style={styles.content}>
-      <View style={styles.primaryRow}>
-        <Text style={styles.title} numberOfLines={1}>
-          {isAnonymous ? 'Anonymous' : title}
-        </Text>
-        <Text style={styles.time} numberOfLines={1}>
-          {timeLabel}
-        </Text>
+      <View style={styles.content}>
+        <View style={styles.primaryRow}>
+          <Text style={styles.title} numberOfLines={1}>
+            {isAnonymous ? 'Anonymous' : title}
+          </Text>
+          <Text style={styles.time} numberOfLines={1}>
+            {timeLabel}
+          </Text>
+        </View>
+        <View style={styles.secondaryRow}>
+          <Text style={styles.subtitle} numberOfLines={1} ellipsizeMode="tail">
+            {subtitle}
+          </Text>
+          {hasUnread ? (
+            <View
+              style={styles.unreadBadge}
+              accessibilityRole="text"
+              accessibilityLabel={
+                unreadCount && unreadCount > 99
+                  ? '99 plus unread messages'
+                  : unreadCount === 1
+                    ? '1 unread message'
+                    : `${unreadCount} unread messages`
+              }
+            >
+              <Text style={styles.unreadText}>{unreadLabel}</Text>
+            </View>
+          ) : null}
+        </View>
       </View>
-      <View style={styles.secondaryRow}>
-        <Text style={styles.subtitle} numberOfLines={1} ellipsizeMode="tail">
-          {subtitle}
-        </Text>
-        {unreadCount ? (
-          <View style={styles.unreadBadge}>
-            <Text style={styles.unreadText}>{unreadCount}</Text>
-          </View>
-        ) : null}
-      </View>
-    </View>
 
-    <Feather name="chevron-right" size={18} color="rgba(148,163,184,0.6)" />
-  </Pressable>
-);
+      <Feather name="chevron-right" size={18} color="rgba(148,163,184,0.6)" />
+    </Pressable>
+  );
+};
 
 const AVATAR_SIZE = 42; // ~80% of previous 52
 const AVATAR_RADIUS = AVATAR_SIZE / 2;
@@ -62,8 +92,9 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 11, // reduced ~20-25%
+    paddingLeft: 6, // reduced by ~60% from 16 to move content left
+    paddingRight: 16,
+    paddingVertical: 11, // compact row height maintained
     backgroundColor: '#000000',
   },
   avatarFrame: {
@@ -119,15 +150,15 @@ const styles = StyleSheet.create({
   },
   unreadBadge: {
     minWidth: 22,
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     height: 22,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(37, 99, 235, 0.25)',
+    backgroundColor: '#1d4ed8',
   },
   unreadText: {
-    color: '#60a5fa',
+    color: '#ffffff',
     fontSize: 12,
     fontWeight: '600',
   },

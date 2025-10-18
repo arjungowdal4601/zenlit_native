@@ -1,98 +1,138 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Check, CheckCheck, Clock3 } from 'lucide-react-native';
 
-export type ChatMsg = {
-  id: string;
-  text: string;
-  sentAt: string;
-  fromMe: boolean;
-};
-
-const formatMessageTime = (isoDate: string): string => {
-  const date = new Date(isoDate);
-  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
-};
+export type MessageStatus = 'pending' | 'failed' | 'sent' | 'delivered' | 'read';
 
 export type MessageBubbleProps = {
-  message: ChatMsg;
+  text: string;
+  createdAt: string; // ISO string
+  isMine?: boolean;
+  status?: MessageStatus;
+  onRetry?: () => void;
 };
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
-  const isMe = message.fromMe;
-  return (
-    <View style={[styles.row, isMe ? styles.rowMe : styles.rowPeer]}>
-      <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubblePeer]}>
-        <Text style={[styles.text, isMe ? styles.textMe : styles.textPeer]}>{message.text}</Text>
-        <View style={[styles.metaRow, isMe ? styles.metaMe : styles.metaPeer]}>
-          <Text style={[styles.time, isMe ? styles.timeMe : styles.timePeer]}>
-            {formatMessageTime(message.sentAt)}
-          </Text>
-        </View>
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const formatHHmm = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+const statusIconFor = (status: MessageStatus) => {
+  switch (status) {
+    case 'pending':
+      return { icon: Clock3, color: '#94a3b8' };
+    case 'failed':
+      return { icon: Clock3, color: '#f87171' };
+    case 'delivered':
+      return { icon: CheckCheck, color: '#2563eb' };
+    case 'read':
+      return { icon: CheckCheck, color: '#22c55e' };
+    case 'sent':
+    default:
+      return { icon: Check, color: '#2563eb' };
+  }
+};
+
+const statusDescription: Record<MessageStatus, string> = {
+  pending: 'pending',
+  failed: 'not sent',
+  sent: 'sent',
+  delivered: 'delivered',
+  read: 'read',
+};
+
+const MessageBubble: React.FC<MessageBubbleProps> = ({
+  text,
+  createdAt,
+  isMine = false,
+  status = 'sent',
+  onRetry,
+}) => {
+  const timeLabel = formatHHmm(new Date(createdAt));
+  const showStatus = isMine;
+  const { icon: StatusIcon, color: statusColor } = statusIconFor(status);
+  const interactive = status === 'failed' && !!onRetry;
+  const accessibilityLabel = `${text || 'Message'}, ${timeLabel}${
+    showStatus ? `, status ${statusDescription[status]}` : ''
+  }${interactive ? '. Double tap to retry sending.' : ''}`;
+
+  const content = (
+    <View style={[styles.container, isMine ? styles.mine : styles.theirs]}>
+      <Text style={styles.text}>{text}</Text>
+      <View style={styles.metaRow}>
+        <Text style={styles.time}>{timeLabel}</Text>
+        {showStatus ? (
+          <StatusIcon strokeWidth={2.2} size={14} color={statusColor} />
+        ) : null}
       </View>
+    </View>
+  );
+
+  if (interactive) {
+    return (
+      <Pressable
+        onPress={onRetry}
+        style={({ pressed }) => [
+          styles.pressableWrapper,
+          isMine ? styles.wrapperMine : styles.wrapperTheirs,
+          pressed ? styles.pressablePressed : null,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View
+      accessibilityRole="text"
+      accessibilityLabel={accessibilityLabel}
+      style={[styles.pressableWrapper, isMine ? styles.wrapperMine : styles.wrapperTheirs]}
+    >
+      {content}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  row: {
-    marginVertical: 4,
-    flexDirection: 'row',
+  pressableWrapper: {
+    maxWidth: '82%',
   },
-  rowMe: {
-    justifyContent: 'flex-end',
+  wrapperMine: {
+    alignSelf: 'flex-end',
   },
-  rowPeer: {
-    justifyContent: 'flex-start',
+  wrapperTheirs: {
+    alignSelf: 'flex-start',
   },
-  bubble: {
-    maxWidth: '78%',
+  pressablePressed: {
+    opacity: 0.85,
+  },
+  container: {
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 18,
-    shadowColor: '#000000',
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
+    borderRadius: 12,
+    marginVertical: 4,
   },
-  bubbleMe: {
-    backgroundColor: '#2563eb',
-    borderTopRightRadius: 8,
+  mine: {
+    backgroundColor: '#111827',
   },
-  bubblePeer: {
-    backgroundColor: 'rgba(15, 23, 42, 0.95)',
-    borderTopLeftRadius: 8,
+  theirs: {
+    backgroundColor: '#0b0b0b',
   },
   text: {
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  textMe: {
     color: '#ffffff',
-  },
-  textPeer: {
-    color: '#e2e8f0',
+    fontSize: 15,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 6,
     marginTop: 6,
   },
-  metaMe: {
-    justifyContent: 'flex-end',
-  },
-  metaPeer: {
-    justifyContent: 'flex-start',
-  },
   time: {
-    fontSize: 11,
-    letterSpacing: 0.3,
-  },
-  timeMe: {
-    color: 'rgba(255, 255, 255, 0.76)',
-  },
-  timePeer: {
     color: '#94a3b8',
+    fontSize: 11,
   },
 });
 

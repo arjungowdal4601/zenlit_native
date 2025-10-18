@@ -9,12 +9,14 @@ import { getUserConversations, type ConversationWithParticipant, type Conversati
 import { useVisibility } from '../../src/contexts/VisibilityContext';
 import { supabase } from '../../src/lib/supabase';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { useMessaging } from '../../src/contexts/MessagingContext';
 
 const FALLBACK_AVATAR = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png';
 
 const MessagesScreen: React.FC = () => {
   const router = useRouter();
   const { isVisible, locationPermissionDenied } = useVisibility();
+  const { threadUnread, refreshUnread } = useMessaging();
 
   const [loading, setLoading] = useState(true);
   const [conversations, setConversations] = useState<ConversationWithParticipant[]>([]);
@@ -66,10 +68,13 @@ const MessagesScreen: React.FC = () => {
       const nextMap: Record<string, string> = {};
       for (const [id, snippet] of entries) nextMap[id] = snippet;
       setLastTextMap(nextMap);
+      refreshUnread().catch((err) => {
+        console.error('Failed to refresh unread counts', err);
+      });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshUnread]);
 
   // Initial load and refresh when triggered externally
   useEffect(() => {
@@ -142,6 +147,7 @@ const MessagesScreen: React.FC = () => {
       isAnonymous,
       lastMessageAt: conv.last_message_at,
       lastMessageSnippet: lastTextMap[conv.id] || '',
+      unreadCount: threadUnread[conv.id] ?? 0,
     };
   });
 

@@ -656,6 +656,8 @@ export interface Conversation {
   is_anonymous_for_b: boolean;
   last_message_at: string;
   created_at: string;
+  last_read_at_a?: string | null;
+  last_read_at_b?: string | null;
 }
 
 export interface Message {
@@ -665,6 +667,8 @@ export interface Message {
   text: string | null;
   image_url: string | null;
   created_at: string;
+  delivered_at?: string | null;
+  read_at?: string | null;
 }
 
 export interface ConversationWithParticipant extends Conversation {
@@ -860,6 +864,56 @@ export async function sendMessage(
     return { message: message as Message, error: null };
   } catch (error) {
     return { message: null, error: error as Error };
+  }
+}
+
+export async function markConversationDelivered(
+  conversationId: string
+): Promise<{ error: Error | null }> {
+  try {
+    const { error } = await supabase.rpc('mark_conversation_delivered', {
+      conv_id: conversationId,
+    });
+
+    if (error) {
+      return { error };
+    }
+
+    return { error: null };
+  } catch (error) {
+    return { error: error as Error };
+  }
+}
+
+export async function markConversationRead(
+  conversationId: string
+): Promise<{ error: Error | null }> {
+  try {
+    const { error } = await supabase.rpc('mark_conversation_read', {
+      conv_id: conversationId,
+    });
+
+    if (error) {
+      return { error };
+    }
+
+    return { error: null };
+  } catch (error) {
+    return { error: error as Error };
+  }
+}
+
+export async function getUnreadCounts(): Promise<{ counts: ConversationUnreadCount[]; error: Error | null }> {
+  try {
+    const { data, error } = await supabase.rpc('get_unread_counts');
+
+    if (error) {
+      return { counts: [], error };
+    }
+
+    return { counts: (data || []) as ConversationUnreadCount[], error: null };
+  } catch (error) {
+    return { counts: [], error: error as Error };
   }
 }
 

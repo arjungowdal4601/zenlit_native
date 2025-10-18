@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -9,12 +9,12 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 
 import ChatHeader from '../../src/components/messaging/ChatHeader';
 import Composer from '../../src/components/messaging/Composer';
 import DayDivider from '../../src/components/messaging/DayDivider';
-import MessageBubble from '../../src/components/messaging/MessageBubble';
+import MessageBubble, { type MessageStatus } from '../../src/components/messaging/MessageBubble';
 import { theme } from '../../src/styles/theme';
 import {
   getConversationById,
@@ -27,19 +27,17 @@ import {
   type SocialLinks,
 } from '../../src/lib/database';
 import { supabase } from '../../src/lib/supabase';
+import { useMessaging } from '../../src/contexts/MessagingContext';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 const FALLBACK_AVATAR = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png';
 
 const formatDayLabel = (isoDate: string): string => {
-  const date = new Date(isoDate);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return date.toLocaleDateString(undefined, { weekday: 'long' });
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  const d = new Date(isoDate);
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 };
 
 type ChatMsg = {
@@ -47,16 +45,21 @@ type ChatMsg = {
   text: string;
   sentAt: string;
   fromMe: boolean;
+  status: MessageStatus;
 };
 
 type RenderItem =
   | { type: 'day'; id: string; label: string }
   | { type: 'message'; id: string; message: ChatMsg };
 
+const sortMessagesAsc = (list: ChatMsg[]) =>
+  [...list].sort((a, b) => new Date(a.sentAt).getTime() - new Date(b.sentAt).getTime());
+
 const ChatDetailScreen: React.FC = () => {
   const params = useLocalSearchParams<{ id?: string }>();
   const conversationId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : undefined;
 
+  const { markThreadDelivered, markThreadRead, setActiveConversation } = useMessaging();
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [otherUser, setOtherUser] = useState<Profile | null>(null);
   const [socialLinks, setSocialLinks] = useState<SocialLinks | null>(null);
@@ -64,6 +67,61 @@ const ChatDetailScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
+
+  const mapServerMessage = useCallback(
+    (msg: Message): ChatMsg => {
+      if (!currentUserId) {
+        return {
+          id: msg.id,
+          text: msg.text || '',
+          sentAt: msg.created_at,
+          fromMe: false,
+          status: 'sent',
+        };
+      }
+
+      const fromMe = msg.sender_id === currentUserId;
+      let status: MessageStatus = 'sent';
+      if (fromMe) {
+        if (msg.read_at) {
+          status = 'read';
+        } else if (msg.delivered_at) {
+          status = 'delivered';
+        } else {
+          status = 'sent';
+        }
+      }
+
+      return {
+        id: msg.id,
+        text: msg.text || '',
+        sentAt: msg.created_at,
+        fromMe,
+        status,
+      };
+    },
+    [currentUserId]
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!conversationId) {
+        return () => {};
+      }
+
+      setActiveConversation(conversationId);
+      markThreadDelivered(conversationId).catch((error) => {
+        console.error('Failed to mark conversation delivered on focus', error);
+      });
+      markThreadRead(conversationId).catch((error) => {
+        console.error('Failed to mark conversation read on focus', error);
+      });
+
+      return () => {
+        setActiveConversation(null);
+      };
+    }, [conversationId, markThreadDelivered, markThreadRead, setActiveConversation])
+  );
 
   useEffect(() => {
     const loadCurrentUser = async () => {
@@ -109,12 +167,7 @@ const ChatDetailScreen: React.FC = () => {
       if (messagesError) {
         console.error('Error loading messages:', messagesError);
       } else {
-        const chatMessages: ChatMsg[] = messagesData.map((msg: Message) => ({
-          id: msg.id,
-          text: msg.text || '',
-          sentAt: msg.created_at,
-          fromMe: msg.sender_id === currentUserId,
-        }));
+        const chatMessages = sortMessagesAsc(messagesData.map(mapServerMessage));
         setMessages(chatMessages);
       }
 
@@ -122,7 +175,7 @@ const ChatDetailScreen: React.FC = () => {
     };
 
     loadConversation();
-  }, [conversationId, currentUserId]);
+  }, [conversationId, currentUserId, mapServerMessage]);
 
   const listRef = useRef<FlatList<RenderItem>>(null);
 
@@ -140,6 +193,61 @@ const ChatDetailScreen: React.FC = () => {
     return () => clearTimeout(timeout);
   }, [messages.length]);
 
+  useEffect(() => {
+    if (!conversationId || !currentUserId) {
+      return;
+    }
+
+    const channel = supabase
+      .channel(`chat-thread-${conversationId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+        (payload: RealtimePostgresChangesPayload<Message>) => {
+          const newMessage = payload.new;
+          if (!newMessage) {
+            return;
+          }
+
+          setMessages((prev) => {
+            const mapped = mapServerMessage(newMessage);
+            const existingIndex = prev.findIndex((m) => m.id === mapped.id);
+            if (existingIndex >= 0) {
+              const next = [...prev];
+              next[existingIndex] = mapped;
+              return sortMessagesAsc(next);
+            }
+            return sortMessagesAsc([...prev, mapped]);
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+        (payload: RealtimePostgresChangesPayload<Message>) => {
+          const updatedMessage = payload.new;
+          if (!updatedMessage) {
+            return;
+          }
+
+          setMessages((prev) => {
+            const index = prev.findIndex((m) => m.id === updatedMessage.id);
+            if (index === -1) {
+              return prev;
+            }
+            const next = [...prev];
+            next[index] = mapServerMessage(updatedMessage);
+            return sortMessagesAsc(next);
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversationId, currentUserId, mapServerMessage]);
+
   const data = useMemo<RenderItem[]>(() => {
     const entries: RenderItem[] = [];
     let currentLabel: string | null = null;
@@ -155,34 +263,81 @@ const ChatDetailScreen: React.FC = () => {
   }, [messages]);
 
   const handleSend = async (text: string) => {
-    if (!conversationId || !text.trim()) {
+    if (!conversationId) {
       return;
     }
 
+    const body = text.trim();
+    if (!body) {
+      return;
+    }
+
+    const optimisticId = `local-${Date.now()}`;
+    const nowIso = new Date().toISOString();
     const optimisticMessage: ChatMsg = {
-      id: `local-${Date.now()}`,
-      text,
-      sentAt: new Date().toISOString(),
+      id: optimisticId,
+      text: body,
+      sentAt: nowIso,
       fromMe: true,
+      status: 'pending',
     };
-    setMessages((prev) => [...prev, optimisticMessage]);
 
-    const { message, error } = await sendMessage(conversationId, text);
+    setMessages((prev) => sortMessagesAsc([...prev, optimisticMessage]));
 
-    if (error) {
-      console.error('Error sending message:', error);
-    } else if (message) {
-      setMessages((prev) => {
-        const filtered = prev.filter((m) => m.id !== optimisticMessage.id);
-        return [...filtered, {
-          id: message.id,
-          text: message.text || '',
-          sentAt: message.created_at,
-          fromMe: true,
-        }];
-      });
+    try {
+      const { message, error } = await sendMessage(conversationId, body);
+      if (error || !message) {
+        throw error ?? new Error('Message failed to send');
+      }
+
+      setMessages((prev) =>
+        sortMessagesAsc(
+          prev.map((m) => (m.id === optimisticId ? mapServerMessage(message) : m))
+        )
+      );
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === optimisticId ? { ...m, status: 'failed' } : m))
+      );
     }
   };
+
+  const handleRetry = useCallback(
+    async (message: ChatMsg) => {
+      if (!conversationId) {
+        return;
+      }
+
+      const retryTimestamp = new Date().toISOString();
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === message.id
+            ? { ...m, status: 'pending', sentAt: retryTimestamp }
+            : m
+        )
+      );
+
+      try {
+        const { message: sentMessage, error } = await sendMessage(conversationId, message.text);
+        if (error || !sentMessage) {
+          throw error ?? new Error('Retry failed');
+        }
+
+        setMessages((prev) =>
+          sortMessagesAsc(
+            prev.map((m) => (m.id === message.id ? mapServerMessage(sentMessage) : m))
+          )
+        );
+      } catch (err) {
+        console.error('Error retrying message send:', err);
+        setMessages((prev) =>
+          prev.map((m) => (m.id === message.id ? { ...m, status: 'failed' } : m))
+        );
+      }
+    },
+    [conversationId, mapServerMessage]
+  );
 
   if (loading) {
     return (
@@ -240,7 +395,15 @@ const ChatDetailScreen: React.FC = () => {
               if (item.type === 'day') {
                 return <DayDivider label={item.label} />;
               }
-              return <MessageBubble message={item.message} />;
+              return (
+                <MessageBubble
+                  text={item.message.text}
+                  createdAt={item.message.sentAt}
+                  isMine={item.message.fromMe}
+                  status={item.message.status}
+                  onRetry={item.message.status === 'failed' ? () => handleRetry(item.message) : undefined}
+                />
+              );
             }}
             contentContainerStyle={styles.listContent}
             keyboardShouldPersistTaps="handled"

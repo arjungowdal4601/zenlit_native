@@ -7,6 +7,7 @@ import { Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { VisibilityProvider } from '../src/contexts/VisibilityContext';
+import { MessagingProvider } from '../src/contexts/MessagingContext';
 import { theme } from '../src/styles/theme';
 import { supabase, clearInvalidSession } from '../src/lib/supabase';
 
@@ -42,15 +43,17 @@ const RootLayout: React.FC = () => {
   return (
     <SafeAreaProvider>
       <VisibilityProvider>
-        <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-          <StatusBar style="light" backgroundColor={theme.colors.background} />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: theme.colors.background },
-            }}
-          />
-        </View>
+        <MessagingProvider>
+          <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
+            <StatusBar style="light" backgroundColor={theme.colors.background} />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: theme.colors.background },
+              }}
+            />
+          </View>
+        </MessagingProvider>
       </VisibilityProvider>
     </SafeAreaProvider>
   );

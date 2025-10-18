@@ -1,182 +1,110 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
-
-import ChatListItem from './ChatListItem';
-import EmptyState from './EmptyState';
-import SkeletonRows from './Skeletons';
-
-export type Thread = {
-  id: string;
-  peer: {
-    id: string;
-    name: string;
-    avatar: string;
-  };
-  isAnonymous: boolean;
-  lastMessageAt: string;
-  lastMessageSnippet?: string;
-  unreadCount?: number;
-};
-
-const formatDayLabel = (isoDate: string): string => {
-  const date = new Date(isoDate);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return date.toLocaleDateString(undefined, { weekday: 'long' });
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-};
-
-const formatMessageTime = (isoDate: string): string => {
-  const date = new Date(isoDate);
-  return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
-};
+import React from 'react';
+import { FlatList, StyleSheet } from 'react-native';
+import ChatListItem, { ChatListItemProps } from './ChatListItem';
+import DayDivider from './DayDivider';
 
 export type ChatListProps = {
-  threads: Thread[];
+  threads: any[];
   onPressThread: (threadId: string) => void;
 };
 
-const LABEL_TEXT_STYLE = {
-  color: '#94a3b8',
-  fontSize: 11,
-  letterSpacing: 2,
+// Helpers for time formatting per requirements
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const formatHHmm = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+const formatDMY = (d: Date) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+
+const isSameDay = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+const isYesterday = (date: Date, today: Date) => {
+  const y = new Date(today);
+  y.setHours(0, 0, 0, 0);
+  y.setDate(y.getDate() - 1);
+  return isSameDay(date, y);
 };
 
+const timeLabelFor = (isoString?: string) => {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  const today = new Date();
+  if (isSameDay(date, today)) return formatHHmm(date);
+  if (isYesterday(date, today)) return 'Yesterday';
+  return formatDMY(date);
+};
+
+// Get comparable timestamp for sorting
+const getTime = (t: any) => t.lastMessageAt ?? t.last_message_at ?? t.lastMessageISO ?? '';
+
+// Display items: either a thread row or the anonymous separator
+type DisplayItem =
+  | { kind: 'thread'; id: string; thread: any }
+  | { kind: 'separator'; id: string };
+
 const ChatList: React.FC<ChatListProps> = ({ threads, onPressThread }) => {
-  const [loading, setLoading] = useState(true);
+  // Split into regular and anonymous
+  const regular = threads.filter((t) => !t.isAnonymous);
+  const anonymous = threads.filter((t) => !!t.isAnonymous);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 320);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const { normalThreads, anonymousThreads } = useMemo(() => {
-    const normals: Thread[] = [];
-    const anons: Thread[] = [];
-    threads.forEach((thread) => {
-      if (thread.isAnonymous) {
-        anons.push(thread);
-      } else {
-        normals.push(thread);
-      }
-    });
-    return { normalThreads: normals, anonymousThreads: anons };
-  }, [threads]);
-
-  const timeLabelFor = (iso: string) => {
-    const date = new Date(iso);
-    const today = new Date();
-    const sameDay =
-      date.getFullYear() === today.getFullYear() &&
-      date.getMonth() === today.getMonth() &&
-      date.getDate() === today.getDate();
-
-    return sameDay ? formatMessageTime(iso) : formatDayLabel(iso);
+  // Sort each section by last message time desc
+  const byTimeDesc = (a: any, b: any) => {
+    const ta = getTime(a);
+    const tb = getTime(b);
+    // Newest first; fallback empty strings go last
+    if (!ta && !tb) return 0;
+    if (!ta) return 1;
+    if (!tb) return -1;
+    return new Date(tb).getTime() - new Date(ta).getTime();
   };
 
-  if (loading) {
-    return (
-      <View style={styles.sectionContainer}>
-        <SkeletonRows count={7} />
-      </View>
-    );
+  regular.sort(byTimeDesc);
+  anonymous.sort(byTimeDesc);
+
+  const items: DisplayItem[] = [];
+  // Always render regular first
+  for (const t of regular) items.push({ kind: 'thread', id: String(t.id), thread: t });
+  // If there are anonymous chats, render a divider then the anonymous ones
+  if (anonymous.length > 0) {
+    items.push({ kind: 'separator', id: 'anonymous-divider' });
+    for (const t of anonymous) items.push({ kind: 'thread', id: String(t.id), thread: t });
   }
 
+  const renderItem = ({ item }: { item: DisplayItem }) => {
+    if (item.kind === 'separator') {
+      return <DayDivider label="ANONYMOUS" />;
+    }
+
+    const raw = item.thread;
+    const title: string = raw.title ?? raw.peer?.name ?? '';
+    const subtitle: string = raw.lastMessage ?? raw.lastMessageSnippet ?? '';
+    const avatarUrl: string | undefined = raw.avatarUrl ?? raw.peer?.avatar;
+    const timeIso: string | undefined = raw.lastMessageAt ?? raw.last_message_at ?? raw.lastMessageISO;
+
+    const props: ChatListItemProps = {
+      title,
+      subtitle,
+      timeLabel: timeLabelFor(timeIso),
+      unreadCount: raw.unreadCount,
+      avatarUrl,
+      isAnonymous: raw.isAnonymous,
+      onPress: () => onPressThread(raw.id),
+    };
+
+    return <ChatListItem {...props} />;
+  };
+
   return (
-    <View style={styles.wrapper}>
-      <View style={styles.sectionContainer}>
-        {normalThreads.length === 0 ? (
-          <EmptyState title="No conversations yet" />
-        ) : (
-          normalThreads.map((thread) => (
-            <ChatListItem
-              key={thread.id}
-              title={thread.peer.name}
-              subtitle={thread.lastMessageSnippet ?? ''}
-              timeLabel={timeLabelFor(thread.lastMessageAt)}
-              unreadCount={thread.unreadCount || undefined}
-              avatarUrl={thread.peer.avatar}
-              onPress={() => onPressThread(thread.id)}
-            />
-          ))
-        )}
-      </View>
-
-      <View style={styles.sectionDivider}>
-        <View style={styles.sectionLine} />
-        <View style={styles.sectionChip}>
-          <Feather name="eye" size={14} color="#94a3b8" />
-          <Text style={LABEL_TEXT_STYLE}>  ANONYMOUS</Text>
-        </View>
-        <View style={styles.sectionLine} />
-      </View>
-
-      <View style={styles.sectionContainer}>
-        {anonymousThreads.length === 0 ? (
-          <EmptyState
-            title="No anonymous chats"
-          />
-        ) : (
-          anonymousThreads.map((thread) => (
-            <ChatListItem
-              key={thread.id}
-              title={thread.peer.name}
-              subtitle={thread.lastMessageSnippet ?? ''}
-              avatarUrl={thread.peer.avatar}
-              isAnonymous
-              timeLabel={timeLabelFor(thread.lastMessageAt)}
-              unreadCount={thread.unreadCount || undefined}
-              onPress={() => onPressThread(thread.id)}
-            />
-          ))
-        )}
-      </View>
-    </View>
+    <FlatList
+      data={items}
+      keyExtractor={(it) => it.id}
+      renderItem={renderItem}
+      contentContainerStyle={styles.listContent}
+    />
   );
 };
 
 const styles = StyleSheet.create({
-  wrapper: {
-    paddingBottom: 140,
-    gap: 24,
-  },
-  sectionContainer: {
-    // Remove any bounding box or outline; let items sit on black page
-    borderRadius: 0,
-    borderWidth: 0,
-    borderColor: 'transparent',
-    backgroundColor: 'transparent',
-  },
-  sectionDivider: {
-    // Center the label without lines or chip box
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingHorizontal: 0,
-    marginVertical: 4,
-  },
-  sectionLine: {
-    // No dividing lines
-    flex: 0,
-    height: 0,
-    backgroundColor: 'transparent',
-  },
-  sectionChip: {
-    // Plain label without border or background
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 0,
-    borderWidth: 0,
-    borderColor: 'transparent',
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-    backgroundColor: 'transparent',
+  listContent: {
+    paddingVertical: 8,
   },
 });
 

@@ -2,45 +2,36 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 export type DayDividerProps = {
-  label: string;
+  label: string; // expects dd/mm/yyyy
 };
 
-const DayDivider: React.FC<DayDividerProps> = ({ label }) => (
-  <View style={styles.container}>
-    <View style={styles.line} />
-    <View style={styles.badge}>
-      <Text style={styles.text}>{label}</Text>
+const DayDivider: React.FC<DayDividerProps> = ({ label }) => {
+  return (
+    <View style={styles.container}>
+      <View style={styles.line} />
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.line} />
     </View>
-    <View style={styles.line} />
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 12,
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    marginVertical: 10,
   },
   line: {
-    // Remove dividing lines
-    flex: 0,
-    height: 0,
-    backgroundColor: 'transparent',
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(148,163,184,0.35)', // thin grey line
   },
-  badge: {
-    // No pill/bounds; plain label
-    marginHorizontal: 0,
-    borderRadius: 0,
-    borderWidth: 0,
-    borderColor: 'transparent',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    backgroundColor: 'transparent',
-  },
-  text: {
-    fontSize: 12,
+  label: {
     color: '#94a3b8',
-    letterSpacing: 0.5,
+    fontSize: 12,
   },
 });
 
