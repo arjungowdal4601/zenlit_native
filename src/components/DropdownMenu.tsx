@@ -20,7 +20,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({ visible, items, onClose, st
   if (!visible) return null;
 
   return (
-    <View style={styles.overlay} pointerEvents="box-none">
+    <View style={[styles.overlay, { pointerEvents: 'box-none' }]}>
       <Pressable style={styles.backdrop} onPress={onClose} />
       <View style={[styles.card, style]}>        
         {items.map((item, idx) => (

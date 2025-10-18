@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 const DEFAULT_MAX_SIZE_KB = 550;
@@ -87,6 +87,26 @@ const mimeToExtension = (mime: string): string => {
   return 'jpg';
 };
 
+// Map extension back to a proper image MIME (used for web fallbacks)
+const extensionToMime = (ext: string): string => {
+  const e = ext.toLowerCase();
+  switch (e) {
+    case 'png':
+      return 'image/png';
+    case 'webp':
+      return 'image/webp';
+    case 'gif':
+      return 'image/gif';
+    case 'heic':
+    case 'heif':
+      return 'image/heic';
+    case 'jpeg':
+    case 'jpg':
+    default:
+      return 'image/jpeg';
+  }
+};
+
 const base64SizeInBytes = (base64: string): number => {
   const cleaned = base64.replace(/=+$/, '');
   return Math.floor((cleaned.length * 3) / 4);
@@ -156,8 +176,10 @@ const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
 
 const writeBase64ToCache = async (base64: string, extension: string): Promise<string> => {
   const directory = (FileSystem as any).cacheDirectory ?? (FileSystem as any).documentDirectory;
+  // On web, FileSystem directories are unavailable. Fall back to a data URI.
   if (!directory) {
-    throw new Error('No writable directory available for image compression');
+    const mime = extensionToMime(extension);
+    return `data:${mime};base64,${base64}`;
   }
   const uniqueName = `img-${Date.now()}-${Math.random().toString(16).slice(2)}.${extension}`;
   const fileUri = `${directory}${uniqueName}`;
@@ -169,6 +191,9 @@ const safelyDelete = async (uri: string | undefined) => {
   if (!uri) return;
   try {
     await FileSystem.deleteAsync(uri, { idempotent: true });
+    // Example using new API if/when you migrate:
+    // const file = new File(uri);
+    // return file.delete();
   } catch {
     // Ignore cleanup failures – they are non-blocking.
   }
