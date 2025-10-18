@@ -10,6 +10,7 @@ import {
   Text,
   View,
   ViewStyle,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -79,6 +80,11 @@ const UserProfileScreen: React.FC = () => {
   const [posts, setPosts] = useState<DbPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Responsive spacing units
+  const { width } = useWindowDimensions();
+  const headerGap = width < 360 ? 10 : width < 768 ? 12 : 14;
+  const bannerMargin = 32 + headerGap; // avatar overhang (92 - 60) + dynamic gap
 
   const requestedId = useMemo(() => {
     const value = params.id;
@@ -203,8 +209,8 @@ const UserProfileScreen: React.FC = () => {
         keyExtractor={(item) => item.id}
         renderItem={renderPost}
         ListHeaderComponent={
-          <View style={styles.listHeader}>
-            <View style={styles.bannerWrapper}>
+          <View style={[styles.listHeader, { gap: headerGap, paddingTop: headerGap }]}>
+            <View style={[styles.bannerWrapper, { marginBottom: bannerMargin }]}>
               <Image source={bannerSource} style={styles.bannerImage} />
               <View style={styles.bannerGradient} />
               {/* Overlaid back button for improved visibility */}
@@ -289,7 +295,7 @@ const UserProfileScreen: React.FC = () => {
 
             <Text style={styles.bio}>{socialLinks?.bio || 'No bio yet'}</Text>
 
-            <View style={{ marginLeft: -24, marginRight: -24, marginTop: 6 }}>
+            <View style={{ marginLeft: -24, marginRight: -24, marginTop: 8 }}>
               <View style={styles.divider} />
             </View>
 
@@ -314,19 +320,19 @@ const styles = StyleSheet.create({
     // Match feed list padding for consistent post indentation
     paddingHorizontal: 24,
     paddingBottom: 140,
-    gap: 18,
+    gap: 16,
   },
   listHeader: {
-    gap: 18,
+    gap: 12,
     // Slightly reduce top padding now that the header title is removed
-    paddingTop: 8,
+    paddingTop: 12,
   },
   bannerWrapper: {
     position: 'relative',
     backgroundColor: '#111827',
     // Align banner to edges relative to list padding
     marginHorizontal: -24,
-    marginBottom: 72,
+    marginBottom: 56,
   },
   bannerImage: {
     width: '100%',
@@ -407,13 +413,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   handle: {
-    marginTop: 6,
+    marginTop: 4,
     color: '#94a3b8',
     fontSize: 15,
   },
   bio: {
-    // Move bio up by 10px
-    marginTop: 2,
+    marginTop: 4,
     color: '#e2e8f0',
     fontSize: 15,
     lineHeight: 22,
@@ -421,7 +426,7 @@ const styles = StyleSheet.create({
   divider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(71, 85, 105, 0.6)',
-    marginTop: 6,
+    marginTop: 8,
     // Make header divider full-bleed like feed separators
     marginLeft: -24,
     marginRight: -24,
@@ -431,7 +436,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: 0,
   },
   emptyState: {
     textAlign: 'center',

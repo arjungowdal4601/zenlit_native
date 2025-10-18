@@ -12,6 +12,7 @@ import {
   Text,
   View,
   ViewStyle,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -66,6 +67,9 @@ const ProfileScreen: React.FC = () => {
   const [socialLinks, setSocialLinks] = useState<SocialLinks | null>(null);
   const [posts, setPosts] = useState<PostType[]>([]);
   const [loading, setLoading] = useState(true);
+  const { width } = useWindowDimensions();
+  const headerGap = width < 360 ? 10 : width < 768 ? 12 : 14;
+  const bannerMargin = 32 + headerGap; // avatar overhang (92 - 60) + dynamic gap
 
   useEffect(() => {
     loadUserData();
@@ -231,8 +235,8 @@ const ProfileScreen: React.FC = () => {
         renderItem={renderPost}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
-          <View style={styles.listHeader}>
-            <View style={styles.bannerWrapper}>
+          <View style={[styles.listHeader, { gap: headerGap, paddingTop: headerGap }]}>
+            <View style={[styles.bannerWrapper, { marginBottom: bannerMargin }]}>
               <Image source={bannerSource} style={styles.bannerImage} resizeMode="cover" />
               <View style={styles.bannerGradient} />
               <View style={styles.bannerOverlayRow}>
@@ -353,17 +357,17 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 24,
     paddingBottom: 140,
-    gap: 18,
+    gap: 16,
   },
   listHeader: {
-    gap: 18,
-    paddingTop: 16,
+    gap: 12,
+    paddingTop: 12,
   },
   bannerWrapper: {
     position: 'relative',
     backgroundColor: '#111827',
     marginHorizontal: -24,
-    marginBottom: 72,
+    marginBottom: 56,
   },
   bannerImage: {
     width: '100%',
@@ -421,7 +425,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   identityBlock: {
-    marginBottom: 16,
+    marginBottom: 0,
     marginTop: 0,
   },
   name: {
@@ -430,22 +434,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   username: {
-    marginTop: 6,
+    marginTop: 4,
     color: '#94a3b8',
     fontSize: 15,
   },
   bioBlock: {
-    marginBottom: 24,
+    marginBottom: 0,
   },
   bioText: {
     color: '#e2e8f0',
     fontSize: 15,
     lineHeight: 22,
-    marginTop: 2,
+    marginTop: 4,
   },
   separatorWrapper: {
-    marginTop: 6,
-    marginBottom: 12,
+    marginTop: 8,
+    marginBottom: 8,
     marginLeft: -24,
     marginRight: -24,
   },
@@ -458,7 +462,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: 0,
   },
 });
 
