@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Image,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -11,6 +10,8 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
+import { uploadImage } from '../../lib/database';
+import { compressImage, MAX_IMAGE_SIZE_BYTES, base64ToUint8Array, type CompressedImage } from '../../utils/imageCompression';
 import ImageUploadDialog from '../ImageUploadDialog';
 
 const MAX_LENGTH = 1000;
@@ -21,7 +22,7 @@ const FeedbackForm: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [attachedImage, setAttachedImage] = useState<string | null>(null);
+  const [attachedImage, setAttachedImage] = useState<CompressedImage | null>(null);
   const [showImageUploadDialog, setShowImageUploadDialog] = useState(false);
 
   const mountedRef = useRef(true);
@@ -43,8 +44,8 @@ const FeedbackForm: React.FC = () => {
     setShowImageUploadDialog(true);
   };
 
-  const handleImageSelected = (imageUri: string) => {
-    setAttachedImage(imageUri);
+  const handleImageSelected = (image: CompressedImage | null) => {
+    setAttachedImage(image);
     setShowImageUploadDialog(false);
   };
 
@@ -52,105 +53,45 @@ const FeedbackForm: React.FC = () => {
     setAttachedImage(null);
   };
 
-  const uploadImageIfNeeded = async (uri: string | null, userId: string): Promise<string | undefined> => {
+  const uploadImageIfNeeded = async (image: CompressedImage | null, _userId: string): Promise<string | undefined> => {
     try {
-      if (!uri) return undefined;
-
-      const isRemote = uri.startsWith('http');
-      const isLocal = uri.startsWith('file:') || uri.startsWith('data:') || uri.startsWith('blob:');
-
-      if (isRemote && !isLocal) {
-        return uri;
-      }
-
-      const extMatch = uri.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
-      let contentType = 'image/jpeg';
-      let ext = (extMatch && extMatch[1]) ? extMatch[1].toLowerCase() : 'jpg';
-
-      if (uri.startsWith('data:')) {
-        const mimeMatch = uri.match(/^data:(.*?);base64,/);
-        if (mimeMatch && mimeMatch[1]) {
-          contentType = mimeMatch[1];
-          if (contentType.includes('png')) ext = 'png';
-          else if (contentType.includes('webp')) ext = 'webp';
-          else ext = 'jpg';
-        }
-      } else {
-        contentType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-      }
-
-      const fileName = `${userId}/feedback-${Date.now()}.${ext}`;
-
-      const base64ToUint8Array = (b64: string): Uint8Array => {
-        const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-        let bufferLength = b64.length * 0.75;
-        const len = b64.length;
-        let p = 0;
-        let encoded1, encoded2, encoded3, encoded4;
-
-        if (b64[len - 1] === '=') bufferLength--;
-        if (b64[len - 2] === '=') bufferLength--;
-
-        const bytes = new Uint8Array(bufferLength | 0);
-
-        for (let i = 0; i < len; i += 4) {
-          encoded1 = base64Chars.indexOf(b64[i]);
-          encoded2 = base64Chars.indexOf(b64[i + 1]);
-          encoded3 = base64Chars.indexOf(b64[i + 2]);
-          encoded4 = base64Chars.indexOf(b64[i + 3]);
-
-          const triplet = (encoded1 << 18) | (encoded2 << 12) | ((encoded3 & 63) << 6) | (encoded4 & 63);
-
-          if (b64[i + 2] === '=') {
-            bytes[p++] = (triplet >> 16) & 0xFF;
-          } else if (b64[i + 3] === '=') {
-            bytes[p++] = (triplet >> 16) & 0xFF;
-            bytes[p++] = (triplet >> 8) & 0xFF;
-          } else {
-            bytes[p++] = (triplet >> 16) & 0xFF;
-            bytes[p++] = (triplet >> 8) & 0xFF;
-            bytes[p++] = triplet & 0xFF;
-          }
-        }
-        return bytes;
-      };
-
-      let uploadBody: Uint8Array | Blob | ArrayBuffer;
-
-      if (uri.startsWith('data:')) {
-        const commaIndex = uri.indexOf(',');
-        const base64Data = commaIndex !== -1 ? uri.slice(commaIndex + 1) : '';
-        uploadBody = base64ToUint8Array(base64Data);
-      } else if (Platform.OS === 'web') {
-        const response = await fetch(uri);
-        const blob = await response.blob();
-        uploadBody = blob;
-      } else {
-        const response = await fetch(uri);
-        const arrayBuffer = await (response as any).arrayBuffer?.();
-        if (!arrayBuffer) {
-          console.error('Unable to read file for upload');
-          return undefined;
-        }
-        uploadBody = arrayBuffer as ArrayBuffer;
-      }
-
-      const { error: uploadError } = await supabase.storage
-        .from('feedback-images')
-        .upload(fileName, uploadBody as any, { contentType, upsert: true });
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
+      if (!image) {
         return undefined;
       }
 
-      const { data } = supabase.storage.from('feedback-images').getPublicUrl(fileName);
-      return data.publicUrl;
-    } catch (err) {
-      console.error('Failed to upload image:', err);
+      let workingImage = image;
+
+      if (
+        workingImage.size > MAX_IMAGE_SIZE_BYTES ||
+        workingImage.metadata.compressedSize > MAX_IMAGE_SIZE_BYTES
+      ) {
+        workingImage = await compressImage(workingImage.uri);
+      }
+
+      const fileName = `feedback-${Date.now()}.jpg`;
+      const uploadBody = workingImage.base64
+        ? base64ToUint8Array(workingImage.base64)
+        : workingImage.uri;
+
+      const { url, error } = await uploadImage(uploadBody, 'feedback-images', fileName, {
+        contentType: workingImage.mimeType,
+      });
+
+      if (error || !url) {
+        throw error ?? new Error('Upload failed');
+      }
+
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.log('[feedback-upload]', workingImage.metadata);
+      }
+
+      return url;
+    } catch (uploadError) {
+      console.error('Failed to upload feedback image:', uploadError);
       return undefined;
     }
   };
+
 
   const handleSubmit = async () => {
     const trimmed = message.trim();
@@ -175,6 +116,9 @@ const FeedbackForm: React.FC = () => {
       let imageUrl: string | undefined = undefined;
       if (attachedImage) {
         imageUrl = await uploadImageIfNeeded(attachedImage, user.id);
+        if (!imageUrl) {
+          throw new Error('Failed to upload your screenshot. Please try again.');
+        }
       }
 
       const { error: insertError } = await supabase
@@ -241,7 +185,7 @@ const FeedbackForm: React.FC = () => {
 
       {attachedImage && (
         <View style={styles.imagePreviewContainer}>
-          <Image source={{ uri: attachedImage }} style={styles.imagePreview} resizeMode="cover" />
+          <Image source={{ uri: attachedImage.uri }} style={styles.imagePreview} resizeMode="cover" />
           <Pressable style={styles.removeImageButton} onPress={handleRemoveImage}>
             <Feather name="x" size={16} color="#ffffff" />
           </Pressable>
@@ -277,7 +221,7 @@ const FeedbackForm: React.FC = () => {
         onClose={() => setShowImageUploadDialog(false)}
         onImageSelected={handleImageSelected}
         title="Attach Image"
-        currentImage={attachedImage}
+        currentImage={attachedImage?.uri}
         onRemove={handleRemoveImage}
         showRemoveOption={!!attachedImage}
       />
@@ -404,3 +348,6 @@ const styles = StyleSheet.create({
 });
 
 export default FeedbackForm;
+
+
+

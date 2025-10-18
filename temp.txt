@@ -27,7 +27,7 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
   const [value, setValue] = useState('');
   const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
   const [showImageDialog, setShowImageDialog] = useState(false);
-  const [attachedImage, setAttachedImage] = useState<CompressedImage | null>(null);
+  const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
 
   const avatarSource = useMemo(() => {
@@ -80,8 +80,8 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
     setShowImageDialog(true);
   };
 
-  const handleImageSelected = (image: CompressedImage | null) => {
-    setAttachedImage(image);
+  const handleImageSelected = (uri: string) => {
+    setAttachedImage(uri);
     setShowImageDialog(false);
   };
 
@@ -166,7 +166,7 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
         {attachedImage && (
           <View style={styles.attachedImageContainer}>
             <Image
-              source={{ uri: attachedImage.uri }}
+              source={{ uri: attachedImage }}
               style={styles.attachedImage}
               resizeMode="contain"
             />
@@ -186,7 +186,7 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
         visible={showImageDialog}
         onClose={() => setShowImageDialog(false)}
         onImageSelected={handleImageSelected}
-        currentImage={attachedImage?.uri}
+        currentImage={attachedImage || undefined}
         onRemove={handleRemoveImage}
         showRemoveOption={!!attachedImage}
         title="Attach Image"

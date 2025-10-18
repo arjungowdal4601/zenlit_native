@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Platform, StatusBar, StyleSheet, View } from 'react-native';
+import { Alert, StatusBar, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { AppHeader } from '../src/components/AppHeader';
@@ -8,121 +8,37 @@ import { PostComposer, PostComposerSharePayload } from '../src/components/PostCo
 import SuccessPopup from '../src/components/SuccessPopup';
 import { theme } from '../src/styles/theme';
 import { createPost, getCurrentUserProfile, uploadImage } from '../src/lib/database';
-import { compressImage } from '../src/utils/imageCompression';
+import { compressImage, MAX_IMAGE_SIZE_BYTES, base64ToUint8Array, type CompressedImage } from '../src/utils/imageCompression';
 
-const REMOTE_PROTOCOL_REGEX = /^https?:\/\//i;
-
-const inferExtension = (uri: string, defaultExt: string) => {
-  const match = uri.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
-  if (match && match[1]) {
-    return match[1].toLowerCase();
-  }
-  return defaultExt;
-};
-
-const inferExtensionFromMime = (mime: string | null): string => {
-  if (!mime) return 'jpg';
-  if (mime.includes('png')) return 'png';
-  if (mime.includes('webp')) return 'webp';
-  if (mime.includes('gif')) return 'gif';
-  return 'jpg';
-};
-
-const base64ToUint8Array = (b64: string): Uint8Array => {
-  const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-  let bufferLength = b64.length * 0.75;
-  const len = b64.length;
-
-  if (b64[len - 1] === '=') bufferLength--;
-  if (b64[len - 2] === '=') bufferLength--;
-
-  const bytes = new Uint8Array(bufferLength | 0);
-  let p = 0;
-
-  for (let i = 0; i < len; i += 4) {
-    const encoded1 = base64Chars.indexOf(b64[i]);
-    const encoded2 = base64Chars.indexOf(b64[i + 1]);
-    const encoded3 = base64Chars.indexOf(b64[i + 2]);
-    const encoded4 = base64Chars.indexOf(b64[i + 3]);
-
-    const triplet = (encoded1 << 18) | (encoded2 << 12) | ((encoded3 & 63) << 6) | (encoded4 & 63);
-
-    if (b64[i + 2] === '=') {
-      bytes[p++] = (triplet >> 16) & 0xff;
-    } else if (b64[i + 3] === '=') {
-      bytes[p++] = (triplet >> 16) & 0xff;
-      bytes[p++] = (triplet >> 8) & 0xff;
-    } else {
-      bytes[p++] = (triplet >> 16) & 0xff;
-      bytes[p++] = (triplet >> 8) & 0xff;
-      bytes[p++] = triplet & 0xff;
-    }
-  }
-
-  return bytes;
-};
-
-const resolveUploadPayload = async (
-  uri: string,
-): Promise<{ body: Uint8Array | ArrayBuffer | Blob; extension: string }> => {
-  if (uri.startsWith('data:')) {
-    const mimeMatch = uri.match(/^data:(.*?);base64,/);
-    const extension = inferExtensionFromMime(mimeMatch?.[1] ?? null);
-    const commaIndex = uri.indexOf(',');
-    const base64Data = commaIndex !== -1 ? uri.slice(commaIndex + 1) : '';
-    return {
-      body: base64ToUint8Array(base64Data),
-      extension,
-    };
-  }
-
-  const extension = inferExtension(uri, 'jpg');
-  const response = await fetch(uri);
-
-  if (!response.ok) {
-    throw new Error('Failed to read image data');
-  }
-
-  if (Platform.OS === 'web') {
-    const blob = await response.blob();
-    return { body: blob, extension };
-  }
-
-  const arrayBuffer = await response.arrayBuffer();
-  return { body: arrayBuffer, extension };
-};
-
-const uploadPostImageIfNeeded = async (imageUri: string | null | undefined): Promise<string | undefined> => {
-  if (!imageUri) {
+const uploadPostImageIfNeeded = async (image: CompressedImage | null | undefined): Promise<string | undefined> => {
+  if (!image) {
     return undefined;
   }
 
-  const trimmed = imageUri.trim();
-  if (!trimmed.length) {
-    return undefined;
+  let workingImage = image;
+
+  if (
+    workingImage.size > MAX_IMAGE_SIZE_BYTES ||
+    workingImage.metadata.compressedSize > MAX_IMAGE_SIZE_BYTES
+  ) {
+    workingImage = await compressImage(workingImage.uri);
   }
 
-  const isRemote = REMOTE_PROTOCOL_REGEX.test(trimmed);
-  const isLocal = trimmed.startsWith('file:') || trimmed.startsWith('data:') || trimmed.startsWith('blob:');
+  const fileName = `post-${Date.now()}.jpg`;
+  const uploadBody = workingImage.base64 ? base64ToUint8Array(workingImage.base64) : workingImage.uri;
+  const { url, error } = await uploadImage(uploadBody, 'post-images', fileName, {
+    contentType: workingImage.mimeType,
+  });
 
-  if (isRemote && !isLocal) {
-    return trimmed;
+  if (error || !url) {
+    throw error ?? new Error('Upload failed');
   }
 
-  try {
-    const compressed = await compressImage(trimmed);
-    const fileName = `post-${Date.now()}.jpg`;
-    const { url, error } = await uploadImage(compressed.uri, 'post-images', fileName);
-
-    if (error || !url) {
-      throw error ?? new Error('Upload failed');
-    }
-
-    return url;
-  } catch (error) {
-    console.error('Failed to upload post image:', error);
-    return undefined;
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.log('[post-image/compression]', workingImage.metadata);
   }
+
+  return url;
 };
 
 const CreateScreen: React.FC = () => {
@@ -177,7 +93,7 @@ const CreateScreen: React.FC = () => {
     // Show success popup and auto navigate after it dismisses
     setSuccessVisible(true);
     return true;
-  }, [router]);
+  }, []);
 
   if (loading || !author) {
     return (
@@ -226,3 +142,5 @@ const styles = StyleSheet.create({
 });
 
 export default CreateScreen;
+
+

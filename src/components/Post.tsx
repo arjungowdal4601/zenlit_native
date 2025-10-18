@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import ConfirmDialog from './ConfirmDialog';
@@ -41,6 +42,7 @@ export const Post: React.FC<PostProps> = ({
   onDelete,
 }) => {
   const { author, content, image, timestamp } = post;
+  const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -77,6 +79,13 @@ export const Post: React.FC<PostProps> = ({
     }
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(author.name)}&background=random&color=fff&size=128`;
   }, [author.avatar, author.name]);
+
+  const handleAuthorPress = useCallback(() => {
+    if (!author.id) {
+      return;
+    }
+    router.push(`/profile/${author.id}`);
+  }, [author.id, router]);
 
   const handleOpenLink = useCallback(async (url: string) => {
     try {
@@ -200,9 +209,19 @@ export const Post: React.FC<PostProps> = ({
         ) : null}
 
         <View style={styles.contentRow}>
-          <View style={styles.avatarWrapper}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.avatarWrapper,
+              pressed && author.id ? styles.avatarPressed : null,
+            ]}
+            onPress={handleAuthorPress}
+            accessibilityRole={author.id ? 'button' : undefined}
+            accessibilityLabel={author.id ? `View ${author.name}'s profile` : undefined}
+            disabled={!author.id}
+            hitSlop={{ top: 8, bottom: 8, left: 4, right: 12 }}
+          >
             <Image source={{ uri: avatarUri }} style={styles.avatar} />
-          </View>
+          </Pressable>
 
           <View style={styles.postBody}>
             <View style={styles.authorBlock}>
@@ -310,6 +329,9 @@ const styles = StyleSheet.create({
     marginRight: 16,
     paddingTop: 6,
   },
+  avatarPressed: {
+    opacity: 0.75,
+  },
   avatar: {
     width: 40,
     height: 40,
@@ -372,3 +394,5 @@ const styles = StyleSheet.create({
 });
 
 export default Post;
+
+

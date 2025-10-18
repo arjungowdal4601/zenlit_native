@@ -47,7 +47,6 @@ export const FeedList: React.FC<FeedListProps> = ({ refreshSignal }) => {
     return {
       id: post.id,
       author: {
-        id: author.id,
         name: author.display_name,
         username: author.user_name,
         avatar: socialLinks?.profile_pic_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(author.display_name)}&background=random&color=fff&size=128`,

@@ -74,7 +74,7 @@ const OnboardingBasicScreen: React.FC = () => {
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
-  const usernameCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const usernameCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const formatDate = (date: Date) => {
     const year = date.getFullYear();

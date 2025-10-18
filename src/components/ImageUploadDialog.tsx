@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View, Image, Alert, Platform } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View, Image, Alert, Platform, ActivityIndicator } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { compressImage, type CompressedImage } from '../utils/imageCompression';
 
 export type ImageUploadDialogProps = {
   visible: boolean;
   onClose: () => void;
-  onImageSelected: (imageUri: string) => void;
+  onImageSelected: (image: CompressedImage | null) => void;
   title?: string;
   currentImage?: string | null;
   onRemove?: () => void;
@@ -25,6 +26,7 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedUploadUri, setSelectedUploadUri] = useState<string | null>(null);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const requestCameraPermission = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -131,11 +133,22 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
     }
   };
 
-  const handleConfirmUpload = () => {
+  const handleConfirmUpload = async () => {
     const finalUri = selectedUploadUri ?? selectedImage;
-    if (finalUri) {
-      onImageSelected(finalUri);
+    if (!finalUri || isProcessing) {
+      return;
+    }
+
+    try {
+      setIsProcessing(true);
+      const compressed = await compressImage(finalUri);
+      onImageSelected(compressed);
       handleClose();
+    } catch (error) {
+      console.error('Image compression failed:', error);
+      const message = error instanceof Error ? error.message : 'Please try again.';
+      Alert.alert('Unable to process image', message.includes('compress') ? message : 'We could not optimise this image. Please try again or choose a different photo.');
+      setIsProcessing(false);
     }
   };
 
@@ -143,6 +156,7 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
     setSelectedImage(null);
     setSelectedUploadUri(null);
     setIsPreviewMode(false);
+    setIsProcessing(false);
     onClose();
   };
 
@@ -150,6 +164,7 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
     setSelectedImage(null);
     setSelectedUploadUri(null);
     setIsPreviewMode(false);
+    setIsProcessing(false);
   };
 
   const handleRemoveImage = () => {
@@ -167,7 +182,7 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
       if (onRemove) {
         onRemove();
       } else {
-        onImageSelected('');
+        onImageSelected(null);
       }
       handleClose();
       return;
@@ -185,7 +200,7 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
             if (onRemove) {
               onRemove();
             } else {
-              onImageSelected('');
+              onImageSelected(null);
             }
             handleClose();
           }
@@ -217,11 +232,37 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
               </View>
 
               <View style={styles.previewActions}>
-                <Pressable style={styles.actionButton} onPress={handleBackToOptions}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    pressed ? styles.actionButtonPressed : null,
+                    isProcessing ? styles.actionButtonDisabled : null,
+                  ]}
+                  onPress={handleBackToOptions}
+                  disabled={isProcessing}
+                >
                   <Text style={styles.actionButtonText}>Retake</Text>
                 </Pressable>
-                <Pressable style={[styles.actionButton, styles.confirmButton]} onPress={handleConfirmUpload}>
-                  <Text style={[styles.actionButtonText, styles.confirmButtonText]}>Confirm</Text>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    styles.confirmButton,
+                    isProcessing ? styles.actionButtonDisabled : null,
+                    pressed && !isProcessing ? styles.actionButtonPressed : null,
+                  ]}
+                  onPress={handleConfirmUpload}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <View style={styles.confirmButtonContent}>
+                      <ActivityIndicator size="small" color="#ffffff" />
+                      <Text style={[styles.actionButtonText, styles.confirmButtonText, styles.processingLabel]}>
+                        Optimising…
+                      </Text>
+                    </View>
+                  ) : (
+                    <Text style={[styles.actionButtonText, styles.confirmButtonText]}>Use Photo</Text>
+                  )}
                 </Pressable>
               </View>
             </>
@@ -379,9 +420,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(148, 163, 184, 0.35)',
   },
+  actionButtonPressed: {
+    opacity: 0.75,
+  },
+  actionButtonDisabled: {
+    opacity: 0.6,
+  },
   confirmButton: {
     backgroundColor: '#6d28d9',
     borderColor: '#6d28d9',
+  },
+  confirmButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   actionButtonText: {
     color: '#cbd5f5',
@@ -390,6 +442,9 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     color: '#ffffff',
+  },
+  processingLabel: {
+    marginLeft: 6,
   },
   row: {
     minHeight: 48,

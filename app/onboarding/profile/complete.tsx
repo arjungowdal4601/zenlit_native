@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, Image, ImageSourcePropType, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -402,7 +402,7 @@ const CompleteProfileScreen: React.FC = () => {
             disabled={!supabaseReady || isSaving}
             accessibilityRole="button"
           >
-            <Text style={styles.actionLabel}>{isSaving ? 'Saving…' : 'Save'}</Text>
+            <Text style={styles.actionLabel}>{isSaving ? 'SavingΓÇª' : 'Save'}</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -568,3 +568,4 @@ const styles = StyleSheet.create({
 });
 
 export default CompleteProfileScreen;
+

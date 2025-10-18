@@ -8,7 +8,7 @@ import { SOCIAL_PLATFORMS, extractUsername } from '../src/constants/socialPlatfo
 import GradientTitle from '../src/components/GradientTitle';
 import { supabase } from '../src/lib/supabase';
 import { getCurrentUserProfile, updateSocialLinks, uploadImage, deleteImageFromStorage, updateProfileDisplayName } from '../src/lib/database';
-import { compressImage } from '../src/utils/imageCompression';
+import { compressImage, MAX_IMAGE_SIZE_BYTES, base64ToUint8Array, type CompressedImage } from '../src/utils/imageCompression';
 
 const EditProfileScreen: React.FC = () => {
   const router = useRouter();
@@ -29,8 +29,8 @@ const EditProfileScreen: React.FC = () => {
 
   const [pendingBannerRemoval, setPendingBannerRemoval] = useState(false);
   const [pendingProfileRemoval, setPendingProfileRemoval] = useState(false);
-  const [pendingBannerUpload, setPendingBannerUpload] = useState<string | null>(null);
-  const [pendingAvatarUpload, setPendingAvatarUpload] = useState<string | null>(null);
+  const [pendingBannerUpload, setPendingBannerUpload] = useState<CompressedImage | null>(null);
+  const [pendingAvatarUpload, setPendingAvatarUpload] = useState<CompressedImage | null>(null);
   const [oldBannerUrl, setOldBannerUrl] = useState<string | null>(null);
   const [oldProfileUrl, setOldProfileUrl] = useState<string | null>(null);
 
@@ -141,95 +141,39 @@ const EditProfileScreen: React.FC = () => {
     }
   };
 
-  const uploadImageIfNeeded = async (uri: string | null | undefined, filePrefix: 'avatar' | 'banner', _userId: string): Promise<string | undefined> => {
+    const uploadImageIfNeeded = async (
+    image: CompressedImage | null | undefined,
+    filePrefix: 'avatar' | 'banner',
+  ): Promise<string | undefined> => {
     try {
-      if (!uri) return undefined;
-
-      const normalizedUri = uri.trim();
-      if (!normalizedUri.length) {
+      if (!image) {
         return undefined;
       }
 
-      const isRemote = normalizedUri.startsWith('http');
-      const isDataUri = normalizedUri.startsWith('data:');
+      let workingImage = image;
 
-      if (isRemote && !isDataUri) {
-        return normalizedUri;
+      if (
+        workingImage.size > MAX_IMAGE_SIZE_BYTES ||
+        workingImage.metadata.compressedSize > MAX_IMAGE_SIZE_BYTES
+      ) {
+        workingImage = await compressImage(workingImage.uri);
       }
 
-      const base64ToUint8Array = (b64: string): Uint8Array => {
-        const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-        let bufferLength = b64.length * 0.75;
-        const len = b64.length;
-        let p = 0;
-        let encoded1: number;
-        let encoded2: number;
-        let encoded3: number;
-        let encoded4: number;
+      const fileName = `${filePrefix}-${Date.now()}.jpg`;
+      const uploadBody = workingImage.base64
+        ? base64ToUint8Array(workingImage.base64)
+        : workingImage.uri;
 
-        if (b64[len - 1] === '=') bufferLength--;
-        if (b64[len - 2] === '=') bufferLength--;
-
-        const bytes = new Uint8Array(bufferLength | 0);
-
-        for (let i = 0; i < len; i += 4) {
-          encoded1 = base64Chars.indexOf(b64[i]);
-          encoded2 = base64Chars.indexOf(b64[i + 1]);
-          encoded3 = base64Chars.indexOf(b64[i + 2]);
-          encoded4 = base64Chars.indexOf(b64[i + 3]);
-
-          const triplet = (encoded1 << 18) | (encoded2 << 12) | ((encoded3 & 63) << 6) | (encoded4 & 63);
-
-          if (b64[i + 2] === '=') {
-            bytes[p++] = (triplet >> 16) & 0xff;
-          } else if (b64[i + 3] === '=') {
-            bytes[p++] = (triplet >> 16) & 0xff;
-            bytes[p++] = (triplet >> 8) & 0xff;
-          } else {
-            bytes[p++] = (triplet >> 16) & 0xff;
-            bytes[p++] = (triplet >> 8) & 0xff;
-            bytes[p++] = triplet & 0xff;
-          }
-        }
-        return bytes;
-      };
-
-      let contentType = 'image/jpeg';
-      let extension = 'jpg';
-      let uploadBody: Uint8Array | string;
-
-      if (isDataUri) {
-        const match = normalizedUri.match(/^data:(.*?);base64,(.+)$/);
-        if (!match || !match[2]) {
-          throw new Error('Invalid image data provided.');
-        }
-        contentType = match[1] || 'image/jpeg';
-        if (contentType.includes('png')) {
-          extension = 'png';
-        } else if (contentType.includes('webp')) {
-          extension = 'webp';
-        } else {
-          extension = 'jpg';
-          contentType = 'image/jpeg';
-        }
-        uploadBody = base64ToUint8Array(match[2]);
-      } else {
-        const compressed = await compressImage(normalizedUri);
-        if (compressed.base64) {
-          uploadBody = base64ToUint8Array(compressed.base64);
-        } else {
-          uploadBody = compressed.uri;
-        }
-        // We always save JPEGs when compressing.
-        extension = 'jpg';
-        contentType = 'image/jpeg';
-      }
-
-      const fileName = `${filePrefix}-${Date.now()}.${extension}`;
-      const { url, error } = await uploadImage(uploadBody, 'profile-images', fileName, { contentType });
+      const { url, error } = await uploadImage(uploadBody, 'profile-images', fileName, {
+        contentType: workingImage.mimeType,
+      });
 
       if (error || !url) {
         throw error ?? new Error('Upload failed');
+      }
+
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.log(`[profile-upload/${filePrefix}]`, workingImage.metadata);
       }
 
       return url;
@@ -266,14 +210,14 @@ const EditProfileScreen: React.FC = () => {
       const displayNameChanged = trimmedDisplayName !== originalDisplayName;
 
       if (pendingAvatarUpload) {
-        uploadedAvatarUrl = await uploadImageIfNeeded(pendingAvatarUpload, 'avatar', user.id);
+        uploadedAvatarUrl = await uploadImageIfNeeded(pendingAvatarUpload, 'avatar');
         if (!uploadedAvatarUrl) {
           throw new Error('Failed to upload the new profile picture. Please try again.');
         }
       }
 
       if (pendingBannerUpload) {
-        uploadedBannerUrl = await uploadImageIfNeeded(pendingBannerUpload, 'banner', user.id);
+        uploadedBannerUrl = await uploadImageIfNeeded(pendingBannerUpload, 'banner');
         if (!uploadedBannerUrl) {
           throw new Error('Failed to upload the new banner image. Please try again.');
         }
@@ -480,16 +424,17 @@ const EditProfileScreen: React.FC = () => {
     setShowImageUploadDialog(true);
   };
 
-  const handleImageSelected = (imageUri: string) => {
-    const normalizedUri = imageUri ? imageUri.trim() : '';
-    const finalUri = normalizedUri.length > 0 ? normalizedUri : null;
-
-    const hasImage = Boolean(finalUri);
+  const handleImageSelected = (image: CompressedImage | null) => {
+    const finalUri = image?.uri ?? null;
+    const hasImage = Boolean(image);
 
     if (uploadType === 'avatar') {
       setProfileImage(finalUri);
-      setPendingAvatarUpload(hasImage ? finalUri : null);
+      setPendingAvatarUpload(image ?? null);
       setPendingProfileRemoval(!hasImage);
+      if (typeof __DEV__ !== 'undefined' && __DEV__ && image) {
+        console.log('[profile-image/avatar]', image.metadata);
+      }
       showToastMessage(
         hasImage
           ? 'New profile picture selected. Save to apply.'
@@ -497,10 +442,13 @@ const EditProfileScreen: React.FC = () => {
         'info',
       );
     } else {
-      const bannerSource = finalUri ? { uri: finalUri } : null;
+      const bannerSource = image ? { uri: image.uri } : null;
       setBannerImage(bannerSource);
-      setPendingBannerUpload(hasImage ? finalUri : null);
+      setPendingBannerUpload(image ?? null);
       setPendingBannerRemoval(!hasImage);
+      if (typeof __DEV__ !== 'undefined' && __DEV__ && image) {
+        console.log('[profile-image/banner]', image.metadata);
+      }
       showToastMessage(
         hasImage
           ? 'New banner image selected. Save to apply.'
@@ -883,3 +831,5 @@ const styles = StyleSheet.create({
 });
 
 export default EditProfileScreen;
+
+
