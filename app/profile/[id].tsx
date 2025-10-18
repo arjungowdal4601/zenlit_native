@@ -15,6 +15,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { MessageSquare } from 'lucide-react-native';
 
 import Navigation from '../../src/components/Navigation';
 import Post from '../../src/components/Post';
@@ -26,6 +27,7 @@ import {
 import {
   getProfileById,
   getUserPosts,
+  findOrCreateConversation,
   type Profile,
   type SocialLinks,
   type Post as DbPost,
@@ -201,6 +203,20 @@ const UserProfileScreen: React.FC = () => {
     );
   }
 
+  const handleMessagePress = async () => {
+    if (!requestedId) return;
+    try {
+      const { conversation, error } = await findOrCreateConversation(requestedId);
+      if (error || !conversation) {
+        console.error('Error creating conversation:', error);
+        return;
+      }
+      router.push(`/messages/${conversation.id}`);
+    } catch (e) {
+      console.error('Error in handleMessagePress:', e);
+    }
+  };
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
@@ -209,14 +225,14 @@ const UserProfileScreen: React.FC = () => {
         keyExtractor={(item) => item.id}
         renderItem={renderPost}
         ListHeaderComponent={
-          <View style={[styles.listHeader, { gap: headerGap, paddingTop: headerGap }]}>
+          <View style={[styles.listHeader, { gap: headerGap, paddingTop: headerGap }]}> 
             <View style={[styles.bannerWrapper, { marginBottom: bannerMargin }]}>
               <Image source={bannerSource} style={styles.bannerImage} />
               <View style={styles.bannerGradient} />
-              {/* Overlaid back button for improved visibility */}
+              {/* Overlaid back + message buttons */}
               <Pressable
                 onPress={() => router.back()}
-                style={styles.backButton}
+                style={({ pressed }) => [styles.backButton, pressed ? { opacity: 0.9 } : null]}
                 accessibilityRole="button"
                 accessibilityLabel="Go back"
               >
@@ -224,6 +240,18 @@ const UserProfileScreen: React.FC = () => {
                   <Feather name="arrow-left" size={22} color="#ffffff" />
                 </View>
               </Pressable>
+
+              <Pressable
+                onPress={handleMessagePress}
+                style={({ pressed }) => [styles.messageButton, pressed ? { opacity: 0.9 } : null]}
+                accessibilityRole="button"
+                accessibilityLabel="Message user"
+              >
+                <View style={styles.backCircle}>
+                  <MessageSquare size={22} color="#ffffff" strokeWidth={2} />
+                </View>
+              </Pressable>
+
               <View style={styles.bannerOverlayRow}>
                 <View style={styles.avatarWrapper}>
                   <Image source={avatarSource} style={styles.avatar} />
@@ -346,6 +374,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 16,
     left: 16,
+  },
+  messageButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
   },
   backCircle: {
     width: 44,
