@@ -1,13 +1,13 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, Image, ImageSourcePropType, Platform } from 'react-native';
+import { Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, Image, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import OptionsDialog from '../../../src/components/OptionsDialog';
 import ImageUploadDialog from '../../../src/components/ImageUploadDialog';
 import { SOCIAL_PLATFORMS, extractUsername } from '../../../src/constants/socialPlatforms';
 import GradientTitle from '../../../src/components/GradientTitle';
 import { supabase, supabaseReady } from '../../../src/lib/supabase';
+import { compressImage, MAX_IMAGE_SIZE_BYTES, base64ToUint8Array, type CompressedImage } from '../../../src/utils/imageCompression';
 
 const FALLBACK_AVATAR = null;
 
@@ -17,8 +17,10 @@ const CompleteProfileScreen: React.FC = () => {
   // Local state (UI-only)
   const [displayName, setDisplayName] = useState('Alex Johnson');
   const [bio, setBio] = useState('');
-  const [bannerImage, setBannerImage] = useState<ImageSourcePropType | null>(null);
-  const [profileImage, setProfileImage] = useState<string | null>(FALLBACK_AVATAR);
+  const [bannerImage, setBannerImage] = useState<CompressedImage | null>(null);
+  const [profileImage, setProfileImage] = useState<CompressedImage | null>(null);
+  const [bannerImageUrl, setBannerImageUrl] = useState<string | null>(null);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(FALLBACK_AVATAR);
 
   const [showInstagramModal, setShowInstagramModal] = useState(false);
   const [showTwitterModal, setShowTwitterModal] = useState(false);
@@ -44,7 +46,15 @@ const CompleteProfileScreen: React.FC = () => {
     }
   };
 
+  const clearPendingImages = () => {
+    setProfileImage(null);
+    setBannerImage(null);
+    setProfileImageUrl(null);
+    setBannerImageUrl(null);
+  };
+
   const handleBack = () => {
+    clearPendingImages();
     router.back();
   };
 
@@ -58,100 +68,53 @@ const CompleteProfileScreen: React.FC = () => {
     };
   }, []);
 
-  const uploadImageIfNeeded = async (uri: string | null | undefined, filePrefix: 'avatar' | 'banner', userId: string): Promise<string | undefined> => {
+  const uploadImageIfNeeded = async (
+    image: CompressedImage | null,
+    filePrefix: 'avatar' | 'banner',
+    userId: string,
+  ): Promise<string | undefined> => {
     try {
-      if (!uri) return undefined;
-      const isRemote = uri.startsWith('http');
-      const isLocal = uri.startsWith('file:') || uri.startsWith('data:') || uri.startsWith('blob:');
-
-      // If it's a remote URL and not a local selection, use as-is
-      if (isRemote && !isLocal) {
-        return uri;
+      if (!image) {
+        return undefined;
       }
 
-      // Determine content type and file name
-      const extMatch = uri.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
-      let contentType = 'image/jpeg';
-      let ext = (extMatch && extMatch[1]) ? extMatch[1].toLowerCase() : 'jpg';
+      let workingImage = image;
 
-      // If data URI, parse mime type as contentType
-      if (uri.startsWith('data:')) {
-        const mimeMatch = uri.match(/^data:(.*?);base64,/);
-        if (mimeMatch && mimeMatch[1]) {
-          contentType = mimeMatch[1];
-          if (contentType.includes('png')) ext = 'png';
-          else if (contentType.includes('webp')) ext = 'webp';
-          else ext = 'jpg';
-        }
-      } else {
-        contentType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      if (workingImage.metadata?.compressedSize > MAX_IMAGE_SIZE_BYTES) {
+        workingImage = await compressImage(workingImage.uri);
       }
 
-      // Store under the user's directory for consistency
-      const fileName = `${userId}/${filePrefix}-${Date.now()}.${ext}`;
+      const mimeType = workingImage.mimeType || 'image/jpeg';
+      const extension = mimeType.includes('png')
+        ? 'png'
+        : mimeType.includes('webp')
+          ? 'webp'
+          : 'jpg';
 
-      // Helper to decode base64 to Uint8Array (no atob reliance)
-      const base64ToUint8Array = (b64: string): Uint8Array => {
-        const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-        let bufferLength = b64.length * 0.75;
-        const len = b64.length;
-        let p = 0;
-        let encoded1, encoded2, encoded3, encoded4;
+      const fileName = `${userId}/${filePrefix}-${Date.now()}.${extension}`;
 
-        if (b64[len - 1] === '=') bufferLength--;
-        if (b64[len - 2] === '=') bufferLength--;
+      let uploadBody: ArrayBuffer | Blob;
 
-        const bytes = new Uint8Array(bufferLength | 0);
-
-        for (let i = 0; i < len; i += 4) {
-          encoded1 = base64Chars.indexOf(b64[i]);
-          encoded2 = base64Chars.indexOf(b64[i + 1]);
-          encoded3 = base64Chars.indexOf(b64[i + 2]);
-          encoded4 = base64Chars.indexOf(b64[i + 3]);
-
-          const triplet = (encoded1 << 18) | (encoded2 << 12) | ((encoded3 & 63) << 6) | (encoded4 & 63);
-
-          if (b64[i + 2] === '=') {
-            bytes[p++] = (triplet >> 16) & 0xFF;
-          } else if (b64[i + 3] === '=') {
-            bytes[p++] = (triplet >> 16) & 0xFF;
-            bytes[p++] = (triplet >> 8) & 0xFF;
-          } else {
-            bytes[p++] = (triplet >> 16) & 0xFF;
-            bytes[p++] = (triplet >> 8) & 0xFF;
-            bytes[p++] = triplet & 0xFF;
-          }
-        }
-        return bytes;
-      };
-
-      let uploadBody: Uint8Array | Blob | ArrayBuffer;
-
-      if (uri.startsWith('data:')) {
-        // data URI path: decode base64 on native; on web use fetch as fallback
-        const commaIndex = uri.indexOf(',');
-        const base64Data = commaIndex !== -1 ? uri.slice(commaIndex + 1) : '';
-        // Prefer Uint8Array which supabase-js accepts
-        uploadBody = base64ToUint8Array(base64Data);
+      if (workingImage.base64) {
+        uploadBody = base64ToUint8Array(workingImage.base64).buffer;
       } else if (Platform.OS === 'web') {
-        // Web can handle blob fetch
-        const response = await fetch(uri);
-        const blob = await response.blob();
-        uploadBody = blob;
-      } else {
-        // Fallback: try arrayBuffer fetch; if not supported, bail out
-        const response = await fetch(uri);
-        const arrayBuffer = await (response as any).arrayBuffer?.();
-        if (!arrayBuffer) {
-          console.error('Unable to read file for upload in native environment');
-          return undefined;
+        const response = await fetch(workingImage.uri);
+        if (!response.ok) {
+          throw new Error('Failed to fetch image for upload');
         }
-        uploadBody = arrayBuffer as ArrayBuffer;
+        uploadBody = await response.blob();
+      } else {
+        const response = await fetch(workingImage.uri);
+        if (!response.ok) {
+          throw new Error('Failed to fetch image for upload');
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        uploadBody = arrayBuffer;
       }
 
       const { error: uploadError } = await supabase.storage
         .from('profile-images')
-        .upload(fileName, uploadBody as any, { contentType, upsert: true });
+        .upload(fileName, uploadBody, { contentType: mimeType, upsert: true });
 
       if (uploadError) {
         console.error('Upload error:', uploadError);
@@ -183,11 +146,11 @@ const CompleteProfileScreen: React.FC = () => {
       }
 
       // Upload images if needed
-      const profileImageUri = typeof profileImage === 'string' ? profileImage : undefined;
-      const bannerUri = (bannerImage as any)?.uri as string | undefined;
+      const uploadedAvatarUrl = await uploadImageIfNeeded(profileImage, 'avatar', user.id);
+      const uploadedBannerUrl = await uploadImageIfNeeded(bannerImage, 'banner', user.id);
 
-      const uploadedAvatarUrl = await uploadImageIfNeeded(profileImageUri, 'avatar', user.id);
-      const uploadedBannerUrl = await uploadImageIfNeeded(bannerUri, 'banner', user.id);
+      const finalAvatarUrl = uploadedAvatarUrl ?? profileImageUrl ?? null;
+      const finalBannerUrl = uploadedBannerUrl ?? bannerImageUrl ?? null;
 
       // Prepare payload for social_links using actual schema columns
       const payload: Record<string, any> = {
@@ -196,8 +159,8 @@ const CompleteProfileScreen: React.FC = () => {
         instagram: instagram?.trim() || null,
         x_twitter: twitter?.trim() || null,
         linkedin: linkedin?.trim() || null,
-        profile_pic_url: uploadedAvatarUrl || null,
-        banner_url: uploadedBannerUrl || null,
+        profile_pic_url: finalAvatarUrl,
+        banner_url: finalBannerUrl,
       };
 
       const { error: upsertError } = await supabase
@@ -206,6 +169,16 @@ const CompleteProfileScreen: React.FC = () => {
 
       if (upsertError) {
         throw upsertError;
+      }
+
+      if (uploadedAvatarUrl) {
+        setProfileImage(null);
+        setProfileImageUrl(uploadedAvatarUrl);
+      }
+
+      if (uploadedBannerUrl) {
+        setBannerImage(null);
+        setBannerImageUrl(uploadedBannerUrl);
       }
 
       // Success UI
@@ -241,6 +214,7 @@ const CompleteProfileScreen: React.FC = () => {
     console.log('Skip profile completion');
     clearSuccessTimeout();
     setShowSuccess(false);
+    clearPendingImages();
     router.replace('/feed');
   };
 
@@ -254,11 +228,17 @@ const CompleteProfileScreen: React.FC = () => {
     setShowImageUploadDialog(true);
   };
 
-  const handleImageSelected = (imageUri: string) => {
+  const handleImageSelected = (image: CompressedImage | null) => {
     if (uploadType === 'avatar') {
-      setProfileImage(imageUri || null);
+      setProfileImage(image);
+      if (!image) {
+        setProfileImageUrl(null);
+      }
     } else {
-      setBannerImage(imageUri ? { uri: imageUri } : null);
+      setBannerImage(image);
+      if (!image) {
+        setBannerImageUrl(null);
+      }
     }
   };
 
@@ -297,7 +277,9 @@ const CompleteProfileScreen: React.FC = () => {
         {/* Banner area */}
         <View style={styles.bannerWrapper}>
           {bannerImage ? (
-            <Image source={bannerImage} style={styles.bannerImage} resizeMode="cover" />
+            <Image source={{ uri: bannerImage.uri }} style={styles.bannerImage} resizeMode="cover" />
+          ) : bannerImageUrl ? (
+            <Image source={{ uri: bannerImageUrl }} style={styles.bannerImage} resizeMode="cover" />
           ) : (
             <View style={[styles.bannerImage, styles.bannerFallback]} />
           )}
@@ -310,7 +292,9 @@ const CompleteProfileScreen: React.FC = () => {
           <View style={styles.avatarWrapper}>
             <Pressable onPress={openProfileMenu} style={styles.avatarButton}>
               {profileImage ? (
-                <Image source={{ uri: profileImage }} style={styles.avatar} />
+                <Image source={{ uri: profileImage.uri }} style={styles.avatar} />
+              ) : profileImageUrl ? (
+                <Image source={{ uri: profileImageUrl }} style={styles.avatar} />
               ) : (
                 <View style={[styles.avatar, styles.avatarPlaceholder]}>
                   <Feather name="user" size={44} color="#64748b" />
@@ -494,12 +478,18 @@ const CompleteProfileScreen: React.FC = () => {
         onClose={() => setShowImageUploadDialog(false)}
         onImageSelected={handleImageSelected}
         title={uploadType === 'avatar' ? 'Profile Picture' : 'Banner Image'}
-        currentImage={uploadType === 'avatar' ? profileImage : (bannerImage as any)?.uri}
+        currentImage={
+          uploadType === 'avatar'
+            ? profileImage?.uri ?? profileImageUrl
+            : bannerImage?.uri ?? bannerImageUrl
+        }
         onRemove={() => {
           if (uploadType === 'avatar') {
             setProfileImage(null);
+            setProfileImageUrl(null);
           } else {
             setBannerImage(null);
+            setBannerImageUrl(null);
           }
         }}
         showRemoveOption={true}
