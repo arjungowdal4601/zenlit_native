@@ -40,7 +40,7 @@ const ChatListItem: React.FC<ChatListItemProps> = ({
         </Text>
       </View>
       <View style={styles.secondaryRow}>
-        <Text style={styles.subtitle} numberOfLines={1}>
+        <Text style={styles.subtitle} numberOfLines={1} ellipsizeMode="tail">
           {subtitle}
         </Text>
         {unreadCount ? (
@@ -55,22 +55,25 @@ const ChatListItem: React.FC<ChatListItemProps> = ({
   </Pressable>
 );
 
+const AVATAR_SIZE = 42; // ~80% of previous 52
+const AVATAR_RADIUS = AVATAR_SIZE / 2;
+
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 11, // reduced ~20-25%
     backgroundColor: '#000000',
   },
   avatarFrame: {
-    width: 52,
-    height: 52,
-    borderRadius: 4,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_RADIUS, // circular in Messages only
     backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 10, // tighter spacing
     overflow: 'hidden',
   },
   avatarImage: {
@@ -95,22 +98,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 4,
+    marginTop: 2, // tighter grouping between name and last message
   },
   title: {
     color: '#ffffff',
-    fontSize: 15,
+    fontSize: 14, // slightly smaller than before
     fontWeight: '600',
     flex: 1,
     marginRight: 12,
   },
   time: {
     color: '#94a3b8',
-    fontSize: 12,
+    fontSize: 11, // smaller, lighter tone
   },
   subtitle: {
-    color: '#cbd5f5',
-    fontSize: 13,
+    color: 'rgba(148,163,184,0.9)', // secondary, muted
+    fontSize: 12, // reduced for secondary emphasis
     flex: 1,
     marginRight: 12,
   },

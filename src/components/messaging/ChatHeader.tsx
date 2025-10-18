@@ -8,7 +8,7 @@ import GradientTitle from '../GradientTitle';
 import { theme } from '../../styles/theme';
 import { createShadowStyle } from '../../utils/shadow';
 
-const AVATAR_SIZE = 40;
+const AVATAR_SIZE = 36; // slightly smaller than before for compact header
 const TOUCH_SIZE = theme.header.touchSize;
 const ICON_SIZE = theme.header.iconSize;
 const ICON_HIT_SLOP = { top: 6, bottom: 6, left: 6, right: 6 } as const;
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   avatarFrame: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
-    borderRadius: 3.5,
+    borderRadius: AVATAR_SIZE / 2, // circular in chat header only
     overflow: 'hidden',
     borderWidth: 0,
     borderColor: 'transparent',
