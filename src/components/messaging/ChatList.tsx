@@ -15,6 +15,7 @@ export type Thread = {
   };
   isAnonymous: boolean;
   lastMessageAt: string;
+  lastMessageSnippet?: string;
   unreadCount?: number;
 };
 
@@ -90,13 +91,13 @@ const ChatList: React.FC<ChatListProps> = ({ threads, onPressThread }) => {
     <View style={styles.wrapper}>
       <View style={styles.sectionContainer}>
         {normalThreads.length === 0 ? (
-          <EmptyState title="No conversations yet" subtitle="Start a chat from the radar." />
+          <EmptyState title="No conversations yet" />
         ) : (
           normalThreads.map((thread) => (
             <ChatListItem
               key={thread.id}
               title={thread.peer.name}
-              subtitle="Tap to view conversation"
+              subtitle={thread.lastMessageSnippet ?? ''}
               timeLabel={timeLabelFor(thread.lastMessageAt)}
               unreadCount={thread.unreadCount || undefined}
               avatarUrl={thread.peer.avatar}
@@ -117,16 +118,19 @@ const ChatList: React.FC<ChatListProps> = ({ threads, onPressThread }) => {
 
       <View style={styles.sectionContainer}>
         {anonymousThreads.length === 0 ? (
-          <EmptyState title="No anonymous chats" subtitle="Start a conversation anonymously." />
+          <EmptyState
+            title="No anonymous chats"
+          />
         ) : (
           anonymousThreads.map((thread) => (
             <ChatListItem
               key={thread.id}
               title={thread.peer.name}
-              subtitle="Tap to view conversation"
+              subtitle={thread.lastMessageSnippet ?? ''}
+              avatarUrl={thread.peer.avatar}
+              isAnonymous
               timeLabel={timeLabelFor(thread.lastMessageAt)}
               unreadCount={thread.unreadCount || undefined}
-              isAnonymous
               onPress={() => onPressThread(thread.id)}
             />
           ))

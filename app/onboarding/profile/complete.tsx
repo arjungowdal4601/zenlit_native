@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, Image, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -96,7 +96,8 @@ const CompleteProfileScreen: React.FC = () => {
       let uploadBody: ArrayBuffer | Blob;
 
       if (workingImage.base64) {
-        uploadBody = base64ToUint8Array(workingImage.base64).buffer;
+        const u8 = base64ToUint8Array(workingImage.base64);
+        uploadBody = (u8.buffer as ArrayBuffer);
       } else if (Platform.OS === 'web') {
         const response = await fetch(workingImage.uri);
         if (!response.ok) {

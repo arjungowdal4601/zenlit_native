@@ -249,11 +249,22 @@ const ProfilePresenceForm: React.FC<ProfilePresenceFormProps> = ({
       return;
     }
 
+    if (!dob) {
+      setDobError('Date of birth is required');
+      Alert.alert('Validation Error', 'Date of birth is required');
+      return;
+    }
+
+    if (!gender) {
+      Alert.alert('Validation Error', 'Gender is required');
+      return;
+    }
+
     const profileData: ProfileData = {
       display_name: displayName.trim(),
       user_name: username.trim(),
-      date_of_birth: dob || undefined,
-      gender: gender || undefined,
+      date_of_birth: dob,
+      gender: gender as typeof GENDERS[number],
     };
 
     // Validate all data

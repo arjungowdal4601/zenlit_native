@@ -23,9 +23,7 @@ const ChatListItem: React.FC<ChatListItemProps> = ({
 }) => (
   <Pressable style={styles.container} onPress={onPress}>
     <View style={styles.avatarFrame}>
-      {isAnonymous ? (
-        <Feather name="eye" size={20} color="#cbd5f5" />
-      ) : avatarUrl ? (
+      {avatarUrl ? (
         <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
       ) : (
         <View style={styles.avatarFallback} />
@@ -35,7 +33,7 @@ const ChatListItem: React.FC<ChatListItemProps> = ({
     <View style={styles.content}>
       <View style={styles.primaryRow}>
         <Text style={styles.title} numberOfLines={1}>
-          {isAnonymous ? 'Anonymous chat' : title}
+          {isAnonymous ? 'Anonymous' : title}
         </Text>
         <Text style={styles.time} numberOfLines={1}>
           {timeLabel}
