@@ -6,6 +6,7 @@ import { Feather } from '@expo/vector-icons';
 import ConfirmDialog from './ConfirmDialog';
 import OptionsDialog from './OptionsDialog';
 import DropdownMenu from './DropdownMenu';
+import { supabase } from '../lib/supabase';
 
 import type { FeedPost } from '../constants/feedData';
 import {
@@ -80,11 +81,20 @@ export const Post: React.FC<PostProps> = ({
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(author.name)}&background=random&color=fff&size=128`;
   }, [author.avatar, author.name]);
 
-  const handleAuthorPress = useCallback(() => {
+  const handleAuthorPress = useCallback(async () => {
     if (!author.id) {
       return;
     }
-    router.push(`/profile/${author.id}`);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && user.id === author.id) {
+        router.push('/profile');
+      } else {
+        router.push(`/profile/${author.id}`);
+      }
+    } catch {
+      router.push(`/profile/${author.id}`);
+    }
   }, [author.id, router]);
 
   const handleOpenLink = useCallback(async (url: string) => {
