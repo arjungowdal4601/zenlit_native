@@ -18,9 +18,10 @@ export type ChatHeaderProps = {
   subtitle?: string;
   avatarUrl?: string;
   isAnonymous?: boolean;
+  profileId?: string;
 };
 
-const ChatHeader: React.FC<ChatHeaderProps> = ({ title, subtitle, avatarUrl, isAnonymous = false }) => {
+const ChatHeader: React.FC<ChatHeaderProps> = ({ title, subtitle, avatarUrl, isAnonymous = false, profileId }) => {
   const router = useRouter();
   const initial = title?.trim().charAt(0)?.toUpperCase() ?? 'C';
 
@@ -50,7 +51,15 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ title, subtitle, avatarUrl, isA
           </Pressable>
 
           <View style={styles.profileRow}>
-            <View style={styles.avatarFrame}>
+            <Pressable
+              style={({ pressed }) => [styles.avatarFrame, pressed ? styles.avatarPressed : null]}
+              android_ripple={{ color: 'rgba(255, 255, 255, 0.12)' }}
+              accessibilityRole="button"
+              accessibilityLabel="View user profile"
+              accessibilityState={{ disabled: !profileId }}
+              disabled={!profileId}
+              onPress={() => profileId && router.push(`/profile/${profileId}`)}
+            >
               {avatarUrl ? (
                 <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
               ) : (
@@ -62,10 +71,20 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ title, subtitle, avatarUrl, isA
                   )}
                 </View>
               )}
-            </View>
+            </Pressable>
 
             <View style={styles.textBlock}>
-              <GradientTitle text={title} numberOfLines={1} style={styles.title} />
+              <Pressable
+                style={({ pressed }) => [styles.namePressable, pressed ? styles.textPressed : null]}
+                android_ripple={{ color: 'rgba(255, 255, 255, 0.12)' }}
+                accessibilityRole="button"
+                accessibilityLabel="View user profile"
+                accessibilityState={{ disabled: !profileId }}
+                disabled={!profileId}
+                onPress={() => profileId && router.push(`/profile/${profileId}`)}
+              >
+                <GradientTitle text={title} numberOfLines={1} style={styles.title} />
+              </Pressable>
             </View>
           </View>
 
@@ -122,6 +141,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatarPressed: {
+    opacity: 0.85,
+  },
   avatarImage: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
@@ -139,6 +161,12 @@ const styles = StyleSheet.create({
   },
   textBlock: {
     flex: 1,
+  },
+  namePressable: {
+    alignSelf: 'flex-start',
+  },
+  textPressed: {
+    opacity: 0.85,
   },
   title: {
     flexShrink: 1,

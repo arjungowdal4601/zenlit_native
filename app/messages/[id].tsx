@@ -40,6 +40,18 @@ const formatDayLabel = (isoDate: string): string => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
+// Narrow unknown realtime payloads to Message safely
+const isServerMessage = (obj: unknown): obj is Message => {
+  if (typeof obj !== 'object' || obj === null) return false;
+  const o = obj as Partial<Message>;
+  return (
+    typeof o.id === 'string' &&
+    typeof o.conversation_id === 'string' &&
+    typeof o.sender_id === 'string' &&
+    typeof o.created_at === 'string'
+  );
+};
+
 type ChatMsg = {
   id: string;
   text: string;
@@ -204,10 +216,11 @@ const ChatDetailScreen: React.FC = () => {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
         (payload: RealtimePostgresChangesPayload<Message>) => {
-          const newMessage = payload.new;
-          if (!newMessage) {
+          const raw = payload.new;
+          if (!isServerMessage(raw)) {
             return;
           }
+          const newMessage = raw;
 
           setMessages((prev) => {
             const mapped = mapServerMessage(newMessage);
@@ -225,10 +238,11 @@ const ChatDetailScreen: React.FC = () => {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
         (payload: RealtimePostgresChangesPayload<Message>) => {
-          const updatedMessage = payload.new;
-          if (!updatedMessage) {
+          const raw = payload.new;
+          if (!isServerMessage(raw)) {
             return;
           }
+          const updatedMessage = raw;
 
           setMessages((prev) => {
             const index = prev.findIndex((m) => m.id === updatedMessage.id);
@@ -378,6 +392,7 @@ const ChatDetailScreen: React.FC = () => {
           title={displayName}
           avatarUrl={displayAvatar}
           isAnonymous={isAnonymous}
+          profileId={otherUser.id}
         />
       </SafeAreaView>
 
