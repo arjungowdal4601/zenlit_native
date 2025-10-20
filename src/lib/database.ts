@@ -903,6 +903,11 @@ export async function markConversationRead(
   }
 }
 
+export interface ConversationUnreadCount {
+  conversation_id: string;
+  unread_count: number;
+}
+
 export async function getUnreadCounts(): Promise<{ counts: ConversationUnreadCount[]; error: Error | null }> {
   try {
     const { data, error } = await supabase.rpc('get_unread_counts');

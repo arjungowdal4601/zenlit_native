@@ -16,6 +16,7 @@ import {
   getUnreadCounts,
   type Message,
 } from '../lib/database';
+import type { AuthChangeEvent, Session, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 type MessagingContextValue = {
   isReady: boolean;
@@ -58,7 +59,7 @@ export const MessagingProvider: React.FC<ProviderProps> = ({ children }) => {
       }
     })();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       setCurrentUserId(session?.user?.id ?? null);
     });
 
@@ -118,7 +119,7 @@ export const MessagingProvider: React.FC<ProviderProps> = ({ children }) => {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<Message>) => {
           const newMessage = payload.new as Message;
           if (!newMessage) {
             return;
