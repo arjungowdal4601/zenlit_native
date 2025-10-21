@@ -418,7 +418,7 @@ const ChatDetailScreen: React.FC = () => {
   }
 
   const displayName = otherUser.display_name;
-  const displayAvatar = socialLinks?.profile_pic_url || FALLBACK_AVATAR;
+  const displayAvatar = isAnonymous ? undefined : (socialLinks?.profile_pic_url || FALLBACK_AVATAR);
 
   return (
     <View style={styles.root}>

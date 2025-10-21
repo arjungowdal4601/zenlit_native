@@ -42,12 +42,14 @@ const ChatListItem: React.FC<ChatListItemProps> = ({
       accessibilityLabel={accessibilityLabelParts.join(', ')}
     >
       <View style={styles.avatarFrame}>
-        {avatarUrl ? (
+        {avatarUrl && !isAnonymous ? (
           <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
         ) : (
-          <View style={styles.avatarFallback} />
-      )}
-    </View>
+          <View style={styles.avatarFallback}>
+            <Feather name="user" size={20} color="rgba(148,163,184,0.6)" />
+          </View>
+        )}
+      </View>
 
       <View style={styles.content}>
         <View style={styles.primaryRow}>

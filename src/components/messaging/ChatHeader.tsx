@@ -60,12 +60,12 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ title, subtitle, avatarUrl, isA
               disabled={isAnonymous || !profileId}
               onPress={() => !isAnonymous && profileId && router.push(`/profile/${profileId}`)}
             >
-              {avatarUrl ? (
+              {avatarUrl && !isAnonymous ? (
                 <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
               ) : (
                 <View style={styles.avatarFallback}>
                   {isAnonymous ? (
-                    <Feather name="eye" size={20} color={theme.colors.icon} />
+                    <Feather name="user" size={20} color={theme.colors.icon} />
                   ) : (
                     <Text style={styles.avatarInitial}>{initial}</Text>
                   )}
