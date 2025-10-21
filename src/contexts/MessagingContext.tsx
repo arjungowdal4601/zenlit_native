@@ -84,7 +84,14 @@ export const MessagingProvider: React.FC<ProviderProps> = ({ children }) => {
     const promise = (async () => {
       const { counts, error } = await getUnreadCounts();
       if (error) {
-        console.error('Failed to load unread counts', error);
+        if (error.message?.includes('404') || error.code === 'PGRST204') {
+          console.warn(
+            '⚠️ Database migration required: The messaging tables or functions are not set up. ' +
+            'Please apply the migration in FIX_MESSAGING_ERRORS.md to enable messaging features.'
+          );
+        } else {
+          console.error('Failed to load unread counts:', error);
+        }
         setThreadUnread((prev) => prev);
       } else {
         setThreadUnread(mapCounts(counts));
