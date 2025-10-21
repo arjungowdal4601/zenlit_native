@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import AppHeader from '../../src/components/AppHeader';
 import ChatList from '../../src/components/messaging/ChatList';
 import Navigation from '../../src/components/Navigation';
-import { getUserConversations, type ConversationWithParticipant, type Conversation, type Message } from '../../src/lib/database';
+import { getUserMessageThreads, type MessageThread } from '../../src/lib/database';
 import { useVisibility } from '../../src/contexts/VisibilityContext';
 import { supabase } from '../../src/lib/supabase';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
@@ -19,8 +19,7 @@ const MessagesScreen: React.FC = () => {
   const { threadUnread, refreshUnread } = useMessaging();
 
   const [loading, setLoading] = useState(true);
-  const [conversations, setConversations] = useState<ConversationWithParticipant[]>([]);
-  const [lastTextMap, setLastTextMap] = useState<Record<string, string>>({});
+  const [threads, setThreads] = useState<MessageThread[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [refreshSignal, setRefreshSignal] = useState(0);
 
@@ -33,41 +32,16 @@ const MessagesScreen: React.FC = () => {
     return () => { mounted = false; };
   }, []);
 
-  // Helper to load conversations and last message snippets
-  const loadConversations = useCallback(async () => {
+  const loadThreads = useCallback(async () => {
     setLoading(true);
     try {
-      const { conversations: conversationsData, error } = await getUserConversations();
+      const { threads: threadsData, error } = await getUserMessageThreads();
       if (error) {
-        setConversations([]);
-        setLastTextMap({});
+        console.error('Error loading threads:', error);
+        setThreads([]);
         return;
       }
-      setConversations(conversationsData);
-
-      // Fetch last message snippet for each conversation in parallel
-      const entries = await Promise.all(
-        conversationsData.map(async (conv) => {
-          try {
-            const { data: messagesData } = await supabase
-              .from('messages')
-              .select('id, text')
-               .eq('conversation_id', conv.id)
-               .order('created_at', { ascending: false })
-               .limit(1);
-
-            const last = messagesData?.[0];
-            const snippet = last?.text ?? '';
-             return [conv.id, snippet] as const;
-          } catch (e) {
-            return [conv.id, ''] as const;
-          }
-        })
-      );
-
-      const nextMap: Record<string, string> = {};
-      for (const [id, snippet] of entries) nextMap[id] = snippet;
-      setLastTextMap(nextMap);
+      setThreads(threadsData);
       refreshUnread().catch((err) => {
         console.error('Failed to refresh unread counts', err);
       });
@@ -76,18 +50,14 @@ const MessagesScreen: React.FC = () => {
     }
   }, [refreshUnread]);
 
-  // Initial load and refresh when triggered externally
   useEffect(() => {
-    loadConversations();
-  }, [loadConversations, refreshSignal]);
+    loadThreads();
+  }, [loadThreads, refreshSignal]);
 
-  // Auto-refresh when visibility or location permission changes
   useEffect(() => {
-    loadConversations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadThreads();
   }, [isVisible, locationPermissionDenied]);
 
-  // Realtime refresh when conversations or messages change
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -95,30 +65,9 @@ const MessagesScreen: React.FC = () => {
       .channel('messages-list-realtime')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'conversations' },
-        (payload: RealtimePostgresChangesPayload<Conversation>) => {
-          // If we have a new row, only refresh when it involves the current user.
-          if (payload.new) {
-            const row = payload.new as Conversation;
-            if (row.user_a_id === currentUserId || row.user_b_id === currentUserId) {
-              loadConversations();
-            }
-          } else {
-            // For DELETE or cases where new is unavailable, refresh conservatively.
-            loadConversations();
-          }
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload: RealtimePostgresChangesPayload<Message>) => {
-          const row = payload.new as Message | null;
-          if (!row) return;
-          // If a new message arrives for a conversation we see, refresh snippets
-          if (conversations.find((c) => c.id === row.conversation_id)) {
-            loadConversations();
-          }
+        { event: '*', schema: 'public', table: 'messages' },
+        (payload: RealtimePostgresChangesPayload<any>) => {
+          loadThreads();
         }
       )
       .subscribe();
@@ -126,30 +75,24 @@ const MessagesScreen: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentUserId, conversations, loadConversations]);
+  }, [currentUserId, loadThreads]);
 
   const handleHeaderRefresh = useCallback(() => {
     setRefreshSignal((value) => value + 1);
   }, []);
 
-  const threads = conversations.map((conv) => {
-    const isAnonymous = currentUserId === conv.user_a_id
-      ? conv.is_anonymous_for_a
-      : conv.is_anonymous_for_b;
-
-    return {
-      id: conv.id,
-      peer: {
-        id: conv.other_user.id,
-        name: isAnonymous ? 'Anonymous' : conv.other_user.display_name,
-        avatar: isAnonymous ? FALLBACK_AVATAR : (conv.other_user.social_links?.profile_pic_url || FALLBACK_AVATAR),
-      },
-      isAnonymous,
-      lastMessageAt: conv.last_message_at,
-      lastMessageSnippet: lastTextMap[conv.id] || '',
-      unreadCount: threadUnread[conv.id] ?? 0,
-    };
-  });
+  const chatThreads = threads.map((thread) => ({
+    id: thread.other_user_id,
+    peer: {
+      id: thread.other_user.id,
+      name: thread.other_user.display_name,
+      avatar: thread.other_user.social_links?.profile_pic_url || FALLBACK_AVATAR,
+    },
+    isAnonymous: false,
+    lastMessageAt: thread.last_message.created_at,
+    lastMessageSnippet: thread.last_message.text,
+    unreadCount: threadUnread[thread.other_user_id] ?? thread.unread_count ?? 0,
+  }));
 
   return (
     <View style={styles.root}>
@@ -159,7 +102,7 @@ const MessagesScreen: React.FC = () => {
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#60a5fa" />
         </View>
-      ) : conversations.length === 0 ? (
+      ) : threads.length === 0 ? (
         <View style={styles.centerContainer}>
           <Text style={styles.emptyText}>
             You don't have any conversations yet. Start chatting by discovering people nearby.
@@ -168,7 +111,7 @@ const MessagesScreen: React.FC = () => {
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <ChatList
-            threads={threads}
+            threads={chatThreads}
             onPressThread={(threadId: string) => router.push(`/messages/${threadId}`)}
           />
         </ScrollView>

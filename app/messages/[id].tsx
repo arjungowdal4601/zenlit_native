@@ -17,11 +17,9 @@ import DayDivider from '../../src/components/messaging/DayDivider';
 import MessageBubble, { type MessageStatus } from '../../src/components/messaging/MessageBubble';
 import { theme } from '../../src/styles/theme';
 import {
-  getConversationById,
-  getMessagesForConversation,
+  getMessagesBetweenUsers,
   sendMessage,
   type Message,
-  type Conversation,
   getProfileById,
   type Profile,
   type SocialLinks,
@@ -40,14 +38,13 @@ const formatDayLabel = (isoDate: string): string => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
-// Narrow unknown realtime payloads to Message safely
 const isServerMessage = (obj: unknown): obj is Message => {
   if (typeof obj !== 'object' || obj === null) return false;
   const o = obj as Partial<Message>;
   return (
     typeof o.id === 'string' &&
-    typeof o.conversation_id === 'string' &&
     typeof o.sender_id === 'string' &&
+    typeof o.receiver_id === 'string' &&
     typeof o.created_at === 'string'
   );
 };
@@ -69,16 +66,14 @@ const sortMessagesAsc = (list: ChatMsg[]) =>
 
 const ChatDetailScreen: React.FC = () => {
   const params = useLocalSearchParams<{ id?: string }>();
-  const conversationId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : undefined;
+  const otherUserId = typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : undefined;
 
   const { markThreadDelivered, markThreadRead, setActiveConversation } = useMessaging();
-  const [conversation, setConversation] = useState<Conversation | null>(null);
   const [otherUser, setOtherUser] = useState<Profile | null>(null);
   const [socialLinks, setSocialLinks] = useState<SocialLinks | null>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [isAnonymous, setIsAnonymous] = useState(false);
 
   const mapServerMessage = useCallback(
     (msg: Message): ChatMsg => {
@@ -117,22 +112,22 @@ const ChatDetailScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      if (!conversationId) {
+      if (!otherUserId) {
         return () => {};
       }
 
-      setActiveConversation(conversationId);
-      markThreadDelivered(conversationId).catch((error) => {
-        console.error('Failed to mark conversation delivered on focus', error);
+      setActiveConversation(otherUserId);
+      markThreadDelivered(otherUserId).catch((error) => {
+        console.error('Failed to mark messages delivered on focus', error);
       });
-      markThreadRead(conversationId).catch((error) => {
-        console.error('Failed to mark conversation read on focus', error);
+      markThreadRead(otherUserId).catch((error) => {
+        console.error('Failed to mark messages read on focus', error);
       });
 
       return () => {
         setActiveConversation(null);
       };
-    }, [conversationId, markThreadDelivered, markThreadRead, setActiveConversation])
+    }, [otherUserId, markThreadDelivered, markThreadRead, setActiveConversation])
   );
 
   useEffect(() => {
@@ -146,24 +141,10 @@ const ChatDetailScreen: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const loadConversation = async () => {
-      if (!conversationId || !currentUserId) return;
+    const loadChat = async () => {
+      if (!otherUserId || !currentUserId) return;
 
       setLoading(true);
-
-      const { conversation: convData, error: convError } = await getConversationById(conversationId);
-
-      if (convError || !convData) {
-        console.error('Error loading conversation:', convError);
-        setLoading(false);
-        return;
-      }
-
-      setConversation(convData);
-
-      const otherUserId = convData.user_a_id === currentUserId ? convData.user_b_id : convData.user_a_id;
-      const isAnon = convData.user_a_id === currentUserId ? convData.is_anonymous_for_a : convData.is_anonymous_for_b;
-      setIsAnonymous(isAnon);
 
       const { profile, socialLinks: social, error: profileError } = await getProfileById(otherUserId);
 
@@ -174,7 +155,7 @@ const ChatDetailScreen: React.FC = () => {
         setSocialLinks(social);
       }
 
-      const { messages: messagesData, error: messagesError } = await getMessagesForConversation(conversationId);
+      const { messages: messagesData, error: messagesError } = await getMessagesBetweenUsers(otherUserId);
 
       if (messagesError) {
         console.error('Error loading messages:', messagesError);
@@ -186,8 +167,8 @@ const ChatDetailScreen: React.FC = () => {
       setLoading(false);
     };
 
-    loadConversation();
-  }, [conversationId, currentUserId, mapServerMessage]);
+    loadChat();
+  }, [otherUserId, currentUserId, mapServerMessage]);
 
   const listRef = useRef<FlatList<RenderItem>>(null);
 
@@ -196,7 +177,7 @@ const ChatDetailScreen: React.FC = () => {
       listRef.current?.scrollToEnd({ animated: false });
     }, 0);
     return () => clearTimeout(timeout);
-  }, [conversationId]);
+  }, [otherUserId]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -206,15 +187,20 @@ const ChatDetailScreen: React.FC = () => {
   }, [messages.length]);
 
   useEffect(() => {
-    if (!conversationId || !currentUserId) {
+    if (!otherUserId || !currentUserId) {
       return;
     }
 
     const channel = supabase
-      .channel(`chat-thread-${conversationId}`)
+      .channel(`chat-user-${otherUserId}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `sender_id=eq.${otherUserId},receiver_id=eq.${currentUserId}`
+        },
         (payload: RealtimePostgresChangesPayload<Message>) => {
           const raw = payload.new;
           if (!isServerMessage(raw)) {
@@ -236,7 +222,34 @@ const ChatDetailScreen: React.FC = () => {
       )
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `sender_id=eq.${currentUserId},receiver_id=eq.${otherUserId}`
+        },
+        (payload: RealtimePostgresChangesPayload<Message>) => {
+          const raw = payload.new;
+          if (!isServerMessage(raw)) {
+            return;
+          }
+          const newMessage = raw;
+
+          setMessages((prev) => {
+            const mapped = mapServerMessage(newMessage);
+            const existingIndex = prev.findIndex((m) => m.id === mapped.id);
+            if (existingIndex >= 0) {
+              const next = [...prev];
+              next[existingIndex] = mapped;
+              return sortMessagesAsc(next);
+            }
+            return sortMessagesAsc([...prev, mapped]);
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages' },
         (payload: RealtimePostgresChangesPayload<Message>) => {
           const raw = payload.new;
           if (!isServerMessage(raw)) {
@@ -244,33 +257,20 @@ const ChatDetailScreen: React.FC = () => {
           }
           const updatedMessage = raw;
 
-          setMessages((prev) => {
-            const index = prev.findIndex((m) => m.id === updatedMessage.id);
-            if (index === -1) {
-              return prev;
-            }
-            const next = [...prev];
-            next[index] = mapServerMessage(updatedMessage);
-            return sortMessagesAsc(next);
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `id=eq.${conversationId}` },
-        (payload: RealtimePostgresChangesPayload<Conversation>) => {
-          const raw = payload.new;
-          if (!raw || typeof raw !== 'object') {
-            return;
+          if (
+            (updatedMessage.sender_id === currentUserId && updatedMessage.receiver_id === otherUserId) ||
+            (updatedMessage.sender_id === otherUserId && updatedMessage.receiver_id === currentUserId)
+          ) {
+            setMessages((prev) => {
+              const index = prev.findIndex((m) => m.id === updatedMessage.id);
+              if (index === -1) {
+                return prev;
+              }
+              const next = [...prev];
+              next[index] = mapServerMessage(updatedMessage);
+              return sortMessagesAsc(next);
+            });
           }
-          const updatedConv = raw as Conversation;
-
-          // Update conversation and anonymity state
-          setConversation(updatedConv);
-          const isAnon = updatedConv.user_a_id === currentUserId
-            ? updatedConv.is_anonymous_for_a
-            : updatedConv.is_anonymous_for_b;
-          setIsAnonymous(isAnon);
         }
       )
       .subscribe();
@@ -278,7 +278,7 @@ const ChatDetailScreen: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [conversationId, currentUserId, mapServerMessage]);
+  }, [otherUserId, currentUserId, mapServerMessage]);
 
   const data = useMemo<RenderItem[]>(() => {
     const entries: RenderItem[] = [];
@@ -295,7 +295,7 @@ const ChatDetailScreen: React.FC = () => {
   }, [messages]);
 
   const handleSend = async (text: string) => {
-    if (!conversationId) {
+    if (!otherUserId) {
       return;
     }
 
@@ -317,7 +317,7 @@ const ChatDetailScreen: React.FC = () => {
     setMessages((prev) => sortMessagesAsc([...prev, optimisticMessage]));
 
     try {
-      const { message, error } = await sendMessage(conversationId, body);
+      const { message, error } = await sendMessage(otherUserId, body);
       if (error || !message) {
         throw error ?? new Error('Message failed to send');
       }
@@ -337,7 +337,7 @@ const ChatDetailScreen: React.FC = () => {
 
   const handleRetry = useCallback(
     async (message: ChatMsg) => {
-      if (!conversationId) {
+      if (!otherUserId) {
         return;
       }
 
@@ -351,7 +351,7 @@ const ChatDetailScreen: React.FC = () => {
       );
 
       try {
-        const { message: sentMessage, error } = await sendMessage(conversationId, message.text);
+        const { message: sentMessage, error } = await sendMessage(otherUserId, message.text);
         if (error || !sentMessage) {
           throw error ?? new Error('Retry failed');
         }
@@ -368,7 +368,7 @@ const ChatDetailScreen: React.FC = () => {
         );
       }
     },
-    [conversationId, mapServerMessage]
+    [otherUserId, mapServerMessage]
   );
 
   if (loading) {
@@ -385,7 +385,7 @@ const ChatDetailScreen: React.FC = () => {
     );
   }
 
-  if (!conversation || !otherUser) {
+  if (!otherUser) {
     return (
       <View style={styles.missingRoot}>
         <StatusBar barStyle="light-content" backgroundColor={theme.colors.background} />
@@ -393,14 +393,14 @@ const ChatDetailScreen: React.FC = () => {
           <ChatHeader title="Message" />
         </SafeAreaView>
         <View style={styles.missingContent}>
-          <Text style={styles.missingText}>Conversation not found.</Text>
+          <Text style={styles.missingText}>User not found.</Text>
         </View>
       </View>
     );
   }
 
-  const displayName = isAnonymous ? 'Anonymous' : otherUser.display_name;
-  const displayAvatar = isAnonymous ? FALLBACK_AVATAR : (socialLinks?.profile_pic_url || FALLBACK_AVATAR);
+  const displayName = otherUser.display_name;
+  const displayAvatar = socialLinks?.profile_pic_url || FALLBACK_AVATAR;
 
   return (
     <View style={styles.root}>
@@ -409,7 +409,7 @@ const ChatDetailScreen: React.FC = () => {
         <ChatHeader
           title={displayName}
           avatarUrl={displayAvatar}
-          isAnonymous={isAnonymous}
+          isAnonymous={false}
           profileId={otherUser.id}
         />
       </SafeAreaView>

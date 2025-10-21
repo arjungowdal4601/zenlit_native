@@ -12,7 +12,6 @@ import { MessageSquare, User } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
 import type { NearbyUserData } from '../lib/database';
-import { findOrCreateConversation } from '../lib/database';
 import {
   DEFAULT_VISIBLE_PLATFORMS,
   SOCIAL_PLATFORMS,
@@ -108,19 +107,8 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
     router.push(`/profile/${user.id}`);
   };
 
-  const handleMessagePress = async () => {
-    try {
-      const { conversation, error } = await findOrCreateConversation(user.id);
-
-      if (error || !conversation) {
-        console.error('Error creating conversation:', error);
-        return;
-      }
-
-      router.push(`/messages/${conversation.id}`);
-    } catch (error) {
-      console.error('Error in handleMessagePress:', error);
-    }
+  const handleMessagePress = () => {
+    router.push(`/messages/${user.id}`);
   };
 
   const handleLinkPress = async (url: string) => {
