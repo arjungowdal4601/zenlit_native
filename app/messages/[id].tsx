@@ -255,6 +255,24 @@ const ChatDetailScreen: React.FC = () => {
           });
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'conversations', filter: `id=eq.${conversationId}` },
+        (payload: RealtimePostgresChangesPayload<Conversation>) => {
+          const raw = payload.new;
+          if (!raw || typeof raw !== 'object') {
+            return;
+          }
+          const updatedConv = raw as Conversation;
+
+          // Update conversation and anonymity state
+          setConversation(updatedConv);
+          const isAnon = updatedConv.user_a_id === currentUserId
+            ? updatedConv.is_anonymous_for_a
+            : updatedConv.is_anonymous_for_b;
+          setIsAnonymous(isAnon);
+        }
+      )
       .subscribe();
 
     return () => {

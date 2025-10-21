@@ -52,13 +52,13 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ title, subtitle, avatarUrl, isA
 
           <View style={styles.profileRow}>
             <Pressable
-              style={({ pressed }) => [styles.avatarFrame, pressed ? styles.avatarPressed : null]}
-              android_ripple={{ color: 'rgba(255, 255, 255, 0.12)' }}
+              style={({ pressed }) => [styles.avatarFrame, pressed && !isAnonymous ? styles.avatarPressed : null]}
+              android_ripple={{ color: isAnonymous ? 'transparent' : 'rgba(255, 255, 255, 0.12)' }}
               accessibilityRole="button"
-              accessibilityLabel="View user profile"
-              accessibilityState={{ disabled: !profileId }}
-              disabled={!profileId}
-              onPress={() => profileId && router.push(`/profile/${profileId}`)}
+              accessibilityLabel={isAnonymous ? "Anonymous user" : "View user profile"}
+              accessibilityState={{ disabled: isAnonymous || !profileId }}
+              disabled={isAnonymous || !profileId}
+              onPress={() => !isAnonymous && profileId && router.push(`/profile/${profileId}`)}
             >
               {avatarUrl ? (
                 <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
@@ -75,13 +75,13 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ title, subtitle, avatarUrl, isA
 
             <View style={styles.textBlock}>
               <Pressable
-                style={({ pressed }) => [styles.namePressable, pressed ? styles.textPressed : null]}
-                android_ripple={{ color: 'rgba(255, 255, 255, 0.12)' }}
+                style={({ pressed }) => [styles.namePressable, pressed && !isAnonymous ? styles.textPressed : null]}
+                android_ripple={{ color: isAnonymous ? 'transparent' : 'rgba(255, 255, 255, 0.12)' }}
                 accessibilityRole="button"
-                accessibilityLabel="View user profile"
-                accessibilityState={{ disabled: !profileId }}
-                disabled={!profileId}
-                onPress={() => profileId && router.push(`/profile/${profileId}`)}
+                accessibilityLabel={isAnonymous ? "Anonymous user" : "View user profile"}
+                accessibilityState={{ disabled: isAnonymous || !profileId }}
+                disabled={isAnonymous || !profileId}
+                onPress={() => !isAnonymous && profileId && router.push(`/profile/${profileId}`)}
               >
                 <GradientTitle text={title} numberOfLines={1} style={styles.title} />
               </Pressable>
