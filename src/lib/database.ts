@@ -664,8 +664,7 @@ export interface Message {
   id: string;
   conversation_id: string;
   sender_id: string;
-  text: string | null;
-  image_url: string | null;
+  text: string;
   created_at: string;
   delivered_at?: string | null;
   read_at?: string | null;
@@ -827,12 +826,11 @@ export async function getMessagesForConversation(
 
 export async function sendMessage(
   conversationId: string,
-  text?: string,
-  imageUrl?: string
+  text: string
 ): Promise<{ message: Message | null; error: Error | null }> {
   try {
-    if (!text && !imageUrl) {
-      return { message: null, error: new Error('Message must have text or image') };
+    if (!text || text.trim().length === 0) {
+      return { message: null, error: new Error('Message must have text') };
     }
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -846,8 +844,7 @@ export async function sendMessage(
       .insert({
         conversation_id: conversationId,
         sender_id: user.id,
-        text: text || null,
-        image_url: imageUrl || null,
+        text,
       })
       .select()
       .single();

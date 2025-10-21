@@ -51,14 +51,14 @@ const MessagesScreen: React.FC = () => {
           try {
             const { data: messagesData } = await supabase
               .from('messages')
-              .select('id, text, image_url')
-              .eq('conversation_id', conv.id)
-              .order('created_at', { ascending: false })
-              .limit(1);
+              .select('id, text')
+               .eq('conversation_id', conv.id)
+               .order('created_at', { ascending: false })
+               .limit(1);
 
             const last = messagesData?.[0];
-            const snippet = last ? (last.text ? last.text : 'Photo') : '';
-            return [conv.id, snippet] as const;
+            const snippet = last?.text ?? '';
+             return [conv.id, snippet] as const;
           } catch (e) {
             return [conv.id, ''] as const;
           }
