@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 
 import type { SocialPlatformId } from '../constants/socialPlatforms';
 import { DEFAULT_VISIBLE_PLATFORMS } from '../constants/socialPlatforms';
-import { updateUserLocation, deleteUserLocation, updateAllConversationAnonymity } from '../lib/database';
+import { updateUserLocation, deleteUserLocation } from '../lib/database';
 
 const LOCATION_REFRESH_INTERVAL = 60000;
 const GEO_OPTS: PositionOptions = {
@@ -84,14 +84,12 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
           async (position) => {
             const { latitude, longitude } = position.coords;
             await updateUserLocation(latitude, longitude);
-            await updateAllConversationAnonymity();
           },
           async (error) => {
             console.warn(`Geolocation refresh error (${getErrorName(error.code)}):`, error);
             if (error.code === 1 /* PERMISSION_DENIED */) {
               setLocationPermissionDenied(true);
               await deleteUserLocation();
-              await updateAllConversationAnonymity();
               if (refreshIntervalRef.current) {
                 clearInterval(refreshIntervalRef.current);
                 refreshIntervalRef.current = null;
@@ -126,7 +124,6 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
           async (position) => {
             const { latitude, longitude } = position.coords;
             await updateUserLocation(latitude, longitude);
-            await updateAllConversationAnonymity();
             setLocationPermissionDenied(false);
             startLocationRefresh();
           },
@@ -135,7 +132,6 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
             if (error.code === 1 /* PERMISSION_DENIED */) {
               setLocationPermissionDenied(true);
               await deleteUserLocation();
-              await updateAllConversationAnonymity();
               stopLocationRefresh();
             }
           },
@@ -144,7 +140,6 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
       }
     } else {
       await deleteUserLocation();
-      await updateAllConversationAnonymity();
       setLocationPermissionDenied(false);
       stopLocationRefresh();
     }
@@ -190,7 +185,6 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
           async (position) => {
             const { latitude, longitude } = position.coords;
             await updateUserLocation(latitude, longitude);
-            await updateAllConversationAnonymity();
             setLocationPermissionDenied(false);
             if (autoEnable) {
               setIsVisible(true, 'auto');
@@ -203,7 +197,6 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
             if (error.code === 1 /* PERMISSION_DENIED */) {
               setLocationPermissionDenied(true);
               await deleteUserLocation();
-              await updateAllConversationAnonymity();
               setIsVisible(false, 'auto');
             }
             resolve(false);

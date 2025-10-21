@@ -10,9 +10,9 @@ import React, {
 
 import { supabase } from '../lib/supabase';
 import {
-  ConversationUnreadCount,
-  markConversationDelivered,
-  markConversationRead,
+  UserUnreadCount,
+  markMessagesDelivered,
+  markMessagesRead,
   getUnreadCounts,
   type Message,
 } from '../lib/database';
@@ -23,9 +23,9 @@ type MessagingContextValue = {
   totalUnread: number;
   threadUnread: Record<string, number>;
   refreshUnread: () => Promise<void>;
-  markThreadDelivered: (conversationId: string) => Promise<void>;
-  markThreadRead: (conversationId: string) => Promise<void>;
-  setActiveConversation: (conversationId: string | null) => void;
+  markThreadDelivered: (userId: string) => Promise<void>;
+  markThreadRead: (userId: string) => Promise<void>;
+  setActiveConversation: (userId: string | null) => void;
   activeConversationId: string | null;
 };
 
@@ -35,10 +35,10 @@ type ProviderProps = {
   children: React.ReactNode;
 };
 
-const mapCounts = (counts: ConversationUnreadCount[]): Record<string, number> => {
+const mapCounts = (counts: UserUnreadCount[]): Record<string, number> => {
   const next: Record<string, number> = {};
-  counts.forEach(({ conversation_id, unread_count }) => {
-    next[conversation_id] = unread_count ?? 0;
+  counts.forEach(({ sender_id, unread_count }) => {
+    next[sender_id] = unread_count ?? 0;
   });
   return next;
 };
@@ -84,7 +84,14 @@ export const MessagingProvider: React.FC<ProviderProps> = ({ children }) => {
     const promise = (async () => {
       const { counts, error } = await getUnreadCounts();
       if (error) {
-        console.error('Failed to load unread counts', error);
+        if (error.message?.includes('404') || (error as any).code === 'PGRST204') {
+          console.warn(
+            '⚠️ Database migration required: The messaging tables or functions are not set up. ' +
+            'Please apply the migration to enable messaging features.'
+          );
+        } else {
+          console.error('Failed to load unread counts:', error);
+        }
         setThreadUnread((prev) => prev);
       } else {
         setThreadUnread(mapCounts(counts));
@@ -129,24 +136,23 @@ export const MessagingProvider: React.FC<ProviderProps> = ({ children }) => {
             return;
           }
 
-          if (activeConversationId && newMessage.conversation_id === activeConversationId) {
-            // The conversation is open; mark delivered/read immediately.
-            markConversationDelivered(newMessage.conversation_id)
+          if (activeConversationId && newMessage.sender_id === activeConversationId) {
+            markMessagesDelivered(newMessage.sender_id)
               .catch((error) => {
                 console.error('Failed to mark delivered for active conversation', error);
               })
               .finally(() => {
-                markConversationRead(newMessage.conversation_id)
+                markMessagesRead(newMessage.sender_id)
                   .catch((error) => {
-                    console.error('Failed to mark conversation read for active thread', error);
+                    console.error('Failed to mark messages read for active thread', error);
                   })
                   .finally(() => {
                     setThreadUnread((prev) => {
-                      if (!prev[newMessage.conversation_id]) {
+                      if (!prev[newMessage.sender_id]) {
                         return prev;
                       }
                       const next = { ...prev };
-                      next[newMessage.conversation_id] = 0;
+                      next[newMessage.sender_id] = 0;
                       return next;
                     });
                   });
@@ -154,14 +160,14 @@ export const MessagingProvider: React.FC<ProviderProps> = ({ children }) => {
             return;
           }
 
-          markConversationDelivered(newMessage.conversation_id).catch((error) => {
-            console.error('Failed to mark conversation delivered', error);
+          markMessagesDelivered(newMessage.sender_id).catch((error) => {
+            console.error('Failed to mark messages delivered', error);
           });
 
           setThreadUnread((prev) => {
             const next = { ...prev };
-            const nextValue = (next[newMessage.conversation_id] ?? 0) + 1;
-            next[newMessage.conversation_id] = nextValue;
+            const nextValue = (next[newMessage.sender_id] ?? 0) + 1;
+            next[newMessage.sender_id] = nextValue;
             return next;
           });
         }
@@ -173,33 +179,33 @@ export const MessagingProvider: React.FC<ProviderProps> = ({ children }) => {
     };
   }, [activeConversationId, currentUserId]);
 
-  const markThreadDelivered = useCallback(async (conversationId: string) => {
-    if (!conversationId) {
+  const markThreadDelivered = useCallback(async (userId: string) => {
+    if (!userId) {
       return;
     }
-    const { error } = await markConversationDelivered(conversationId);
+    const { error } = await markMessagesDelivered(userId);
     if (error) {
-      console.error('Failed to mark conversation delivered', error);
+      console.error('Failed to mark messages delivered', error);
     }
   }, []);
 
   const markThreadRead = useCallback(
-    async (conversationId: string) => {
-      if (!conversationId) {
+    async (userId: string) => {
+      if (!userId) {
         return;
       }
 
-      const { error } = await markConversationRead(conversationId);
+      const { error } = await markMessagesRead(userId);
       if (error) {
-        console.error('Failed to mark conversation read', error);
+        console.error('Failed to mark messages read', error);
         return;
       }
 
       setThreadUnread((prev) => {
-        if (!prev[conversationId]) {
+        if (!prev[userId]) {
           return prev;
         }
-        return { ...prev, [conversationId]: 0 };
+        return { ...prev, [userId]: 0 };
       });
     },
     []

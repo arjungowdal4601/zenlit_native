@@ -27,7 +27,6 @@ import {
 import {
   getProfileById,
   getUserPosts,
-  findOrCreateConversation,
   type Profile,
   type SocialLinks,
   type Post as DbPost,
@@ -203,18 +202,9 @@ const UserProfileScreen: React.FC = () => {
     );
   }
 
-  const handleMessagePress = async () => {
+  const handleMessagePress = () => {
     if (!requestedId) return;
-    try {
-      const { conversation, error } = await findOrCreateConversation(requestedId);
-      if (error || !conversation) {
-        console.error('Error creating conversation:', error);
-        return;
-      }
-      router.push(`/messages/${conversation.id}`);
-    } catch (e) {
-      console.error('Error in handleMessagePress:', e);
-    }
+    router.push(`/messages/${requestedId}`);
   };
 
   return (

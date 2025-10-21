@@ -456,6 +456,52 @@ export async function deleteUserLocation(): Promise<{ success: boolean; error: E
   }
 }
 
+export async function isUserNearby(userId: string): Promise<{ isNearby: boolean; error: Error | null }> {
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { isNearby: false, error: new Error('Not authenticated') };
+    }
+
+    const { data: currentLocation, error: locationError } = await supabase
+      .from('locations')
+      .select('lat_short, long_short')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (locationError) {
+      return { isNearby: false, error: locationError };
+    }
+
+    if (!currentLocation || currentLocation.lat_short === null || currentLocation.long_short === null) {
+      return { isNearby: false, error: null };
+    }
+
+    const { data: otherLocation, error: otherLocationError } = await supabase
+      .from('locations')
+      .select('lat_short, long_short')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (otherLocationError) {
+      return { isNearby: false, error: otherLocationError };
+    }
+
+    if (!otherLocation || otherLocation.lat_short === null || otherLocation.long_short === null) {
+      return { isNearby: false, error: null };
+    }
+
+    const latDiff = Math.abs(currentLocation.lat_short - otherLocation.lat_short);
+    const longDiff = Math.abs(currentLocation.long_short - otherLocation.long_short);
+    const isNearby = latDiff <= 0.01 && longDiff <= 0.01;
+
+    return { isNearby, error: null };
+  } catch (error) {
+    return { isNearby: false, error: error as Error };
+  }
+}
+
 export async function getNearbyUsers(): Promise<{ users: NearbyUserData[]; error: Error | null }> {
   try {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -648,130 +694,78 @@ export async function uploadImage(
   }
 }
 
-export interface Conversation {
-  id: string;
-  user_a_id: string;
-  user_b_id: string;
-  is_anonymous_for_a: boolean;
-  is_anonymous_for_b: boolean;
-  last_message_at: string;
-  created_at: string;
-  last_read_at_a?: string | null;
-  last_read_at_b?: string | null;
-}
-
 export interface Message {
   id: string;
-  conversation_id: string;
   sender_id: string;
+  receiver_id: string;
   text: string;
   created_at: string;
   delivered_at?: string | null;
   read_at?: string | null;
 }
 
-export interface ConversationWithParticipant extends Conversation {
+export interface MessageThread {
+  other_user_id: string;
   other_user: Profile & { social_links?: SocialLinks };
+  last_message: Message;
+  unread_count: number;
+  is_anonymous: boolean;
 }
 
-export async function findOrCreateConversation(
-  otherUserId: string
-): Promise<{ conversation: Conversation | null; error: Error | null }> {
+
+
+export async function getUserMessageThreads(): Promise<{ threads: MessageThread[]; error: Error | null }> {
   try {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return { conversation: null, error: new Error('Not authenticated') };
+      return { threads: [], error: new Error('Not authenticated') };
     }
 
-    const { data: existing, error: findError } = await supabase
-      .from('conversations')
+    // Step 1: Get all messages where current user is sender OR receiver
+    const { data: messagesData, error: messagesError } = await supabase
+      .from('messages')
       .select('*')
-      .or(`and(user_a_id.eq.${user.id},user_b_id.eq.${otherUserId}),and(user_a_id.eq.${otherUserId},user_b_id.eq.${user.id})`)
-      .maybeSingle();
+      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+      .order('created_at', { ascending: false });
 
-    if (findError) {
-      return { conversation: null, error: findError };
+    if (messagesError) {
+      return { threads: [], error: messagesError };
     }
 
-    if (existing) {
-      return { conversation: existing as Conversation, error: null };
+    if (!messagesData || messagesData.length === 0) {
+      return { threads: [], error: null };
     }
 
-    const { data: created, error: createError } = await supabase
-      .from('conversations')
-      .insert({
-        user_a_id: user.id,
-        user_b_id: otherUserId,
-        is_anonymous_for_a: false,
-        is_anonymous_for_b: false,
-      })
-      .select()
-      .single();
+    // Step 2: Group messages by other user
+    const threadMap = new Map<string, Message[]>();
+    messagesData.forEach((msg: Message) => {
+      const otherUserId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
+      if (!threadMap.has(otherUserId)) {
+        threadMap.set(otherUserId, []);
+      }
+      threadMap.get(otherUserId)!.push(msg as Message);
+    });
 
-    if (createError) {
-      return { conversation: null, error: createError };
+    // Step 3: Get nearby users
+    const { users: nearbyUsers } = await getNearbyUsers();
+    const nearbyUserIds = new Set((nearbyUsers || []).map(u => u.id));
+
+    // Step 4: Get all unique other user IDs from messages
+    const otherUserIds = Array.from(threadMap.keys());
+
+    if (otherUserIds.length === 0) {
+      return { threads: [], error: null };
     }
 
-    return { conversation: created as Conversation, error: null };
-  } catch (error) {
-    return { conversation: null, error: error as Error };
-  }
-}
-
-export async function getConversationById(
-  conversationId: string
-): Promise<{ conversation: Conversation | null; error: Error | null }> {
-  try {
-    const { data, error } = await supabase
-      .from('conversations')
-      .select('*')
-      .eq('id', conversationId)
-      .maybeSingle();
-
-    if (error) {
-      return { conversation: null, error };
-    }
-
-    return { conversation: data as Conversation | null, error: null };
-  } catch (error) {
-    return { conversation: null, error: error as Error };
-  }
-}
-
-export async function getUserConversations(): Promise<{ conversations: ConversationWithParticipant[]; error: Error | null }> {
-  try {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return { conversations: [], error: new Error('Not authenticated') };
-    }
-
-    const { data: conversationsData, error: conversationsError } = await supabase
-      .from('conversations')
-      .select('*')
-      .or(`user_a_id.eq.${user.id},user_b_id.eq.${user.id}`)
-      .order('last_message_at', { ascending: false });
-
-    if (conversationsError) {
-      return { conversations: [], error: conversationsError };
-    }
-
-    if (!conversationsData || conversationsData.length === 0) {
-      return { conversations: [], error: null };
-    }
-
-    const otherUserIds = conversationsData.map((conv: Conversation) =>
-      conv.user_a_id === user.id ? conv.user_b_id : conv.user_a_id
-    );
-
+    // Step 5: Fetch profiles for all other users
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('*')
       .in('id', otherUserIds);
 
     if (profilesError) {
-      return { conversations: [], error: profilesError };
+      return { threads: [], error: profilesError };
     }
 
     const { data: socialLinks } = await supabase
@@ -779,38 +773,91 @@ export async function getUserConversations(): Promise<{ conversations: Conversat
       .select('*')
       .in('id', otherUserIds);
 
-    const profilesMap = new Map(profiles?.map((p: Profile) => [p.id, p]) || []);
-    const socialLinksMap = new Map(socialLinks?.map((s: SocialLinks) => [s.id, s]) || []);
+    const profilesArr: Profile[] = (profiles || []) as Profile[];
+    const socialArr: SocialLinks[] = (socialLinks || []) as SocialLinks[];
 
-    const conversationsWithParticipants: ConversationWithParticipant[] = conversationsData.map((conv: Conversation) => {
-      const otherUserId = conv.user_a_id === user.id ? conv.user_b_id : conv.user_a_id;
+    const profilesMap: Map<string, Profile> = new Map(
+      profilesArr.map((p) => [p.id, p])
+    );
+    const socialLinksMap: Map<string, SocialLinks> = new Map(
+      socialArr.map((s) => [s.id, s])
+    );
+
+    // Step 6: Get unread counts
+    const { data: unreadData } = await supabase.rpc('get_unread_message_counts');
+    const unreadMap = new Map<string, number>();
+    if (unreadData) {
+      unreadData.forEach((item: { sender_id: string; unread_count: number }) => {
+        unreadMap.set(item.sender_id, item.unread_count);
+      });
+    }
+
+    // Step 7: Build threads with anonymity flag
+    const threads: MessageThread[] = [];
+    threadMap.forEach((messages, otherUserId) => {
       const profile = profilesMap.get(otherUserId);
-      const social = socialLinksMap.get(otherUserId);
+      if (!profile) return;
 
-      return {
-        ...conv,
+      const social = socialLinksMap.get(otherUserId);
+      const lastMessage = messages[0]; // Already sorted by created_at DESC
+
+      // Check if other user is in nearby list
+      const isAnonymous = !nearbyUserIds.has(otherUserId);
+
+      threads.push({
+        other_user_id: otherUserId,
         other_user: {
-          ...profile!,
-          social_links: social,
+          id: profile.id,
+          display_name: profile.display_name,
+          user_name: profile.user_name,
+          date_of_birth: profile.date_of_birth,
+          gender: profile.gender,
+          email: profile.email,
+          account_created_at: profile.account_created_at,
+          social_links: social ? {
+            id: social.id,
+            profile_pic_url: social.profile_pic_url,
+            banner_url: social.banner_url,
+            bio: social.bio,
+            instagram: social.instagram,
+            x_twitter: social.x_twitter,
+            linkedin: social.linkedin,
+            created_at: social.created_at,
+            updated_at: social.updated_at,
+          } : undefined,
         },
-      };
+        last_message: lastMessage,
+        unread_count: unreadMap.get(otherUserId) || 0,
+        is_anonymous: isAnonymous,
+      });
     });
 
-    return { conversations: conversationsWithParticipants, error: null };
+    // Sort threads by last message time
+    threads.sort((a, b) =>
+      new Date(b.last_message.created_at).getTime() - new Date(a.last_message.created_at).getTime()
+    );
+
+    return { threads, error: null };
   } catch (error) {
-    return { conversations: [], error: error as Error };
+    return { threads: [], error: error as Error };
   }
 }
 
-export async function getMessagesForConversation(
-  conversationId: string,
+export async function getMessagesBetweenUsers(
+  otherUserId: string,
   limit = 100
 ): Promise<{ messages: Message[]; error: Error | null }> {
   try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { messages: [], error: new Error('Not authenticated') };
+    }
+
     const { data, error } = await supabase
       .from('messages')
       .select('*')
-      .eq('conversation_id', conversationId)
+      .or(`and(sender_id.eq.${user.id},receiver_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},receiver_id.eq.${user.id})`)
       .order('created_at', { ascending: true })
       .limit(limit);
 
@@ -825,7 +872,7 @@ export async function getMessagesForConversation(
 }
 
 export async function sendMessage(
-  conversationId: string,
+  receiverId: string,
   text: string
 ): Promise<{ message: Message | null; error: Error | null }> {
   try {
@@ -842,8 +889,8 @@ export async function sendMessage(
     const { data: message, error: messageError } = await supabase
       .from('messages')
       .insert({
-        conversation_id: conversationId,
         sender_id: user.id,
+        receiver_id: receiverId,
         text,
       })
       .select()
@@ -853,23 +900,18 @@ export async function sendMessage(
       return { message: null, error: messageError };
     }
 
-    await supabase
-      .from('conversations')
-      .update({ last_message_at: new Date().toISOString() })
-      .eq('id', conversationId);
-
     return { message: message as Message, error: null };
   } catch (error) {
     return { message: null, error: error as Error };
   }
 }
 
-export async function markConversationDelivered(
-  conversationId: string
+export async function markMessagesDelivered(
+  otherUserId: string
 ): Promise<{ error: Error | null }> {
   try {
-    const { error } = await supabase.rpc('mark_conversation_delivered', {
-      conv_id: conversationId,
+    const { error } = await supabase.rpc('mark_messages_delivered', {
+      other_user_id: otherUserId,
     });
 
     if (error) {
@@ -882,12 +924,12 @@ export async function markConversationDelivered(
   }
 }
 
-export async function markConversationRead(
-  conversationId: string
+export async function markMessagesRead(
+  otherUserId: string
 ): Promise<{ error: Error | null }> {
   try {
-    const { error } = await supabase.rpc('mark_conversation_read', {
-      conv_id: conversationId,
+    const { error } = await supabase.rpc('mark_messages_read', {
+      other_user_id: otherUserId,
     });
 
     if (error) {
@@ -900,156 +942,22 @@ export async function markConversationRead(
   }
 }
 
-export interface ConversationUnreadCount {
-  conversation_id: string;
+export interface UserUnreadCount {
+  sender_id: string;
   unread_count: number;
 }
 
-export async function getUnreadCounts(): Promise<{ counts: ConversationUnreadCount[]; error: Error | null }> {
+export async function getUnreadCounts(): Promise<{ counts: UserUnreadCount[]; error: Error | null }> {
   try {
-    const { data, error } = await supabase.rpc('get_unread_counts');
+    const { data, error } = await supabase.rpc('get_unread_message_counts');
 
     if (error) {
       return { counts: [], error };
     }
 
-    return { counts: (data || []) as ConversationUnreadCount[], error: null };
+    return { counts: (data || []) as UserUnreadCount[], error: null };
   } catch (error) {
     return { counts: [], error: error as Error };
   }
 }
 
-export async function updateConversationAnonymity(
-  conversationId: string,
-  isAnonymousForA: boolean,
-  isAnonymousForB: boolean
-): Promise<{ success: boolean; error: Error | null }> {
-  try {
-    const { error } = await supabase
-      .from('conversations')
-      .update({
-        is_anonymous_for_a: isAnonymousForA,
-        is_anonymous_for_b: isAnonymousForB,
-      })
-      .eq('id', conversationId);
-
-    if (error) {
-      return { success: false, error };
-    }
-
-    return { success: true, error: null };
-  } catch (error) {
-    return { success: false, error: error as Error };
-  }
-}
-
-export async function checkProximity(
-  userId1: string,
-  userId2: string
-): Promise<{ isNearby: boolean; error: Error | null }> {
-  try {
-    const { data: loc1, error: error1 } = await supabase
-      .from('locations')
-      .select('lat_short, long_short')
-      .eq('id', userId1)
-      .maybeSingle();
-
-    const { data: loc2, error: error2 } = await supabase
-      .from('locations')
-      .select('lat_short, long_short')
-      .eq('id', userId2)
-      .maybeSingle();
-
-    if (error1 || error2) {
-      return { isNearby: false, error: error1 || error2 };
-    }
-
-    if (!loc1 || !loc2 ||
-        loc1.lat_short === null || loc1.long_short === null ||
-        loc2.lat_short === null || loc2.long_short === null) {
-      return { isNearby: false, error: null };
-    }
-
-    const latDiff = Math.abs(loc1.lat_short - loc2.lat_short);
-    const longDiff = Math.abs(loc1.long_short - loc2.long_short);
-
-    const isNearby = latDiff <= 0.01 && longDiff <= 0.01;
-
-    return { isNearby, error: null };
-  } catch (error) {
-    return { isNearby: false, error: error as Error };
-  }
-}
-
-export async function updateAllConversationAnonymity(): Promise<{ success: boolean; error: Error | null }> {
-  try {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return { success: false, error: new Error('Not authenticated') };
-    }
-
-    const { data: myLocation, error: myLocError } = await supabase
-      .from('locations')
-      .select('lat_short, long_short')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (myLocError) {
-      return { success: false, error: myLocError };
-    }
-
-    const myLocationActive = myLocation && myLocation.lat_short !== null && myLocation.long_short !== null;
-
-    const { data: conversations, error: convError } = await supabase
-      .from('conversations')
-      .select('*')
-      .or(`user_a_id.eq.${user.id},user_b_id.eq.${user.id}`);
-
-    if (convError) {
-      return { success: false, error: convError };
-    }
-
-    if (!conversations || conversations.length === 0) {
-      return { success: true, error: null };
-    }
-
-    for (const conv of conversations) {
-      const otherUserId = conv.user_a_id === user.id ? conv.user_b_id : conv.user_a_id;
-
-      const { data: otherLocation, error: otherLocError } = await supabase
-        .from('locations')
-        .select('lat_short, long_short')
-        .eq('id', otherUserId)
-        .maybeSingle();
-
-      if (otherLocError) {
-        continue;
-      }
-
-      const otherLocationActive = otherLocation && otherLocation.lat_short !== null && otherLocation.long_short !== null;
-
-      let shouldBeAnonymous = true;
-
-      if (myLocationActive && otherLocationActive) {
-        const latDiff = Math.abs(myLocation.lat_short - otherLocation.lat_short);
-        const longDiff = Math.abs(myLocation.long_short - otherLocation.long_short);
-        const isNearby = latDiff <= 0.01 && longDiff <= 0.01;
-
-        if (isNearby) {
-          shouldBeAnonymous = false;
-        }
-      }
-
-      await updateConversationAnonymity(
-        conv.id,
-        shouldBeAnonymous,
-        shouldBeAnonymous
-      );
-    }
-
-    return { success: true, error: null };
-  } catch (error) {
-    return { success: false, error: error as Error };
-  }
-}
