@@ -70,6 +70,13 @@ const MessagesScreen: React.FC = () => {
           loadThreads();
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'locations' },
+        (payload: RealtimePostgresChangesPayload<any>) => {
+          loadThreads();
+        }
+      )
       .subscribe();
 
     return () => {
@@ -88,7 +95,7 @@ const MessagesScreen: React.FC = () => {
       name: thread.other_user.display_name,
       avatar: thread.other_user.social_links?.profile_pic_url || FALLBACK_AVATAR,
     },
-    isAnonymous: false,
+    isAnonymous: thread.is_anonymous,
     lastMessageAt: thread.last_message.created_at,
     lastMessageSnippet: thread.last_message.text,
     unreadCount: threadUnread[thread.other_user_id] ?? thread.unread_count ?? 0,

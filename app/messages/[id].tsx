@@ -23,6 +23,7 @@ import {
   getProfileById,
   type Profile,
   type SocialLinks,
+  isUserNearby,
 } from '../../src/lib/database';
 import { supabase } from '../../src/lib/supabase';
 import { useMessaging } from '../../src/contexts/MessagingContext';
@@ -74,6 +75,7 @@ const ChatDetailScreen: React.FC = () => {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   const mapServerMessage = useCallback(
     (msg: Message): ChatMsg => {
@@ -140,6 +142,13 @@ const ChatDetailScreen: React.FC = () => {
     loadCurrentUser();
   }, []);
 
+  const checkAnonymity = useCallback(async () => {
+    if (!otherUserId) return;
+
+    const { isNearby } = await isUserNearby(otherUserId);
+    setIsAnonymous(!isNearby);
+  }, [otherUserId]);
+
   useEffect(() => {
     const loadChat = async () => {
       if (!otherUserId || !currentUserId) return;
@@ -164,11 +173,13 @@ const ChatDetailScreen: React.FC = () => {
         setMessages(chatMessages);
       }
 
+      await checkAnonymity();
+
       setLoading(false);
     };
 
     loadChat();
-  }, [otherUserId, currentUserId, mapServerMessage]);
+  }, [otherUserId, currentUserId, mapServerMessage, checkAnonymity]);
 
   const listRef = useRef<FlatList<RenderItem>>(null);
 
@@ -273,12 +284,19 @@ const ChatDetailScreen: React.FC = () => {
           }
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'locations' },
+        (payload: RealtimePostgresChangesPayload<any>) => {
+          checkAnonymity();
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [otherUserId, currentUserId, mapServerMessage]);
+  }, [otherUserId, currentUserId, mapServerMessage, checkAnonymity]);
 
   const data = useMemo<RenderItem[]>(() => {
     const entries: RenderItem[] = [];
@@ -409,7 +427,7 @@ const ChatDetailScreen: React.FC = () => {
         <ChatHeader
           title={displayName}
           avatarUrl={displayAvatar}
-          isAnonymous={false}
+          isAnonymous={isAnonymous}
           profileId={otherUser.id}
         />
       </SafeAreaView>

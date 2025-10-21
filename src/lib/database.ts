@@ -456,6 +456,52 @@ export async function deleteUserLocation(): Promise<{ success: boolean; error: E
   }
 }
 
+export async function isUserNearby(userId: string): Promise<{ isNearby: boolean; error: Error | null }> {
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { isNearby: false, error: new Error('Not authenticated') };
+    }
+
+    const { data: currentLocation, error: locationError } = await supabase
+      .from('locations')
+      .select('lat_short, long_short')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (locationError) {
+      return { isNearby: false, error: locationError };
+    }
+
+    if (!currentLocation || currentLocation.lat_short === null || currentLocation.long_short === null) {
+      return { isNearby: false, error: null };
+    }
+
+    const { data: otherLocation, error: otherLocationError } = await supabase
+      .from('locations')
+      .select('lat_short, long_short')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (otherLocationError) {
+      return { isNearby: false, error: otherLocationError };
+    }
+
+    if (!otherLocation || otherLocation.lat_short === null || otherLocation.long_short === null) {
+      return { isNearby: false, error: null };
+    }
+
+    const latDiff = Math.abs(currentLocation.lat_short - otherLocation.lat_short);
+    const longDiff = Math.abs(currentLocation.long_short - otherLocation.long_short);
+    const isNearby = latDiff <= 0.01 && longDiff <= 0.01;
+
+    return { isNearby, error: null };
+  } catch (error) {
+    return { isNearby: false, error: error as Error };
+  }
+}
+
 export async function getNearbyUsers(): Promise<{ users: NearbyUserData[]; error: Error | null }> {
   try {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -663,6 +709,7 @@ export interface MessageThread {
   other_user: Profile & { social_links?: SocialLinks };
   last_message: Message;
   unread_count: number;
+  is_anonymous: boolean;
 }
 
 
@@ -675,23 +722,11 @@ export async function getUserMessageThreads(): Promise<{ threads: MessageThread[
       return { threads: [], error: new Error('Not authenticated') };
     }
 
-    // Get nearby users first
-    const { users: nearbyUsers, error: nearbyError } = await getNearbyUsers();
-    if (nearbyError) {
-      return { threads: [], error: nearbyError };
-    }
-
-    if (!nearbyUsers || nearbyUsers.length === 0) {
-      return { threads: [], error: null };
-    }
-
-    const nearbyUserIds = nearbyUsers.map(u => u.id);
-
-    // Get all messages where current user is sender or receiver AND other party is nearby
+    // Step 1: Get all messages where current user is sender OR receiver
     const { data: messagesData, error: messagesError } = await supabase
       .from('messages')
       .select('*')
-      .or(`and(sender_id.eq.${user.id},receiver_id.in.(${nearbyUserIds.join(',')})),and(receiver_id.eq.${user.id},sender_id.in.(${nearbyUserIds.join(',')}))`)
+      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
       .order('created_at', { ascending: false });
 
     if (messagesError) {
@@ -702,7 +737,7 @@ export async function getUserMessageThreads(): Promise<{ threads: MessageThread[
       return { threads: [], error: null };
     }
 
-    // Group messages by other user
+    // Step 2: Group messages by other user
     const threadMap = new Map<string, Message[]>();
     messagesData.forEach((msg: Message) => {
       const otherUserId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
@@ -712,7 +747,43 @@ export async function getUserMessageThreads(): Promise<{ threads: MessageThread[
       threadMap.get(otherUserId)!.push(msg as Message);
     });
 
-    // Get unread counts
+    // Step 3: Get nearby users
+    const { users: nearbyUsers } = await getNearbyUsers();
+    const nearbyUserIds = new Set((nearbyUsers || []).map(u => u.id));
+
+    // Step 4: Get all unique other user IDs from messages
+    const otherUserIds = Array.from(threadMap.keys());
+
+    if (otherUserIds.length === 0) {
+      return { threads: [], error: null };
+    }
+
+    // Step 5: Fetch profiles for all other users
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', otherUserIds);
+
+    if (profilesError) {
+      return { threads: [], error: profilesError };
+    }
+
+    const { data: socialLinks } = await supabase
+      .from('social_links')
+      .select('*')
+      .in('id', otherUserIds);
+
+    const profilesArr: Profile[] = (profiles || []) as Profile[];
+    const socialArr: SocialLinks[] = (socialLinks || []) as SocialLinks[];
+
+    const profilesMap: Map<string, Profile> = new Map(
+      profilesArr.map((p) => [p.id, p])
+    );
+    const socialLinksMap: Map<string, SocialLinks> = new Map(
+      socialArr.map((s) => [s.id, s])
+    );
+
+    // Step 6: Get unread counts
     const { data: unreadData } = await supabase.rpc('get_unread_message_counts');
     const unreadMap = new Map<string, number>();
     if (unreadData) {
@@ -721,39 +792,43 @@ export async function getUserMessageThreads(): Promise<{ threads: MessageThread[
       });
     }
 
-    // Build threads with user info
-    const nearbyUsersMap = new Map(nearbyUsers.map(u => [u.id, u]));
-
+    // Step 7: Build threads with anonymity flag
     const threads: MessageThread[] = [];
     threadMap.forEach((messages, otherUserId) => {
-      const userData = nearbyUsersMap.get(otherUserId);
-      if (!userData) return;
+      const profile = profilesMap.get(otherUserId);
+      if (!profile) return;
 
+      const social = socialLinksMap.get(otherUserId);
       const lastMessage = messages[0]; // Already sorted by created_at DESC
+
+      // Check if other user is in nearby list
+      const isAnonymous = !nearbyUserIds.has(otherUserId);
+
       threads.push({
         other_user_id: otherUserId,
         other_user: {
-          id: userData.id,
-          display_name: userData.name,
-          user_name: userData.username,
-          date_of_birth: null,
-          gender: null,
-          email: '',
-          account_created_at: '',
-          social_links: {
-            id: userData.id,
-            profile_pic_url: userData.profilePhoto || null,
-            banner_url: null,
-            bio: userData.bio || null,
-            instagram: userData.socialLinks.instagram || null,
-            x_twitter: userData.socialLinks.twitter || null,
-            linkedin: userData.socialLinks.linkedin || null,
-            created_at: '',
-            updated_at: '',
-          },
+          id: profile.id,
+          display_name: profile.display_name,
+          user_name: profile.user_name,
+          date_of_birth: profile.date_of_birth,
+          gender: profile.gender,
+          email: profile.email,
+          account_created_at: profile.account_created_at,
+          social_links: social ? {
+            id: social.id,
+            profile_pic_url: social.profile_pic_url,
+            banner_url: social.banner_url,
+            bio: social.bio,
+            instagram: social.instagram,
+            x_twitter: social.x_twitter,
+            linkedin: social.linkedin,
+            created_at: social.created_at,
+            updated_at: social.updated_at,
+          } : undefined,
         },
         last_message: lastMessage,
         unread_count: unreadMap.get(otherUserId) || 0,
+        is_anonymous: isAnonymous,
       });
     });
 
