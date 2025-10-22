@@ -1,18 +1,17 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import type { PropsWithChildren } from 'react';
-import { Platform } from 'react-native';
 
 import type { SocialPlatformId } from '../constants/socialPlatforms';
 import { DEFAULT_VISIBLE_PLATFORMS } from '../constants/socialPlatforms';
 import { updateUserLocation, deleteUserLocation } from '../lib/database';
+import {
+  getCurrentLocation,
+  watchLocation,
+  requestLocationPermission as requestLocationPermissionService,
+  type LocationError,
+} from '../services/locationService';
 
 const LOCATION_REFRESH_INTERVAL = 60000;
-const GEO_OPTS: PositionOptions = {
-  // High accuracy can cause long waits/timeouts on web; prefer balanced defaults
-  enableHighAccuracy: false,
-  timeout: 15000,
-  maximumAge: 60000,
-};
 
 const getErrorName = (code: number): string => {
   switch (code) {
@@ -61,45 +60,39 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
     [...DEFAULT_VISIBLE_PLATFORMS],
   );
   const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
-  // Use ReturnType<typeof setInterval> for cross-platform compatibility
-  const refreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const locationWatchRef = useRef<(() => void) | null>(null);
   const hasRequestedPermissionRef = useRef(false);
   const userForcedInvisibleRef = useRef(false);
 
   const stopLocationRefresh = useCallback(() => {
-    if (refreshIntervalRef.current) {
-      clearInterval(refreshIntervalRef.current);
-      refreshIntervalRef.current = null;
+    if (locationWatchRef.current) {
+      locationWatchRef.current();
+      locationWatchRef.current = null;
     }
   }, []);
 
   const startLocationRefresh = useCallback(() => {
-    if (refreshIntervalRef.current) {
-      clearInterval(refreshIntervalRef.current);
+    if (locationWatchRef.current) {
+      locationWatchRef.current();
     }
 
-    refreshIntervalRef.current = setInterval(() => {
-      if (Platform.OS === 'web' && 'geolocation' in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords;
-            await updateUserLocation(latitude, longitude);
-          },
-          async (error) => {
-            console.warn(`Geolocation refresh error (${getErrorName(error.code)}):`, error);
-            if (error.code === 1 /* PERMISSION_DENIED */) {
-              setLocationPermissionDenied(true);
-              await deleteUserLocation();
-              if (refreshIntervalRef.current) {
-                clearInterval(refreshIntervalRef.current);
-                refreshIntervalRef.current = null;
-              }
-            }
-          },
-          GEO_OPTS
-        );
-      }
-    }, LOCATION_REFRESH_INTERVAL);
+    locationWatchRef.current = watchLocation(
+      async (coords) => {
+        await updateUserLocation(coords.latitude, coords.longitude);
+      },
+      async (error: LocationError) => {
+        console.warn(`Geolocation refresh error (${getErrorName(error.code)}):`, error);
+        if (error.code === 1) {
+          setLocationPermissionDenied(true);
+          await deleteUserLocation();
+          if (locationWatchRef.current) {
+            locationWatchRef.current();
+            locationWatchRef.current = null;
+          }
+        }
+      },
+      LOCATION_REFRESH_INTERVAL
+    );
   }, []);
 
   const setIsVisible = useCallback(
@@ -119,24 +112,18 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
 
   const handleLocationUpdate = useCallback(async () => {
     if (isVisible) {
-      if (Platform.OS === 'web' && 'geolocation' in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords;
-            await updateUserLocation(latitude, longitude);
-            setLocationPermissionDenied(false);
-            startLocationRefresh();
-          },
-          async (error) => {
-            console.warn(`Geolocation error (${getErrorName(error.code)}):`, error);
-            if (error.code === 1 /* PERMISSION_DENIED */) {
-              setLocationPermissionDenied(true);
-              await deleteUserLocation();
-              stopLocationRefresh();
-            }
-          },
-          GEO_OPTS
-        );
+      try {
+        const coords = await getCurrentLocation();
+        await updateUserLocation(coords.latitude, coords.longitude);
+        setLocationPermissionDenied(false);
+        startLocationRefresh();
+      } catch (error: any) {
+        console.warn(`Geolocation error (${getErrorName(error.code)}):`, error);
+        if (error.code === 1) {
+          setLocationPermissionDenied(true);
+          await deleteUserLocation();
+          stopLocationRefresh();
+        }
       }
     } else {
       await deleteUserLocation();
@@ -149,9 +136,9 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
     handleLocationUpdate();
 
     return () => {
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current);
-        refreshIntervalRef.current = null;
+      if (locationWatchRef.current) {
+        locationWatchRef.current();
+        locationWatchRef.current = null;
       }
     };
   }, [handleLocationUpdate]);
@@ -176,36 +163,41 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
     options: LocationPermissionRequestOptions = {},
   ): Promise<boolean> => {
     const { autoEnable = true } = options;
+    hasRequestedPermissionRef.current = true;
 
-    if (Platform.OS === 'web' && 'geolocation' in navigator) {
-      hasRequestedPermissionRef.current = true;
+    try {
+      const permissionStatus = await requestLocationPermissionService();
 
-      return new Promise((resolve) => {
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords;
-            await updateUserLocation(latitude, longitude);
-            setLocationPermissionDenied(false);
-            if (autoEnable) {
-              setIsVisible(true, 'auto');
-            }
-            startLocationRefresh();
-            resolve(true);
-          },
-          async (error) => {
-            console.warn(`Location request error (${getErrorName(error.code)}):`, error);
-            if (error.code === 1 /* PERMISSION_DENIED */) {
-              setLocationPermissionDenied(true);
-              await deleteUserLocation();
-              setIsVisible(false, 'auto');
-            }
-            resolve(false);
-          },
-          GEO_OPTS
-        );
-      });
+      if (permissionStatus === 'granted' || permissionStatus === 'undetermined') {
+        try {
+          const coords = await getCurrentLocation();
+          await updateUserLocation(coords.latitude, coords.longitude);
+          setLocationPermissionDenied(false);
+          if (autoEnable) {
+            setIsVisible(true, 'auto');
+          }
+          startLocationRefresh();
+          return true;
+        } catch (error: any) {
+          console.warn(`Location request error (${getErrorName(error.code)}):`, error);
+          if (error.code === 1) {
+            setLocationPermissionDenied(true);
+            await deleteUserLocation();
+            setIsVisible(false, 'auto');
+          }
+          return false;
+        }
+      } else {
+        setLocationPermissionDenied(true);
+        await deleteUserLocation();
+        setIsVisible(false, 'auto');
+        return false;
+      }
+    } catch (error) {
+      console.error('Failed to request location permission:', error);
+      setLocationPermissionDenied(true);
+      return false;
     }
-    return false;
   }, [setIsVisible, startLocationRefresh]);
 
   useEffect(() => {
