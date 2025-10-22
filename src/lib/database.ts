@@ -714,6 +714,39 @@ export interface MessageThread {
 
 
 
+export async function getConversationPartnerIds(): Promise<{ partnerIds: string[]; error: Error | null }> {
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { partnerIds: [], error: new Error('Not authenticated') };
+    }
+
+    const { data: messagesData, error: messagesError } = await supabase
+      .from('messages')
+      .select('sender_id, receiver_id')
+      .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`);
+
+    if (messagesError) {
+      return { partnerIds: [], error: messagesError };
+    }
+
+    if (!messagesData || messagesData.length === 0) {
+      return { partnerIds: [], error: null };
+    }
+
+    const partnerIdsSet = new Set<string>();
+    messagesData.forEach((msg: { sender_id: string; receiver_id: string }) => {
+      const otherUserId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
+      partnerIdsSet.add(otherUserId);
+    });
+
+    return { partnerIds: Array.from(partnerIdsSet), error: null };
+  } catch (error) {
+    return { partnerIds: [], error: error as Error };
+  }
+}
+
 export async function getUserMessageThreads(): Promise<{ threads: MessageThread[]; error: Error | null }> {
   try {
     const { data: { user }, error: userError } = await supabase.auth.getUser();

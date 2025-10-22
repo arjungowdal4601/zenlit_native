@@ -10,7 +10,7 @@ type FeedListProps = {
 };
 
 export const FeedList: React.FC<FeedListProps> = ({ refreshSignal }) => {
-  const { selectedAccounts, isVisible, locationPermissionDenied } = useVisibility();
+  const { selectedAccounts, isVisible, locationPermissionDenied, locationStatus } = useVisibility();
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +25,17 @@ export const FeedList: React.FC<FeedListProps> = ({ refreshSignal }) => {
       return;
     }
 
+    if (locationStatus === 'fetching' || locationStatus === 'not-attempted') {
+      setLoading(true);
+      return;
+    }
+
+    if (locationStatus === 'timeout' || locationStatus === 'position-unavailable') {
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
+
     const { posts: fetchedPosts, error: fetchError } = await getFeedPosts();
 
     if (fetchError) {
@@ -34,7 +45,7 @@ export const FeedList: React.FC<FeedListProps> = ({ refreshSignal }) => {
     }
 
     setLoading(false);
-  }, [isVisible, locationPermissionDenied]);
+  }, [isVisible, locationPermissionDenied, locationStatus]);
 
   useEffect(() => {
     loadPosts();
@@ -63,11 +74,15 @@ export const FeedList: React.FC<FeedListProps> = ({ refreshSignal }) => {
     };
   };
 
-  if (loading) {
+  if (loading || locationStatus === 'fetching' || locationStatus === 'not-attempted') {
     return (
       <View style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color="#60a5fa" />
-        <Text style={styles.loadingText}>Loading feed...</Text>
+        <Text style={styles.loadingText}>
+          {locationStatus === 'fetching' || locationStatus === 'not-attempted'
+            ? 'Getting your location...'
+            : 'Loading feed...'}
+        </Text>
       </View>
     );
   }
@@ -86,6 +101,28 @@ export const FeedList: React.FC<FeedListProps> = ({ refreshSignal }) => {
       <View style={[styles.container, styles.centerContent]}>
         <Text style={styles.emptyText}>Location visibility required</Text>
         <Text style={styles.emptySubtext}>Enable visibility to see nearby posts</Text>
+      </View>
+    );
+  }
+
+  if (locationStatus === 'timeout') {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.emptyText}>Location timeout</Text>
+        <Text style={styles.emptySubtext}>
+          Couldn't get your location in time. Pull down to try again.
+        </Text>
+      </View>
+    );
+  }
+
+  if (locationStatus === 'position-unavailable') {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.emptyText}>Location unavailable</Text>
+        <Text style={styles.emptySubtext}>
+          Your location couldn't be determined. Check your device settings and pull down to retry.
+        </Text>
       </View>
     );
   }

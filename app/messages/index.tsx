@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import AppHeader from '../../src/components/AppHeader';
 import ChatList from '../../src/components/messaging/ChatList';
 import Navigation from '../../src/components/Navigation';
-import { getUserMessageThreads, type MessageThread } from '../../src/lib/database';
+import { getUserMessageThreads, getConversationPartnerIds, type MessageThread } from '../../src/lib/database';
 import { useVisibility } from '../../src/contexts/VisibilityContext';
 import { supabase } from '../../src/lib/supabase';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
@@ -22,6 +22,7 @@ const MessagesScreen: React.FC = () => {
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [refreshSignal, setRefreshSignal] = useState(0);
+  const [conversationPartnerIds, setConversationPartnerIds] = useState<string[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -42,6 +43,10 @@ const MessagesScreen: React.FC = () => {
         return;
       }
       setThreads(threadsData);
+
+      const partnerIds = threadsData.map((thread) => thread.other_user_id);
+      setConversationPartnerIds(partnerIds);
+
       refreshUnread().catch((err) => {
         console.error('Failed to refresh unread counts', err);
       });
@@ -61,28 +66,74 @@ const MessagesScreen: React.FC = () => {
   useEffect(() => {
     if (!currentUserId) return;
 
+    let loadThreadsTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const debouncedLoadThreads = () => {
+      if (loadThreadsTimeout) {
+        clearTimeout(loadThreadsTimeout);
+      }
+      loadThreadsTimeout = setTimeout(() => {
+        loadThreads();
+      }, 500);
+    };
+
     const channel = supabase
       .channel('messages-list-realtime')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages' },
         (payload: RealtimePostgresChangesPayload<any>) => {
-          loadThreads();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'locations' },
-        (payload: RealtimePostgresChangesPayload<any>) => {
-          loadThreads();
+          const messageData = payload.new as any;
+          if (messageData && (messageData.sender_id === currentUserId || messageData.receiver_id === currentUserId)) {
+            debouncedLoadThreads();
+          }
         }
       )
       .subscribe();
 
     return () => {
+      if (loadThreadsTimeout) {
+        clearTimeout(loadThreadsTimeout);
+      }
       supabase.removeChannel(channel);
     };
   }, [currentUserId, loadThreads]);
+
+  useEffect(() => {
+    if (!currentUserId || conversationPartnerIds.length === 0) return;
+
+    let loadThreadsTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const debouncedLoadThreads = () => {
+      if (loadThreadsTimeout) {
+        clearTimeout(loadThreadsTimeout);
+      }
+      loadThreadsTimeout = setTimeout(() => {
+        loadThreads();
+      }, 1000);
+    };
+
+    const locationChannel = supabase
+      .channel('messages-location-updates')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'locations' },
+        (payload: RealtimePostgresChangesPayload<any>) => {
+          const locationData = payload.new as any;
+          if (locationData && conversationPartnerIds.includes(locationData.id)) {
+            debouncedLoadThreads();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (loadThreadsTimeout) {
+        clearTimeout(loadThreadsTimeout);
+      }
+      supabase.removeChannel(locationChannel);
+    };
+  }, [currentUserId, conversationPartnerIds, loadThreads]);
 
   const handleHeaderRefresh = useCallback(() => {
     setRefreshSignal((value) => value + 1);
