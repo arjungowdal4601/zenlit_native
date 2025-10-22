@@ -26,6 +26,14 @@ const getErrorName = (code: number): string => {
   }
 };
 
+export type LocationStatus =
+  | 'not-attempted'
+  | 'fetching'
+  | 'success'
+  | 'timeout'
+  | 'position-unavailable'
+  | 'permission-denied';
+
 type LocationPermissionRequestOptions = {
   autoEnable?: boolean;
 };
@@ -40,6 +48,7 @@ type VisibilityContextValue = {
   selectAll: () => void;
   deselectAll: () => void;
   locationPermissionDenied: boolean;
+  locationStatus: LocationStatus;
   requestLocationPermission: (options?: LocationPermissionRequestOptions) => Promise<boolean>;
 };
 
@@ -60,9 +69,12 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
     [...DEFAULT_VISIBLE_PLATFORMS],
   );
   const [locationPermissionDenied, setLocationPermissionDenied] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<LocationStatus>('not-attempted');
   const locationWatchRef = useRef<(() => void) | null>(null);
   const hasRequestedPermissionRef = useRef(false);
   const userForcedInvisibleRef = useRef(false);
+  const retryCountRef = useRef(0);
+  const maxRetries = 3;
 
   const stopLocationRefresh = useCallback(() => {
     if (locationWatchRef.current) {
@@ -79,16 +91,23 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
     locationWatchRef.current = watchLocation(
       async (coords) => {
         await updateUserLocation(coords.latitude, coords.longitude);
+        setLocationStatus('success');
+        retryCountRef.current = 0;
       },
       async (error: LocationError) => {
         console.warn(`Geolocation refresh error (${getErrorName(error.code)}):`, error);
         if (error.code === 1) {
           setLocationPermissionDenied(true);
+          setLocationStatus('permission-denied');
           await deleteUserLocation();
           if (locationWatchRef.current) {
             locationWatchRef.current();
             locationWatchRef.current = null;
           }
+        } else if (error.code === 2) {
+          setLocationStatus('position-unavailable');
+        } else if (error.code === 3) {
+          setLocationStatus('timeout');
         }
       },
       LOCATION_REFRESH_INTERVAL
@@ -112,25 +131,42 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
 
   const handleLocationUpdate = useCallback(async () => {
     if (isVisible) {
+      setLocationStatus('fetching');
       try {
         const coords = await getCurrentLocation();
         await updateUserLocation(coords.latitude, coords.longitude);
         setLocationPermissionDenied(false);
+        setLocationStatus('success');
+        retryCountRef.current = 0;
         startLocationRefresh();
       } catch (error: any) {
         console.warn(`Geolocation error (${getErrorName(error.code)}):`, error);
         if (error.code === 1) {
           setLocationPermissionDenied(true);
+          setLocationStatus('permission-denied');
           await deleteUserLocation();
           stopLocationRefresh();
+        } else if (error.code === 2) {
+          setLocationStatus('position-unavailable');
+          retryCountRef.current += 1;
+          if (retryCountRef.current < maxRetries) {
+            setTimeout(() => handleLocationUpdate(), 2000 * retryCountRef.current);
+          }
+        } else if (error.code === 3) {
+          setLocationStatus('timeout');
+          retryCountRef.current += 1;
+          if (retryCountRef.current < maxRetries) {
+            setTimeout(() => handleLocationUpdate(), 2000 * retryCountRef.current);
+          }
         }
       }
     } else {
       await deleteUserLocation();
       setLocationPermissionDenied(false);
+      setLocationStatus('not-attempted');
       stopLocationRefresh();
     }
-  }, [isVisible, startLocationRefresh, stopLocationRefresh]);
+  }, [isVisible, startLocationRefresh, stopLocationRefresh, maxRetries]);
 
   useEffect(() => {
     handleLocationUpdate();
@@ -169,10 +205,13 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
       const permissionStatus = await requestLocationPermissionService();
 
       if (permissionStatus === 'granted' || permissionStatus === 'undetermined') {
+        setLocationStatus('fetching');
         try {
           const coords = await getCurrentLocation();
           await updateUserLocation(coords.latitude, coords.longitude);
           setLocationPermissionDenied(false);
+          setLocationStatus('success');
+          retryCountRef.current = 0;
           if (autoEnable) {
             setIsVisible(true, 'auto');
           }
@@ -182,13 +221,19 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
           console.warn(`Location request error (${getErrorName(error.code)}):`, error);
           if (error.code === 1) {
             setLocationPermissionDenied(true);
+            setLocationStatus('permission-denied');
             await deleteUserLocation();
             setIsVisible(false, 'auto');
+          } else if (error.code === 2) {
+            setLocationStatus('position-unavailable');
+          } else if (error.code === 3) {
+            setLocationStatus('timeout');
           }
           return false;
         }
       } else {
         setLocationPermissionDenied(true);
+        setLocationStatus('permission-denied');
         await deleteUserLocation();
         setIsVisible(false, 'auto');
         return false;
@@ -196,6 +241,7 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
     } catch (error) {
       console.error('Failed to request location permission:', error);
       setLocationPermissionDenied(true);
+      setLocationStatus('permission-denied');
       return false;
     }
   }, [setIsVisible, startLocationRefresh]);
@@ -218,9 +264,10 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
       selectAll,
       deselectAll,
       locationPermissionDenied,
+      locationStatus,
       requestLocationPermission,
     }),
-    [isVisible, radiusKm, selectedAccounts, locationPermissionDenied, setIsVisible, requestLocationPermission],
+    [isVisible, radiusKm, selectedAccounts, locationPermissionDenied, locationStatus, setIsVisible, requestLocationPermission],
   );
 
   return <VisibilityContext.Provider value={value}>{children}</VisibilityContext.Provider>;
