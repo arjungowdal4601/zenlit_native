@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
-import { uploadImage } from '../../lib/database';
+import { uploadImage } from '../../services';
 import { compressImage, MAX_IMAGE_SIZE_BYTES, base64ToUint8Array, type CompressedImage } from '../../utils/imageCompression';
 import ImageUploadDialog from '../ImageUploadDialog';
 

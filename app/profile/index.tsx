@@ -27,7 +27,7 @@ import {
   ensureSocialUrl,
   getTwitterHandle,
 } from '../../src/constants/socialPlatforms';
-import { getCurrentUserProfile, getUserPosts, deletePost as deletePostDb, Profile, SocialLinks, Post as PostType } from '../../src/lib/database';
+import { getCurrentUserProfile, getUserPosts, deletePost as deletePostDb, Profile, SocialLinks, Post as PostType } from '../../src/services';
 import { supabase } from '../../src/lib/supabase';
 
 const SOCIAL_ORDER: Array<'instagram' | 'linkedin' | 'twitter'> = [
