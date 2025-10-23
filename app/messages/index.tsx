@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import AppHeader from '../../src/components/AppHeader';
 import ChatList from '../../src/components/messaging/ChatList';
 import Navigation from '../../src/components/Navigation';
-import { getUserMessageThreads, getConversationPartnerIds, type MessageThread } from '../../src/lib/database';
+import { getUserMessageThreads, getConversationPartnerIds, type MessageThread } from '../../src/services';
 import { useVisibility } from '../../src/contexts/VisibilityContext';
 import { supabase } from '../../src/lib/supabase';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';

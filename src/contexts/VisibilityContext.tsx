@@ -3,7 +3,7 @@ import type { PropsWithChildren } from 'react';
 
 import type { SocialPlatformId } from '../constants/socialPlatforms';
 import { DEFAULT_VISIBLE_PLATFORMS } from '../constants/socialPlatforms';
-import { updateUserLocation, deleteUserLocation } from '../lib/database';
+import { updateUserLocation, deleteUserLocation } from '../services';
 import {
   getCurrentLocation,
   watchLocation,

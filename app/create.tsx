@@ -7,7 +7,7 @@ import Navigation from '../src/components/Navigation';
 import { PostComposer, PostComposerSharePayload } from '../src/components/PostComposer';
 import SuccessPopup from '../src/components/SuccessPopup';
 import { theme } from '../src/styles/theme';
-import { createPost, getCurrentUserProfile, uploadImage } from '../src/lib/database';
+import { createPost, getCurrentUserProfile, uploadImage } from '../src/services';
 import { compressImage, MAX_IMAGE_SIZE_BYTES, base64ToUint8Array, type CompressedImage } from '../src/utils/imageCompression';
 
 const uploadPostImageIfNeeded = async (image: CompressedImage | null | undefined): Promise<string | undefined> => {

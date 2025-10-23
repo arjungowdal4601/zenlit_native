@@ -15,7 +15,7 @@ import {
   markMessagesRead,
   getUnreadCounts,
   type Message,
-} from '../lib/database';
+} from '../services';
 import type { AuthChangeEvent, Session, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 type MessagingContextValue = {
