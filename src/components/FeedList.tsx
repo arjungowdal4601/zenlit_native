@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { useVisibility } from '../contexts/VisibilityContext';
-import { getFeedPosts, PostWithAuthor } from '../lib/database';
+import { getFeedPosts, PostWithAuthor } from '../services';
 import Post from './Post';
 
 type FeedListProps = {

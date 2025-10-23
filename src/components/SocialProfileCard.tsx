@@ -11,7 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MessageSquare, User } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
-import type { NearbyUserData } from '../lib/database';
+import type { NearbyUserData } from '../services';
 import {
   DEFAULT_VISIBLE_PLATFORMS,
   SOCIAL_PLATFORMS,

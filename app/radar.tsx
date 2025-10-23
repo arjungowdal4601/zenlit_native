@@ -16,7 +16,7 @@ import { SocialProfileCard } from '../src/components/SocialProfileCard';
 import VisibilitySheet from '../src/components/VisibilitySheet';
 import { useVisibility } from '../src/contexts/VisibilityContext';
 import { theme } from '../src/styles/theme';
-import { getNearbyUsers, type NearbyUserData } from '../src/lib/database';
+import { getNearbyUsers, type NearbyUserData } from '../src/services';
 
 const DEBOUNCE_DELAY = 120;
 

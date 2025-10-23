@@ -24,7 +24,7 @@ import {
   type Profile,
   type SocialLinks,
   isUserNearby,
-} from '../../src/lib/database';
+} from '../../src/services';
 import { supabase } from '../../src/lib/supabase';
 import { useMessaging } from '../../src/contexts/MessagingContext';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
