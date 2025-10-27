@@ -167,12 +167,12 @@ const MessagesScreen: React.FC = () => {
           </Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.scrollContent}>
           <ChatList
             threads={chatThreads}
             onPressThread={(threadId: string) => router.push(`/messages/${threadId}`)}
           />
-        </ScrollView>
+        </View>
       )}
       <Navigation />
     </View>
