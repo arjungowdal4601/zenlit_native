@@ -21,7 +21,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.arjungowdal4601.zenlit_native"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -32,8 +33,10 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "your-project-id"
-      }
-    }
+        "projectId": "b4151506-a7f6-4fb0-a861-011b671d146f"
+      },
+      "router": {}
+    },
+    "owner": "arjungowdal4601"
   }
 }
