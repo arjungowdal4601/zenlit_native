@@ -17,10 +17,22 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import { makeRedirectUri } from 'expo-auth-session';
 
 import { createShadowStyle } from '../../src/utils/shadow';
 import GradientTitle from '../../src/components/GradientTitle';
 import { supabase } from '../../src/lib/supabase';
+import {
+  IOS_CLIENT_ID,
+  ANDROID_CLIENT_ID,
+  WEB_CLIENT_ID,
+  GOOGLE_OAUTH_SCOPES,
+  EXPO_REDIRECT_SCHEME,
+} from '../../src/constants/googleOAuth';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const CARD_ELEVATION = createShadowStyle({
@@ -83,15 +95,43 @@ const AuthScreen: React.FC = () => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   }, [email]);
 
-  const handleGoogle = () => {
-    if (googleLoading) {
+  const [request, response, promptAsync] = Google.useAuthRequest(
+    {
+      iosClientId: IOS_CLIENT_ID,
+      androidClientId: ANDROID_CLIENT_ID,
+      clientId: WEB_CLIENT_ID,
+      responseType: 'id_token',
+      scopes: [...GOOGLE_OAUTH_SCOPES],
+      redirectUri: makeRedirectUri({ scheme: EXPO_REDIRECT_SCHEME }),
+    }
+  );
+
+  const handleGoogle = async () => {
+    if (googleLoading || !request) {
       return;
     }
     setGoogleLoading(true);
-    setTimeout(() => {
+    try {
+      const result = await promptAsync();
+      if (result.type === 'success') {
+        const idToken =
+          (result as any).params?.id_token || result.authentication?.idToken;
+        if (!idToken) throw new Error('No id_token returned from Google');
+        const { data, error } = await supabase.auth.signInWithIdToken({
+          provider: 'google',
+          token: idToken,
+          nonce: request.nonce,
+        });
+        if (error) {
+          throw error;
+        }
+        router.replace('/');
+      }
+    } catch (e: any) {
+      Alert.alert('Google Sign-In failed', e?.message || 'Please try again.');
+    } finally {
       setGoogleLoading(false);
-      Alert.alert('Coming Soon', 'Google Sign In will be available soon!');
-    }, 450);
+    }
   };
 
   const handleEmail = async () => {
@@ -155,7 +195,7 @@ const AuthScreen: React.FC = () => {
               style={({ pressed }) => [
                 styles.googleButton,
                 pressed ? styles.googleButtonPressed : null,
-                googleLoading ? styles.disabled : null,
+                (googleLoading || !request) ? styles.disabled : null,
               ]}
             >
               <Image
