@@ -20,7 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { makeRedirectUri } from 'expo-auth-session';
+// Removed manual redirect handling to let AuthSession determine platform-specific defaults
 
 import { createShadowStyle } from '../../src/utils/shadow';
 import GradientTitle from '../../src/components/GradientTitle';
@@ -30,7 +30,6 @@ import {
   ANDROID_CLIENT_ID,
   WEB_CLIENT_ID,
   GOOGLE_OAUTH_SCOPES,
-  EXPO_REDIRECT_SCHEME,
 } from '../../src/constants/googleOAuth';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -105,7 +104,6 @@ const SignInScreen: React.FC = () => {
       clientId: WEB_CLIENT_ID,
       responseType: 'id_token',
       scopes: [...GOOGLE_OAUTH_SCOPES],
-      redirectUri: makeRedirectUri({ scheme: EXPO_REDIRECT_SCHEME }),
     }
   );
 
