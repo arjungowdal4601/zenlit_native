@@ -142,7 +142,8 @@ const ProfileScreen: React.FC = () => {
   const handleConfirmLogout = useCallback(async () => {
     setLogoutOpen(false);
     await supabase.auth.signOut();
-    router.replace('/auth/signin');
+    // Route to unified auth screen instead of legacy sign-in page
+    router.replace('/auth');
   }, [router]);
 
   const handleDeletePost = useCallback(async (id: string) => {

@@ -20,7 +20,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { makeRedirectUri } from 'expo-auth-session';
 
 import { createShadowStyle } from '../../src/utils/shadow';
 import GradientTitle from '../../src/components/GradientTitle';
@@ -96,16 +95,21 @@ const SignUpScreen: React.FC = () => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   }, [email]);
 
-  const [request, response, promptAsync] = Google.useAuthRequest(
-    {
-      iosClientId: IOS_CLIENT_ID,
-      androidClientId: ANDROID_CLIENT_ID,
-      clientId: WEB_CLIENT_ID,
-      responseType: 'id_token',
-      scopes: [...GOOGLE_OAUTH_SCOPES],
-      redirectUri: makeRedirectUri({ scheme: EXPO_REDIRECT_SCHEME }),
-    }
-  );
+  // Use native clients on native, and web client on web.
+  const googleConfig = Platform.OS === 'web'
+    ? {
+        clientId: WEB_CLIENT_ID,
+        responseType: 'id_token' as const,
+        scopes: [...GOOGLE_OAUTH_SCOPES],
+      }
+    : {
+        iosClientId: IOS_CLIENT_ID,
+        androidClientId: ANDROID_CLIENT_ID,
+        responseType: 'id_token' as const,
+        scopes: [...GOOGLE_OAUTH_SCOPES],
+      };
+
+  const [request, response, promptAsync] = Google.useAuthRequest(googleConfig as any);
 
   const handleGoogle = async () => {
     if (googleLoading || !request) {
