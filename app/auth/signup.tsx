@@ -31,6 +31,9 @@ import {
   WEB_CLIENT_ID,
   GOOGLE_OAUTH_SCOPES,
   EXPO_REDIRECT_SCHEME,
+  validateOAuthConfig,
+  getOAuthDebugInfo,
+  isDevelopmentBuild,
 } from '../../src/constants/googleOAuth';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -108,8 +111,7 @@ const SignUpScreen: React.FC = () => {
         expoClientId: WEB_CLIENT_ID,
         redirectUri: AuthSession.makeRedirectUri({
           scheme: EXPO_REDIRECT_SCHEME,
-          preferLocalhost: true,
-          isTripleSlashed: true,
+          path: undefined,
         }),
         scopes: [...GOOGLE_OAUTH_SCOPES],
       };
@@ -120,27 +122,95 @@ const SignUpScreen: React.FC = () => {
 
   const handleGoogle = async () => {
     if (googleLoading || !request) {
+      if (!request) {
+        Alert.alert(
+          'Configuration Error',
+          'Google OAuth is not properly configured. Please check your environment variables.'
+        );
+      }
       return;
     }
+
+    const validation = validateOAuthConfig();
+    if (!validation.valid) {
+      console.error('[Google OAuth] Configuration errors:', validation.errors);
+      Alert.alert(
+        'Configuration Error',
+        validation.errors.join('\n\n')
+      );
+      return;
+    }
+
+    if (__DEV__) {
+      console.log('[Google OAuth] Debug Info:', getOAuthDebugInfo());
+      console.log('[Google OAuth] Redirect URI:', request.redirectUri);
+      console.log('[Google OAuth] Request nonce:', request.nonce ? 'present' : 'missing');
+    }
+
     setGoogleLoading(true);
     try {
       const result = await promptAsync();
+
+      if (__DEV__) {
+        console.log('[Google OAuth] Result type:', result.type);
+      }
+
       if (result.type === 'success') {
         const idToken =
           (result as any).params?.id_token || result.authentication?.idToken;
-        if (!idToken) throw new Error('No id_token returned from Google');
-        const { data, error } = await supabase.auth.signInWithIdToken({
+
+        if (!idToken) {
+          throw new Error('No ID token returned from Google. Please try again.');
+        }
+
+        if (__DEV__) {
+          console.log('[Google OAuth] ID token received');
+          console.log('[Google OAuth] Attempting Supabase sign in...');
+        }
+
+        const signInOptions: any = {
           provider: 'google',
           token: idToken,
-          nonce: request.nonce,
-        });
+        };
+
+        if (request.nonce) {
+          signInOptions.nonce = request.nonce;
+        }
+
+        const { data, error } = await supabase.auth.signInWithIdToken(signInOptions);
+
         if (error) {
+          console.error('[Google OAuth] Supabase error:', error);
           throw error;
         }
+
+        if (__DEV__) {
+          console.log('[Google OAuth] Sign in successful');
+        }
+
         router.replace('/');
+      } else if (result.type === 'cancel') {
+        if (__DEV__) {
+          console.log('[Google OAuth] User cancelled sign in');
+        }
+      } else if (result.type === 'error') {
+        console.error('[Google OAuth] Auth error:', (result as any).error);
+        throw new Error((result as any).error?.message || 'Authentication failed');
       }
     } catch (e: any) {
-      Alert.alert('Google Sign-In failed', e?.message || 'Please try again.');
+      console.error('[Google OAuth] Error:', e);
+
+      let errorMessage = e?.message || 'An unexpected error occurred. Please try again.';
+
+      if (e?.message?.includes('nonce')) {
+        errorMessage = 'Authentication security check failed. This may be a configuration issue. Please contact support if this persists.';
+      } else if (e?.message?.includes('redirect')) {
+        errorMessage = 'Redirect configuration error. Please ensure the app is properly configured for Google sign-in.';
+      } else if (e?.message?.includes('network')) {
+        errorMessage = 'Network error. Please check your internet connection and try again.';
+      }
+
+      Alert.alert('Google Sign-In Failed', errorMessage);
     } finally {
       setGoogleLoading(false);
     }

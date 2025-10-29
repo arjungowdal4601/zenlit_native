@@ -21,7 +21,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     process.env.EXPO_PUBLIC_REDIRECT_SCHEME || configSchemeString || "zenlit";
 
   const reversedGoogleScheme = googleIosClientId
-    ? `com.googleusercontent.apps.${googleIosClientId.replace(".apps.googleusercontent.com", "")}`
+    ? googleIosClientId.replace(".apps.googleusercontent.com", "")
     : undefined;
 
   const existingInfoPlistSchemes: string[] =
@@ -57,6 +57,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           {
             CFBundleURLSchemes: mergedSchemes,
           },
+        ],
+        LSApplicationQueriesSchemes: [
+          "googlechromes",
+          "comgooglemaps",
         ],
       },
     },
