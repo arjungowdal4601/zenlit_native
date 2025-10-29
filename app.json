@@ -18,10 +18,9 @@
       "infoPlist": {
         "CFBundleURLTypes": [
           {
-              "CFBundleURLSchemes": [
+            "CFBundleURLSchemes": [
               "zenlit"
-              
-              ]
+            ]
           }
         ]
       }
@@ -44,10 +43,10 @@
       "expo-web-browser"
     ],
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "b4151506-a7f6-4fb0-a861-011b671d146f"
-      },
-      "router": {}
+        "projectId": "0a650645-9cc0-410e-a147-f5409c7c8432"
+      }
     },
     "owner": "arjungowdal4601"
   }
