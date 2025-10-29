@@ -4,7 +4,7 @@ export const WEB_CLIENT_ID: string | undefined = process.env.EXPO_PUBLIC_GOOGLE_
 
 export const GOOGLE_OAUTH_SCOPES = ["openid", "profile", "email"] as const;
 export const EXPO_REDIRECT_SCHEME: string =
-  process.env.EXPO_PUBLIC_REDIRECT_SCHEME || process.env.EXPO_PUBLIC_EXPO_REDIRECT_SCHEME || "zenlit-native";
+  process.env.EXPO_PUBLIC_REDIRECT_SCHEME || process.env.EXPO_PUBLIC_EXPO_REDIRECT_SCHEME || "zenlit";
 
 // Optional reversed iOS scheme (mostly used by old GoogleSignIn SDKs; not required by AuthSession)
 export const IOS_URL_SCHEME: string | undefined = IOS_CLIENT_ID

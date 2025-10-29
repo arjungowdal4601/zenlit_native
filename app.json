@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "zenlit_native",
-    "slug": "zenlit_native",
+    "name": "zenlit",
+    "slug": "zenlit",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "scheme": "zenlit-native",
+    "scheme": "zenlit",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -19,7 +19,7 @@
         "CFBundleURLTypes": [
           {
               "CFBundleURLSchemes": [
-              "zenlit-native"
+              "zenlit"
               
               ]
           }
@@ -33,7 +33,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.arjungowdal4601.zenlit_native"
+      "package": "com.arjungowdal4601.zenlit"
     },
     "web": {
       "favicon": "./assets/favicon.png"

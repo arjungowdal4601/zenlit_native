@@ -18,7 +18,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ? config.scheme[0]
     : config.scheme;
   const redirectScheme: string =
-    process.env.EXPO_PUBLIC_REDIRECT_SCHEME || configSchemeString || "zenlit-native";
+    process.env.EXPO_PUBLIC_REDIRECT_SCHEME || configSchemeString || "zenlit";
 
   const reversedGoogleScheme = googleIosClientId
     ? `com.googleusercontent.apps.${googleIosClientId.replace(".apps.googleusercontent.com", "")}`
@@ -44,13 +44,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const result: ExpoConfig = {
     ...config,
     // Ensure required top-level fields are present for typing
-    name: config.name ?? "zenlit_native",
-    slug: config.slug ?? "zenlit_native",
+    name: config.name ?? "zenlit",
+    slug: config.slug ?? "zenlit",
     owner: "arjungowdal4601",
     scheme: redirectScheme,
     ios: {
       ...(config.ios ?? {}),
-      bundleIdentifier: "com.arjungowdal4601.zenlit_native",
+      bundleIdentifier: "com.arjungowdal4601.zenlit",
       infoPlist: {
         ...(config.ios?.infoPlist ?? {}),
         CFBundleURLTypes: [
@@ -62,7 +62,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       ...(config.android ?? {}),
-      package: "com.arjungowdal4601.zenlit_native",
+      package: "com.arjungowdal4601.zenlit",
     },
     runtimeVersion: {
       policy: "sdkVersion",
