@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import * as AuthSession from 'expo-auth-session';
 
 import { createShadowStyle } from '../../src/utils/shadow';
 import GradientTitle from '../../src/components/GradientTitle';
@@ -95,7 +96,6 @@ const SignUpScreen: React.FC = () => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   }, [email]);
 
-  // Use native clients on native, and web client on web.
   const googleConfig = Platform.OS === 'web'
     ? {
         clientId: WEB_CLIENT_ID,
@@ -105,11 +105,18 @@ const SignUpScreen: React.FC = () => {
     : {
         iosClientId: IOS_CLIENT_ID,
         androidClientId: ANDROID_CLIENT_ID,
-        responseType: 'id_token' as const,
+        expoClientId: WEB_CLIENT_ID,
+        redirectUri: AuthSession.makeRedirectUri({
+          scheme: EXPO_REDIRECT_SCHEME,
+          preferLocalhost: true,
+          isTripleSlashed: true,
+        }),
         scopes: [...GOOGLE_OAUTH_SCOPES],
       };
 
-  const [request, response, promptAsync] = Google.useAuthRequest(googleConfig as any);
+  const [request, response, promptAsync] = Google.useAuthRequest(
+    googleConfig as any
+  );
 
   const handleGoogle = async () => {
     if (googleLoading || !request) {

@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
+import * as AuthSession from 'expo-auth-session';
 
 import { createShadowStyle } from '../../src/utils/shadow';
 import GradientTitle from '../../src/components/GradientTitle';
@@ -94,8 +95,6 @@ const AuthScreen: React.FC = () => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   }, [email]);
 
-  // Avoid invalid_request in dev builds by using native client IDs on native platforms
-  // and web client only for web. Do not pass a custom redirectUri on native.
   const googleConfig = Platform.OS === 'web'
     ? {
         clientId: WEB_CLIENT_ID,
@@ -105,11 +104,19 @@ const AuthScreen: React.FC = () => {
     : {
         iosClientId: IOS_CLIENT_ID,
         androidClientId: ANDROID_CLIENT_ID,
-        responseType: 'id_token' as const,
+        expoClientId: WEB_CLIENT_ID,
+        redirectUri: AuthSession.makeRedirectUri({
+          scheme: EXPO_REDIRECT_SCHEME,
+          preferLocalhost: true,
+          isTripleSlashed: true,
+        }),
         scopes: [...GOOGLE_OAUTH_SCOPES],
       };
 
-  const [request, response, promptAsync] = Google.useAuthRequest(googleConfig as any);
+  // Configure Google Auth request
+  const [request, response, promptAsync] = Google.useAuthRequest(
+    googleConfig as any
+  );
 
   const handleGoogle = async () => {
     if (googleLoading || !request) {
