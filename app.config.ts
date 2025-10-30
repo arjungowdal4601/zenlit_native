@@ -9,20 +9,12 @@ const uniqueSchemes = (schemes: Array<string | undefined>): string[] =>
 export default ({ config }: ConfigContext): ExpoConfig => {
   const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-  const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
-  const googleAndroidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
-  const googleIosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 
   // Ensure redirectScheme is a string, even if config.scheme is an array
   const configSchemeString = Array.isArray(config.scheme)
     ? config.scheme[0]
     : config.scheme;
-  const redirectScheme: string =
-    process.env.EXPO_PUBLIC_REDIRECT_SCHEME || configSchemeString || "zenlit";
-
-  const reversedGoogleScheme = googleIosClientId
-    ? `com.googleusercontent.apps.${googleIosClientId.replace(".apps.googleusercontent.com", "")}`
-    : undefined;
+  const redirectScheme: string = configSchemeString || "zenlit";
 
   const existingInfoPlistSchemes: string[] =
     Array.isArray(config?.ios?.infoPlist?.CFBundleURLTypes) &&
@@ -36,7 +28,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   const mergedSchemes = uniqueSchemes([
     redirectScheme,
-    reversedGoogleScheme,
     ...configSchemesArray,
     ...existingInfoPlistSchemes,
   ]);
@@ -71,9 +62,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...(config.extra ?? {}),
       supabaseUrl,
       supabaseAnonKey,
-      googleWebClientId,
-      googleAndroidClientId,
-      googleIosClientId,
       eas: config.extra?.eas,
       router: config.extra?.router,
     },

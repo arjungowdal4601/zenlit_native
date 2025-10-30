@@ -2,7 +2,6 @@ import * as React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -17,22 +16,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
-import * as AuthSession from 'expo-auth-session';
 
 import { createShadowStyle } from '../../src/utils/shadow';
 import GradientTitle from '../../src/components/GradientTitle';
 import { supabase } from '../../src/lib/supabase';
-import {
-  IOS_CLIENT_ID,
-  ANDROID_CLIENT_ID,
-  WEB_CLIENT_ID,
-  GOOGLE_OAUTH_SCOPES,
-  EXPO_REDIRECT_SCHEME,
-} from '../../src/constants/googleOAuth';
-
-WebBrowser.maybeCompleteAuthSession();
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const CARD_ELEVATION = createShadowStyle({
@@ -46,24 +33,11 @@ const CARD_ELEVATION = createShadowStyle({
   web: '0 18px 24px rgba(0, 0, 0, 0.35)',
 });
 
-const GOOGLE_BUTTON_ELEVATION = createShadowStyle({
-  native: {
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 12,
-  },
-  web: '0 8px 16px rgba(15, 23, 42, 0.25)',
-});
-
-const GOOGLE_G_LOGO = 'https://developers.google.com/identity/images/g-logo.png';
 const EMAIL_PLACEHOLDER = 'Enter your email';
 
 const AuthScreen: React.FC = () => {
   const router = useRouter();
   const [email, setEmail] = useState('');
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -94,57 +68,6 @@ const AuthScreen: React.FC = () => {
   const isValidEmail = useMemo(() => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   }, [email]);
-
-  const googleConfig = Platform.OS === 'web'
-    ? {
-        clientId: WEB_CLIENT_ID,
-        responseType: 'id_token' as const,
-        scopes: [...GOOGLE_OAUTH_SCOPES],
-      }
-    : {
-        iosClientId: IOS_CLIENT_ID,
-        androidClientId: ANDROID_CLIENT_ID,
-        expoClientId: WEB_CLIENT_ID,
-        redirectUri: AuthSession.makeRedirectUri({
-          scheme: EXPO_REDIRECT_SCHEME,
-          preferLocalhost: true,
-          isTripleSlashed: true,
-        }),
-        scopes: [...GOOGLE_OAUTH_SCOPES],
-      };
-
-  // Configure Google Auth request
-  const [request, response, promptAsync] = Google.useAuthRequest(
-    googleConfig as any
-  );
-
-  const handleGoogle = async () => {
-    if (googleLoading || !request) {
-      return;
-    }
-    setGoogleLoading(true);
-    try {
-      const result = await promptAsync();
-      if (result.type === 'success') {
-        const idToken =
-          (result as any).params?.id_token || result.authentication?.idToken;
-        if (!idToken) throw new Error('No id_token returned from Google');
-        const { data, error } = await supabase.auth.signInWithIdToken({
-          provider: 'google',
-          token: idToken,
-          nonce: request.nonce,
-        });
-        if (error) {
-          throw error;
-        }
-        router.replace('/');
-      }
-    } catch (e: any) {
-      Alert.alert('Google Sign-In failed', e?.message || 'Please try again.');
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
 
   const handleEmail = async () => {
     if (!isValidEmail || emailLoading) {
@@ -201,28 +124,9 @@ const AuthScreen: React.FC = () => {
           >
             <Text style={styles.cardTitle}>Welcome</Text>
 
-            <Pressable
-              accessibilityRole="button"
-              onPress={handleGoogle}
-              style={({ pressed }) => [
-                styles.googleButton,
-                pressed ? styles.googleButtonPressed : null,
-                (googleLoading || !request) ? styles.disabled : null,
-              ]}
-            >
-              <Image
-                source={{ uri: GOOGLE_G_LOGO }}
-                style={styles.googleIcon}
-                accessibilityIgnoresInvertColors
-              />
-              <Text style={styles.googleLabel}>
-                {googleLoading ? 'Connecting...' : 'Continue with Google'}
-              </Text>
-            </Pressable>
-
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerLabel}>or continue with email</Text>
+              <Text style={styles.dividerLabel}>Continue with email</Text>
               <View style={styles.dividerLine} />
             </View>
 
@@ -321,31 +225,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ffffff',
     marginBottom: 24,
-  },
-  googleButton: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    ...GOOGLE_BUTTON_ELEVATION,
-  },
-  googleButtonPressed: {
-    transform: [{ scale: 0.98 }],
-  },
-  googleIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: 2,
-  },
-  googleLabel: {
-    color: '#111827',
-    fontSize: 16,
-    fontWeight: '600',
   },
   dividerRow: {
     marginVertical: 28,
