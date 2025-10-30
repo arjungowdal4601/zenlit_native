@@ -22,6 +22,15 @@ import GradientTitle from '../../src/components/GradientTitle';
 import { supabase } from '../../src/lib/supabase';
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
+const DIVIDER_LINE_COLORS = [
+  'rgba(37, 99, 235, 0)',
+  'rgba(37, 99, 235, 0.45)',
+  'rgba(37, 99, 235, 0)',
+] as const;
+const DIVIDER_BADGE_COLORS = [
+  'rgba(37, 99, 235, 0.35)',
+  'rgba(126, 34, 206, 0.45)',
+] as const;
 const CARD_ELEVATION = createShadowStyle({
   native: {
     shadowColor: '#000000',
@@ -151,11 +160,33 @@ const SignUpScreen: React.FC = () => {
             ]}
           >
             <Text style={styles.cardTitle}>Sign Up</Text>
+            <Text style={styles.cardSubtitle}>
+              Enter your email and we’ll send a quick verification code to get you started.
+            </Text>
 
             <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerLabel}>Sign up with email</Text>
-              <View style={styles.dividerLine} />
+              <LinearGradient
+                colors={DIVIDER_LINE_COLORS}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.dividerLine}
+              />
+              <View style={styles.dividerBadge}>
+                <LinearGradient
+                  colors={DIVIDER_BADGE_COLORS}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.dividerBadgeGradient}
+                >
+                  <Text style={styles.dividerLabel}>Sign up with email</Text>
+                </LinearGradient>
+              </View>
+              <LinearGradient
+                colors={DIVIDER_LINE_COLORS}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.dividerLine}
+              />
             </View>
 
             <View style={styles.inputBlock}>
@@ -262,25 +293,46 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '600',
     color: '#ffffff',
-    marginBottom: 24,
+    marginBottom: 10,
+    letterSpacing: 0.2,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: '#cbd5f5',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 28,
+    paddingHorizontal: 12,
   },
   dividerRow: {
-    marginVertical: 28,
+    marginTop: 12,
+    marginBottom: 32,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
     width: '100%',
   },
   dividerLine: {
     flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(100, 116, 139, 0.35)',
+    height: 2,
+    borderRadius: 999,
+    opacity: 0.9,
+  },
+  dividerBadge: {
+    borderRadius: 999,
+    overflow: 'hidden',
+    marginHorizontal: 12,
+  },
+  dividerBadgeGradient: {
+    borderRadius: 999,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
   },
   dividerLabel: {
     fontSize: 12,
-    color: '#94a3b8',
+    fontWeight: '600',
+    color: '#e2e8f0',
     textTransform: 'uppercase',
-    letterSpacing: 1.2,
+    letterSpacing: 1.4,
   },
   inputBlock: {
     width: '100%',
