@@ -14,8 +14,6 @@ type ProfileRecord = {
   user_name?: string | null;
   date_of_birth?: string | null;
   gender?: string | null;
-  bio?: string | null;
-  avatar_url?: string | null;
 } | null;
 
 const hasBasicProfile = (profile: ProfileRecord) => Boolean(
@@ -23,12 +21,6 @@ const hasBasicProfile = (profile: ProfileRecord) => Boolean(
   profile?.user_name &&
   profile?.date_of_birth &&
   profile?.gender
-);
-
-const hasCompleteProfile = (profile: ProfileRecord) => Boolean(
-  hasBasicProfile(profile) &&
-  profile?.bio &&
-  profile?.avatar_url
 );
 
 export const determinePostAuthRoute = async (options?: {
@@ -56,29 +48,22 @@ export const determinePostAuthRoute = async (options?: {
     if (typeof profile === 'undefined') {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, display_name, user_name, date_of_birth, gender, social_links(bio, profile_pic_url)')
+        .select('id, display_name, user_name, date_of_birth, gender')
         .eq('id', userId)
         .maybeSingle();
       if (error) {
         logger.error('AuthNavigation', 'Failed to load profile for routing', error);
       }
-      // Flatten the social_links data
       profile = data ? {
         display_name: data.display_name,
         user_name: data.user_name,
         date_of_birth: data.date_of_birth,
         gender: data.gender,
-        bio: (data.social_links as any)?.bio ?? null,
-        avatar_url: (data.social_links as any)?.profile_pic_url ?? null,
       } : null;
     }
 
     if (!hasBasicProfile(profile)) {
       return ROUTES.onboardingBasic;
-    }
-
-    if (!hasCompleteProfile(profile)) {
-      return ROUTES.onboardingComplete;
     }
 
     return ROUTES.home;

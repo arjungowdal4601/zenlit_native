@@ -218,11 +218,10 @@ const CompleteProfileScreen: React.FC = () => {
   };
 
   const handleSkip = () => {
-    console.log('Skip profile completion');
     clearSuccessTimeout();
     setShowSuccess(false);
     clearPendingImages();
-    void redirectToNextScreen();
+    router.replace('/radar');
   };
 
   const openBannerMenu = () => {
