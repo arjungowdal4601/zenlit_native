@@ -56,7 +56,7 @@ const CompleteProfileScreen: React.FC = () => {
 
   const handleBack = () => {
     clearPendingImages();
-    router.back();
+    router.replace('/onboarding/profile/basic');
   };
 
   const redirectToNextScreen = useCallback(async () => {
