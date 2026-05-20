@@ -1,76 +1,17 @@
-import { supabase } from '../lib/supabase';
-import { logger } from './logger';
+import { resolveOnboardingRoute } from '../services/onboardingService';
+import {
+  canAccessMainApp,
+  getRouteForOnboardingState,
+  ROUTES,
+  type OnboardingState,
+} from './onboardingState';
 
-export const ROUTES = {
-  landing: '/',
-  auth: '/auth',
-  onboardingBasic: '/onboarding/profile/basic',
-  onboardingComplete: '/onboarding/profile/complete',
-  home: '/radar',
-} as const;
-
-type ProfileRecord = {
-  display_name?: string | null;
-  user_name?: string | null;
-  date_of_birth?: string | null;
-  gender?: string | null;
-} | null;
-
-const hasBasicProfile = (profile: ProfileRecord) => Boolean(
-  profile?.display_name &&
-  profile?.user_name &&
-  profile?.date_of_birth &&
-  profile?.gender
-);
+export { ROUTES, canAccessMainApp, getRouteForOnboardingState };
+export type { OnboardingState };
 
 export const determinePostAuthRoute = async (options?: {
   userId?: string | null;
-  profileOverride?: ProfileRecord;
-}) => {
-  try {
-    let userId = options?.userId ?? null;
-
-    if (!userId) {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) {
-        logger.error('AuthNavigation', 'Failed to fetch user for routing', error);
-        return null;
-      }
-      userId = data.user?.id ?? null;
-    }
-
-    if (!userId) {
-      logger.warn('AuthNavigation', 'No authenticated user available to determine route');
-      return ROUTES.auth;
-    }
-
-    let profile: ProfileRecord | null | undefined = options?.profileOverride;
-    if (typeof profile === 'undefined') {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, display_name, user_name, date_of_birth, gender')
-        .eq('id', userId)
-        .maybeSingle();
-      if (error) {
-        logger.error('AuthNavigation', 'Failed to load profile for routing', error);
-      }
-      profile = data ? {
-        display_name: data.display_name,
-        user_name: data.user_name,
-        date_of_birth: data.date_of_birth,
-        gender: data.gender,
-      } : null;
-    }
-
-    if (!hasBasicProfile(profile)) {
-      return ROUTES.onboardingBasic;
-    }
-
-    return ROUTES.home;
-  } catch (error) {
-    logger.error('AuthNavigation', 'Unknown routing failure', error);
-    return ROUTES.home;
-  }
-};
+  preferOptionalDetails?: boolean;
+}) => resolveOnboardingRoute(options);
 
 export const getPostLogoutRoute = () => ROUTES.auth;

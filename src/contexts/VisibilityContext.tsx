@@ -274,13 +274,6 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
     }
   }, [setIsVisible, startLocationRefresh]);
 
-  useEffect(() => {
-    if (!hasRequestedPermissionRef.current) {
-      hasRequestedPermissionRef.current = true;
-      requestLocationPermission({ autoEnable: true });
-    }
-  }, [requestLocationPermission]);
-
   const value = useMemo(
     () => ({
       isVisible,

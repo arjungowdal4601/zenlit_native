@@ -192,6 +192,33 @@ export type Database = {
         }
         Relationships: []
       }
+      profile_basics_drafts: {
+        Row: {
+          date_of_birth: string | null
+          display_name: string | null
+          gender: string | null
+          id: string
+          updated_at: string
+          user_name: string | null
+        }
+        Insert: {
+          date_of_birth?: string | null
+          display_name?: string | null
+          gender?: string | null
+          id: string
+          updated_at?: string
+          user_name?: string | null
+        }
+        Update: {
+          date_of_birth?: string | null
+          display_name?: string | null
+          gender?: string | null
+          id?: string
+          updated_at?: string
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       social_links: {
         Row: {
           banner_url: string | null

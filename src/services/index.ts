@@ -8,6 +8,16 @@ export {
 } from './profileService';
 
 export {
+  getFriendlyOnboardingError,
+  resolveOnboardingRoute,
+  resolveOnboardingState,
+  saveOptionalProfileDetails,
+  saveProfileBasicsDraft,
+  saveRequiredProfileBasics,
+  skipOptionalProfileDetails,
+} from './onboardingService';
+
+export {
   getUserPosts,
   getFeedPosts,
   createPost,

@@ -11,7 +11,7 @@ import {
   Text,
   TextInput,
   View,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -27,6 +27,17 @@ import GradientTitle from '../../../src/components/GradientTitle';
 import { supabase } from '../../../src/lib/supabase';
 import { validateProfileData, validateDateOfBirth, validateUsername, validateDisplayName, checkUsernameAvailability, formatDate, parseDobString, normalizeGender, type ProfileData } from '../../../src/utils/profileValidation';
 import UsernameSuggestions from '../../../src/components/UsernameSuggestions';
+import {
+  getFriendlyOnboardingError,
+  resolveOnboardingState,
+  saveProfileBasicsDraft,
+  saveRequiredProfileBasics,
+} from '../../../src/services/onboardingService';
+import {
+  canAccessMainApp,
+  getRouteForOnboardingState,
+  ROUTES,
+} from '../../../src/utils/authNavigation';
 
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
@@ -59,6 +70,19 @@ const WEB_DATE_INPUT_OVERLAY_STYLE: CSSProperties = {
   backgroundColor: 'transparent',
 };
 
+const toGenderOption = (value?: string | null): typeof GENDERS[number] | '' => {
+  switch (value) {
+    case 'male':
+      return 'Male';
+    case 'female':
+      return 'Female';
+    case 'other':
+      return 'Others';
+    default:
+      return '';
+  }
+};
+
 const OnboardingBasicScreen: React.FC = () => {
   const router = useRouter();
   const [displayName, setDisplayName] = useState('');
@@ -67,6 +91,10 @@ const OnboardingBasicScreen: React.FC = () => {
   const [dobDate, setDobDate] = useState<Date | null>(null);
   const [showIosPicker, setShowIosPicker] = useState(false);
   const [gender, setGender] = useState<typeof GENDERS[number] | ''>('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [hasLoadedProfile, setHasLoadedProfile] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const webDateInputRef = useRef<HTMLInputElement | null>(null);
   const [isWebDateFocused, setIsWebDateFocused] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,6 +124,58 @@ const OnboardingBasicScreen: React.FC = () => {
     fallback.setHours(0, 0, 0, 0);
     return fallback;
   }, [dob, dobDate]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadSavedProfile = async () => {
+      setIsLoadingProfile(true);
+      setSaveError('');
+
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error || !data.user) {
+          router.replace(ROUTES.auth);
+          return;
+        }
+
+        const state = await resolveOnboardingState({ userId: data.user.id });
+        if (!mounted) {
+          return;
+        }
+
+        setCurrentUserId(data.user.id);
+
+        if (canAccessMainApp(state)) {
+          router.replace(getRouteForOnboardingState(state));
+          return;
+        }
+
+        const prefill = state.prefill;
+        setDisplayName(prefill.display_name ?? '');
+        setUsername(prefill.user_name ?? '');
+        setDob(prefill.date_of_birth ?? '');
+        setDobDate(prefill.date_of_birth ? parseDobString(prefill.date_of_birth) : null);
+        setGender(toGenderOption(prefill.gender));
+        setHasLoadedProfile(true);
+      } catch (error) {
+        if (mounted) {
+          setSaveError('We could not load your saved setup. You can continue from here.');
+          setHasLoadedProfile(true);
+        }
+      } finally {
+        if (mounted) {
+          setIsLoadingProfile(false);
+        }
+      }
+    };
+
+    void loadSavedProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
 
   const updateDob = (date: Date) => {
     const normalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -151,9 +231,10 @@ const OnboardingBasicScreen: React.FC = () => {
   };
 
   const isFilled = useMemo(() => {
-    const hasDisplayName = displayName.trim().length > 0;
-    const hasUsername = username.trim().length > 0;
-    const hasDob = dob.trim().length > 0 || !!dobDate;
+    const hasDisplayName = validateDisplayName(displayName.trim()).isValid;
+    const hasUsername = validateUsername(username.trim()).isValid;
+    const dobStr = dobDate ? formatDate(dobDate) : dob.trim();
+    const hasDob = validateDateOfBirth(dobStr).isValid;
     const hasGender = gender.trim().length > 0;
     const isUsernameValid = usernameAvailable === true && !isCheckingUsername;
     return hasDisplayName && hasUsername && hasDob && hasGender && isUsernameValid;
@@ -206,18 +287,16 @@ const OnboardingBasicScreen: React.FC = () => {
 
     setIsCheckingUsername(true);
     try {
-      const result = await checkUsernameAvailability(usernameToCheck);
-      console.log('Username check result:', { username: usernameToCheck, available: result.isAvailable, suggestions: result.suggestions });
+      const result = await checkUsernameAvailability(usernameToCheck, currentUserId);
       setUsernameAvailable(result.isAvailable);
       setUsernameSuggestions(result.suggestions || []);
     } catch (error) {
-      console.error('Error checking username:', error);
       setUsernameAvailable(null);
       setUsernameSuggestions([]);
     } finally {
       setIsCheckingUsername(false);
     }
-  }, []);
+  }, [currentUserId]);
 
   useEffect(() => {
     if (usernameCheckTimeoutRef.current) {
@@ -240,9 +319,32 @@ const OnboardingBasicScreen: React.FC = () => {
     };
   }, [username, checkUsername]);
 
+  useEffect(() => {
+    if (!hasLoadedProfile || !currentUserId || isSubmitting) {
+      return;
+    }
+
+    const draftTimer = setTimeout(() => {
+      void saveProfileBasicsDraft(
+        {
+          display_name: displayName,
+          user_name: username,
+          date_of_birth: dobDate ? formatDate(dobDate) : dob,
+          gender,
+        },
+        currentUserId,
+      );
+    }, 700);
+
+    return () => {
+      clearTimeout(draftTimer);
+    };
+  }, [currentUserId, displayName, dob, dobDate, gender, hasLoadedProfile, isSubmitting, username]);
+
   const handleUsernameChange = (value: string) => {
     const sanitized = value.replace(/[^a-zA-Z0-9_.-]/g, '').toLowerCase();
     setUsername(sanitized);
+    setSaveError('');
     if (errors.username) setErrors((e) => ({ ...e, username: '' }));
   };
 
@@ -259,7 +361,7 @@ const OnboardingBasicScreen: React.FC = () => {
     }
 
     if (usernameAvailable !== true) {
-      Alert.alert('Username Unavailable', 'Please choose an available username.');
+      setSaveError('Please choose an available username.');
       return;
     }
 
@@ -281,45 +383,46 @@ const OnboardingBasicScreen: React.FC = () => {
 
     const validation = validateProfileData(profileData);
     if (!validation.isValid) {
-      // Surface general errors via Alert, but keep inline errors for fields
-      Alert.alert('Validation Error', validation.error);
+      setSaveError(validation.error || 'Please check your profile details.');
       return;
     }
 
     setIsSubmitting(true);
+    setSaveError('');
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        throw new Error('User not authenticated');
-      }
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
+      const { data: state, error } = await saveRequiredProfileBasics(
+        {
           display_name: profileData.display_name,
           user_name: profileData.user_name,
           date_of_birth: profileData.date_of_birth,
           gender: profileData.gender,
-          email: user.email,
-        });
+        },
+        currentUserId,
+      );
 
-      if (profileError) {
-        if ((profileError as any).code === '23505') {
-          Alert.alert('Username Unavailable', 'That username is already taken. Please choose another.');
-          return;
-        }
-        throw profileError;
+      if (error || !state) {
+        throw error ?? new Error('Could not save your profile.');
       }
 
-      router.replace('/onboarding/profile/complete');
+      router.replace(getRouteForOnboardingState(state, { preferOptionalDetails: true }));
     } catch (err: any) {
-      console.error('Error saving profile:', err);
-      Alert.alert('Save Failed', err?.message || 'Could not save your profile. Please try again.');
+      setSaveError(getFriendlyOnboardingError(err));
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (isLoadingProfile) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#60a5fa" />
+          <Text style={styles.loadingText}>Checking setup…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -334,9 +437,9 @@ const OnboardingBasicScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brandSection}>
-            <GradientTitle text="Zenlit" style={styles.brandTitle} />
             <Text style={styles.brandSubtitle}>Step 1 of 2</Text>
-            <Text style={styles.onboardingSubtitle}>Let's set up your presence</Text>
+            <GradientTitle text="Set up your presence" style={styles.brandTitle} />
+            <Text style={styles.onboardingSubtitle}>This helps people nearby recognize you.</Text>
           </View>
 
           <View style={styles.card}>
@@ -397,7 +500,7 @@ const OnboardingBasicScreen: React.FC = () => {
                 <Text style={styles.successText}>Username is available!</Text>
               )}
               {!isCheckingUsername && usernameAvailable === false && (
-                <Text style={styles.errorText}>Username '{username}' is already taken. Try one of these:</Text>
+                <Text style={styles.errorText}>That username is already taken. Try one of these:</Text>
               )}
               {errors.username && !isCheckingUsername && usernameAvailable !== false ? <Text style={styles.errorText}>{errors.username}</Text> : null}
               {!isCheckingUsername && usernameAvailable === false && usernameSuggestions.length > 0 && (
@@ -497,6 +600,8 @@ const OnboardingBasicScreen: React.FC = () => {
               {errors.gender ? <Text style={styles.errorText}>{errors.gender}</Text> : null}
             </View>
 
+            {saveError ? <Text style={styles.formError}>{saveError}</Text> : null}
+
             <Pressable
               accessibilityRole="button"
               disabled={!isFilled || isSubmitting}
@@ -513,7 +618,14 @@ const OnboardingBasicScreen: React.FC = () => {
                 end={{ x: 1, y: 1 }}
                 style={styles.primaryGradient}
               >
-                <Text style={styles.primaryLabel}>Continue</Text>
+                {isSubmitting ? (
+                  <View style={styles.buttonLoadingRow}>
+                    <ActivityIndicator color="#ffffff" size="small" />
+                    <Text style={[styles.primaryLabel, styles.buttonLoadingText]}>Saving...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.primaryLabel}>Continue</Text>
+                )}
               </LinearGradient>
             </Pressable>
           </View>
@@ -560,6 +672,18 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#000000',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  loadingText: {
+    marginTop: 12,
+    color: '#94a3b8',
+    fontSize: 16,
   },
   scroll: {
     flexGrow: 1,
@@ -714,6 +838,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#fca5a5',
   },
+  formError: {
+    marginTop: 20,
+    color: '#fca5a5',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
   genderRow: {
     flexDirection: 'row',
     gap: 12,
@@ -758,6 +889,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
+  },
+  buttonLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonLoadingText: {
+    marginLeft: 8,
   },
   disabled: {
     opacity: 0.6,

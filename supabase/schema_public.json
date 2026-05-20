@@ -25,6 +25,24 @@
   },
   {
     "schema": "public",
+    "name": "profile_basics_drafts",
+    "rls_enabled": true,
+    "rows": 0,
+    "columns": [
+      { "name": "id", "data_type": "uuid", "format": "uuid", "options": ["updatable"] },
+      { "name": "display_name", "data_type": "text", "format": "text", "options": ["nullable", "updatable"] },
+      { "name": "user_name", "data_type": "text", "format": "text", "options": ["nullable", "updatable"], "check": "user_name IS NULL OR user_name ~ '^[a-z0-9._!@#$%^&*()+=\\-\\[\\]{}|;:,<>?/~`]+$'::text" },
+      { "name": "date_of_birth", "data_type": "date", "format": "date", "options": ["nullable", "updatable"] },
+      { "name": "gender", "data_type": "text", "format": "text", "options": ["nullable", "updatable"], "check": "gender IS NULL OR gender = ANY (ARRAY['male'::text, 'female'::text, 'other'::text])" },
+      { "name": "updated_at", "data_type": "timestamp with time zone", "format": "timestamptz", "options": ["updatable"], "default_value": "now()" }
+    ],
+    "primary_keys": ["id"],
+    "foreign_key_constraints": [
+      { "name": "profile_basics_drafts_id_fkey", "source": "public.profile_basics_drafts.id", "target": "auth.users.id" }
+    ]
+  },
+  {
+    "schema": "public",
     "name": "social_links",
     "rls_enabled": true,
     "rows": 8,

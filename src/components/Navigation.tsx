@@ -11,7 +11,7 @@ const navigationItems = [
   { path: '/radar', Icon: Users, label: 'Radar' },
   { path: '/feed', Icon: Compass, label: 'Feed' },
   { path: '/create', Icon: Plus, label: 'Create' },
-  { path: '/messages', Icon: MessageSquare, label: 'Messages' },
+  { path: '/messages', Icon: MessageSquare, label: 'Chat' },
   { path: '/profile', Icon: UserCircle, label: 'Profile' },
 ] as const;
 

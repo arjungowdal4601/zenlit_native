@@ -1,7 +1,7 @@
 import '../src/polyfills';
 import '../src/utils/applyWebShadowPatch';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, View, ActivityIndicator, Text, StyleSheet } from 'react-native';
@@ -18,7 +18,13 @@ import { supabase, supabaseReady } from '../src/lib/supabase';
 import Navigation from '../src/components/Navigation';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { logger } from '../src/utils/logger';
-import { determinePostAuthRoute, ROUTES } from '../src/utils/authNavigation';
+import {
+  canAccessMainApp,
+  getRouteForOnboardingState,
+  ROUTES,
+  type OnboardingState,
+} from '../src/utils/authNavigation';
+import { resolveOnboardingState } from '../src/services/onboardingService';
 import { useNotifications } from '../src/hooks/useNotifications';
 import { readHasSeenGetStarted, persistHasSeenGetStarted } from '../src/utils/getStartedPreference';
 
@@ -38,11 +44,19 @@ const RootLayout: React.FC = () => {
   const segments = useSegments();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
+  const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
   const [fontsLoaded] = useFonts({ Inter_500Medium });
-  const navigationInitialized = useRef(false);
-  const lastAuthState = useRef<boolean | null>(null);
   const { notification } = useNotifications();
   const [hasSeenGetStarted, setHasSeenGetStarted] = useState<boolean | null>(null);
+
+  const refreshOnboardingState = useCallback(async (userId?: string | null) => {
+    setIsCheckingOnboarding(true);
+    const state = await resolveOnboardingState({ userId });
+    setOnboardingState(state);
+    setIsCheckingOnboarding(false);
+    return state;
+  }, []);
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -87,48 +101,50 @@ const RootLayout: React.FC = () => {
         const hasSession = !!session;
 
         setIsAuthenticated(hasSession);
-        lastAuthState.current = hasSession;
         setIsCheckingAuth(false);
+
+        if (hasSession) {
+          await refreshOnboardingState(session?.user.id ?? null);
+        } else {
+          setOnboardingState(null);
+        }
 
         // Reduced logging
       } catch (err) {
         logger.error('Auth', 'Error checking session:', err);
         setIsAuthenticated(false);
+        setOnboardingState(null);
         setIsCheckingAuth(false);
+        setIsCheckingOnboarding(false);
       }
     };
 
     checkInitialAuth();
-  }, [pathname, supabaseReady]);
+  }, [refreshOnboardingState, supabaseReady]);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
         const hasSession = !!session;
 
-        if (lastAuthState.current === hasSession) {
-          return;
-        }
-
         setIsAuthenticated(hasSession);
-        lastAuthState.current = hasSession;
 
         if (event === 'SIGNED_IN' && hasSession) {
           setHasSeenGetStarted(true);
           void persistHasSeenGetStarted();
-          navigationInitialized.current = false;
-          const targetRoute = await determinePostAuthRoute();
-          router.replace(targetRoute ?? ROUTES.home);
+          const state = await refreshOnboardingState(session.user.id);
+          router.replace(getRouteForOnboardingState(state));
         } else if (event === 'SIGNED_OUT') {
-          navigationInitialized.current = false;
+          setOnboardingState(null);
+          setIsCheckingOnboarding(false);
           router.replace(ROUTES.auth);
         }
       }
     );
     return () => {
-      subscription.unsubscribe();
+      subscription?.unsubscribe?.();
     };
-  }, [router]);
+  }, [refreshOnboardingState, router]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -149,11 +165,13 @@ const RootLayout: React.FC = () => {
   }, [notification, router]);
 
   useEffect(() => {
-    if (!fontsLoaded || isCheckingAuth || isAuthenticated === null || hasSeenGetStarted === null) {
-      return;
-    }
-
-    if (navigationInitialized.current) {
+    if (
+      !fontsLoaded ||
+      isCheckingAuth ||
+      isCheckingOnboarding ||
+      isAuthenticated === null ||
+      hasSeenGetStarted === null
+    ) {
       return;
     }
 
@@ -163,41 +181,70 @@ const RootLayout: React.FC = () => {
     const skipLanding = hasSeenGetStarted === true;
 
     if (isAuthenticated) {
-      if (inAuthGroup || onGetStarted) {
-        navigationInitialized.current = true;
-        determinePostAuthRoute().then((targetRoute) => {
-          router.replace(targetRoute ?? ROUTES.home);
-        }).catch((error) => {
-          logger.error('Auth', 'Failed to determine post-auth route', error);
-          router.replace(ROUTES.home);
-        });
+      if (!onboardingState) {
+        void refreshOnboardingState();
+        return;
+      }
+
+      const targetRoute = getRouteForOnboardingState(onboardingState);
+      const hasMainAccess = canAccessMainApp(onboardingState);
+      const onOptionalDetails =
+        pathname === ROUTES.onboardingComplete &&
+        onboardingState.status === 'optional-profile-details';
+
+      if (!hasMainAccess && pathname !== targetRoute) {
+        router.replace(targetRoute);
+        return;
+      }
+
+      if (hasMainAccess && (onGetStarted || (inAuthGroup && !onOptionalDetails))) {
+        router.replace(targetRoute);
       }
     } else {
       if (skipLanding && onGetStarted) {
-        navigationInitialized.current = true;
         router.replace(ROUTES.auth);
       } else if (skipLanding && !inAuthGroup && !onGetStarted) {
-        navigationInitialized.current = true;
         router.replace(ROUTES.auth);
       } else if (!skipLanding && !inAuthGroup && !onGetStarted) {
-        navigationInitialized.current = true;
         router.replace(ROUTES.landing);
       }
     }
-  }, [isAuthenticated, segments, router, fontsLoaded, isCheckingAuth, hasSeenGetStarted]);
+  }, [
+    fontsLoaded,
+    hasSeenGetStarted,
+    isAuthenticated,
+    isCheckingAuth,
+    isCheckingOnboarding,
+    onboardingState,
+    pathname,
+    refreshOnboardingState,
+    router,
+    segments,
+  ]);
 
-  if (!fontsLoaded || isCheckingAuth || isAuthenticated === null || hasSeenGetStarted === null) {
+  if (
+    !fontsLoaded ||
+    isCheckingAuth ||
+    isCheckingOnboarding ||
+    isAuthenticated === null ||
+    hasSeenGetStarted === null ||
+    (isAuthenticated && !onboardingState)
+  ) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loadingText}>Loading...</Text>
+        <Text style={styles.loadingText}>Checking setup…</Text>
       </View>
     );
   }
 
   const inAuthGroup = segments[0] === 'auth' || segments[0] === 'onboarding';
   const onGetStarted = !segments[0] || segments[0] === 'index';
-  const shouldShowNav = isAuthenticated && !inAuthGroup && !onGetStarted;
+  const shouldShowNav =
+    isAuthenticated &&
+    canAccessMainApp(onboardingState) &&
+    !inAuthGroup &&
+    !onGetStarted;
 
   return (
     <SafeAreaProvider>

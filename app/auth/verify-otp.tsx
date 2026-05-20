@@ -97,7 +97,7 @@ export default function VerifyOTPScreen() {
           errorMessage: error.message,
         });
 
-        let userMessage = error.message;
+        let userMessage = 'We could not verify that code. Please try again.';
 
         if (error.message.includes('expired') || error.message.includes('invalid')) {
           userMessage = 'This code has expired or is invalid. Please request a new code.';
@@ -154,7 +154,7 @@ export default function VerifyOTPScreen() {
           errorMessage: error.message,
         });
 
-        let userMessage = error.message;
+        let userMessage = 'We could not resend the code. Please try again.';
 
         if (error.message.includes('rate limit') || error.message.includes('too many')) {
           userMessage = 'Too many attempts. Please wait a few minutes before requesting a new code.';

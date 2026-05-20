@@ -98,7 +98,7 @@ const GetStartedScreen: React.FC = () => {
       >
         <View style={styles.titleWrapper}>
           <GradientTitle text="Zenlit" style={styles.title} numberOfLines={1} />
-          <Text style={styles.subtitle}>Connect with your world.</Text>
+          <Text style={styles.subtitle}>Connect with people around you.</Text>
         </View>
 
         <Pressable

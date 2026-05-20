@@ -111,7 +111,7 @@ const AuthScreen: React.FC = () => {
           errorStatus: (error as any).status,
         });
 
-        let userMessage = error.message;
+        let userMessage = 'Unable to send verification code. Please try again.';
 
         if (error.message.includes('Signups not allowed')) {
           userMessage = 'New account creation is currently disabled. Please contact support if you need access.';

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { evaluateUsernameAvailability } from './onboardingState';
 
 export interface ProfileData {
   display_name: string;
@@ -124,11 +125,14 @@ export const validateDateOfBirth = (dateOfBirth: string): ValidationResult => {
 /**
  * Checks if username is available and provides suggestions if not
  */
-export const checkUsernameAvailability = async (username: string): Promise<UsernameCheckResult> => {
+export const checkUsernameAvailability = async (
+  username: string,
+  currentUserId?: string | null,
+): Promise<UsernameCheckResult> => {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('user_name')
+      .select('id, user_name')
       .eq('user_name', username)
       .maybeSingle();
 
@@ -136,14 +140,13 @@ export const checkUsernameAvailability = async (username: string): Promise<Usern
       throw error;
     }
 
-    if (!data) {
-      // No rows found, username is available
-      return { isAvailable: true };
-    }
-
-    // Username is taken, generate suggestions
-    const suggestions = await generateUsernameSuggestions(username);
-    return { isAvailable: false, suggestions };
+    const suggestions = data ? await generateUsernameSuggestions(username) : [];
+    return evaluateUsernameAvailability({
+      requestedUsername: username,
+      currentUserId,
+      ownerId: data?.id ?? null,
+      suggestions,
+    });
   } catch (error) {
     console.error('Error checking username availability:', error);
     throw new Error('Failed to check username availability');

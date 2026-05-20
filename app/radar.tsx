@@ -4,13 +4,16 @@ import {
   ActivityIndicator,
   BackHandler,
   FlatList,
+  Linking,
   Platform,
+  Pressable,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
@@ -34,7 +37,14 @@ type SearchableUser = {
 };
 
 const RadarScreen: React.FC = () => {
-  const { selectedAccounts, isVisible, locationPermissionDenied } = useVisibility();
+  const {
+    selectedAccounts,
+    isVisible,
+    locationPermissionDenied,
+    locationStatus,
+    requestLocationPermission,
+    setIsVisible,
+  } = useVisibility();
   const insets = useSafeAreaInsets();
 
   const [isSearchOpen, setSearchOpen] = useState(false);
@@ -45,6 +55,8 @@ const RadarScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasNewUsers, setHasNewUsers] = useState(false);
+  const [permissionCardDismissed, setPermissionCardDismissed] = useState(false);
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const realtimeChannelRef = useRef<any>(null);
   const realtimeDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -191,6 +203,35 @@ const RadarScreen: React.FC = () => {
     setHasNewUsers(false);
   }, []);
 
+  const handleEnableLocation = useCallback(async () => {
+    if (isRequestingLocation) {
+      return;
+    }
+
+    setIsRequestingLocation(true);
+    try {
+      await requestLocationPermission({ autoEnable: true });
+      setPermissionCardDismissed(true);
+    } finally {
+      setIsRequestingLocation(false);
+    }
+  }, [isRequestingLocation, requestLocationPermission]);
+
+  const handleTurnOnVisibility = useCallback(async () => {
+    if (locationStatus === 'success') {
+      setIsVisible(true, 'user');
+      return;
+    }
+
+    await handleEnableLocation();
+  }, [handleEnableLocation, locationStatus, setIsVisible]);
+
+  const handleOpenSettings = useCallback(() => {
+    if (typeof Linking.openSettings === 'function') {
+      void Linking.openSettings();
+    }
+  }, []);
+
   useEffect(() => {
     if (!isVisible || locationPermissionDenied) {
       if (realtimeChannelRef.current) {
@@ -261,6 +302,78 @@ const RadarScreen: React.FC = () => {
     };
   }, [isVisible, locationPermissionDenied, loadNearbyUsers]);
 
+  const renderRadarGateCard = ({
+    title,
+    body,
+    primaryLabel,
+    secondaryLabel,
+    onPrimary,
+    onSecondary,
+  }: {
+    title: string;
+    body: string;
+    primaryLabel: string;
+    secondaryLabel?: string;
+    onPrimary: () => void;
+    onSecondary?: () => void;
+  }) => (
+    <View style={styles.gateContainer}>
+      <View style={styles.gateCard}>
+        <Text style={styles.gateTitle}>{title}</Text>
+        <Text style={styles.gateBody}>{body}</Text>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={onPrimary}
+          disabled={isRequestingLocation}
+          style={({ pressed }) => [
+            styles.gatePrimaryButton,
+            pressed && !isRequestingLocation ? styles.gateButtonPressed : null,
+            isRequestingLocation ? styles.gateButtonDisabled : null,
+          ]}
+        >
+          <LinearGradient
+            colors={['#2563eb', '#7e22ce']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.gatePrimaryGradient}
+          >
+            {isRequestingLocation ? (
+              <View style={styles.gateLoadingRow}>
+                <ActivityIndicator color="#ffffff" size="small" />
+                <Text style={[styles.gatePrimaryLabel, styles.gateLoadingLabel]}>
+                  Checking...
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.gatePrimaryLabel}>{primaryLabel}</Text>
+            )}
+          </LinearGradient>
+        </Pressable>
+
+        {secondaryLabel && onSecondary ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onSecondary}
+            disabled={isRequestingLocation}
+            style={({ pressed }) => [
+              styles.gateSecondaryButton,
+              pressed && !isRequestingLocation ? styles.gateButtonPressed : null,
+            ]}
+          >
+            <Text style={styles.gateSecondaryLabel}>{secondaryLabel}</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+
+  const shouldShowInitialPermissionCard =
+    !isVisible &&
+    !locationPermissionDenied &&
+    locationStatus === 'not-attempted' &&
+    !permissionCardDismissed;
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
@@ -304,18 +417,31 @@ const RadarScreen: React.FC = () => {
         </View>
       ) : null}
 
-      {locationPermissionDenied ? (
-        <AnimatedStatusView
-          title="Location Required"
-          subtitle="Enable to see nearby"
-          icon="map-pin"
-        />
+      {shouldShowInitialPermissionCard ? (
+        renderRadarGateCard({
+          title: 'Share your location to discover people nearby.',
+          body: 'Zenlit uses your location to show people around you. You control your visibility.',
+          primaryLabel: 'Enable location',
+          secondaryLabel: 'Not now',
+          onPrimary: handleEnableLocation,
+          onSecondary: () => setPermissionCardDismissed(true),
+        })
+      ) : locationPermissionDenied ? (
+        renderRadarGateCard({
+          title: 'Location permission is off',
+          body: 'Location is needed for nearby discovery. You can retry or open settings to allow access.',
+          primaryLabel: 'Retry location',
+          secondaryLabel: 'Open settings',
+          onPrimary: handleEnableLocation,
+          onSecondary: handleOpenSettings,
+        })
       ) : !isVisible ? (
-        <AnimatedStatusView
-          title="Visibility Off"
-          subtitle="Enable to see others"
-          icon="eye-off"
-        />
+        renderRadarGateCard({
+          title: 'Radar visibility is off',
+          body: 'Turn it on to appear on Radar and see nearby users.',
+          primaryLabel: 'Turn on visibility',
+          onPrimary: handleTurnOnVisibility,
+        })
       ) : loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#60a5fa" />
@@ -324,7 +450,17 @@ const RadarScreen: React.FC = () => {
       ) : error ? (
         <View style={styles.centerContainer}>
           <Text style={styles.errorText}>Error loading nearby users</Text>
-          <Text style={styles.errorDetail}>{error}</Text>
+          <Text style={styles.errorDetail}>We could not load nearby people right now. Please try again.</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => loadNearbyUsers(true)}
+            style={({ pressed }) => [
+              styles.retryButton,
+              pressed ? styles.gateButtonPressed : null,
+            ]}
+          >
+            <Text style={styles.retryButtonLabel}>Try again</Text>
+          </Pressable>
         </View>
       ) : (
         <FlatList
@@ -398,6 +534,82 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
+  gateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 120,
+  },
+  gateCard: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.25)',
+    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    paddingHorizontal: 22,
+    paddingVertical: 24,
+  },
+  gateTitle: {
+    color: '#ffffff',
+    fontSize: 22,
+    fontWeight: '700',
+    lineHeight: 28,
+    textAlign: 'center',
+  },
+  gateBody: {
+    marginTop: 10,
+    color: '#94a3b8',
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  gatePrimaryButton: {
+    marginTop: 22,
+    minHeight: 48,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  gatePrimaryGradient: {
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gatePrimaryLabel: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  gateSecondaryButton: {
+    marginTop: 12,
+    minHeight: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gateSecondaryLabel: {
+    color: '#cbd5f5',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  gateLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gateLoadingLabel: {
+    marginLeft: 8,
+  },
+  gateButtonPressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.99 }],
+  },
+  gateButtonDisabled: {
+    opacity: 0.7,
+  },
   loadingText: {
     color: '#94a3b8',
     fontSize: 16,
@@ -413,6 +625,21 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 14,
     textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 18,
+    minHeight: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.4)',
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryButtonLabel: {
+    color: '#cbd5f5',
+    fontSize: 15,
+    fontWeight: '700',
   },
   warningText: {
     color: '#f59e0b',

@@ -1,14 +1,20 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, Image, Platform } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, Image, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import ImageUploadDialog from '../../../src/components/ImageUploadDialog';
 import { SOCIAL_PLATFORMS, extractUsername } from '../../../src/constants/socialPlatforms';
 import GradientTitle from '../../../src/components/GradientTitle';
 import { supabase, supabaseReady } from '../../../src/lib/supabase';
 import { compressImage, MAX_IMAGE_SIZE_BYTES, base64ToUint8Array, type CompressedImage } from '../../../src/utils/imageCompression';
-import { determinePostAuthRoute } from '../../../src/utils/authNavigation';
+import {
+  getFriendlyOnboardingError,
+  saveOptionalProfileDetails,
+  skipOptionalProfileDetails,
+} from '../../../src/services/onboardingService';
+import { getRouteForOnboardingState } from '../../../src/utils/authNavigation';
 
 const FALLBACK_AVATAR = null;
 
@@ -16,7 +22,6 @@ const CompleteProfileScreen: React.FC = () => {
   const router = useRouter();
 
   // Local state (UI-only)
-  const [displayName, setDisplayName] = useState('Alex Johnson');
   const [bio, setBio] = useState('');
   const [bannerImage, setBannerImage] = useState<CompressedImage | null>(null);
   const [profileImage, setProfileImage] = useState<CompressedImage | null>(null);
@@ -32,6 +37,8 @@ const CompleteProfileScreen: React.FC = () => {
   const [linkedin, setLinkedin] = useState('');
 
   const [showSuccess, setShowSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('Profile updated successfully.');
   const [isSaving, setIsSaving] = useState(false);
   const [showAvatarDialog, setShowAvatarDialog] = useState(false);
   const [showBannerDialog, setShowBannerDialog] = useState(false);
@@ -58,11 +65,6 @@ const CompleteProfileScreen: React.FC = () => {
     clearPendingImages();
     router.replace('/onboarding/profile/basic');
   };
-
-  const redirectToNextScreen = useCallback(async () => {
-    const targetRoute = await determinePostAuthRoute();
-    router.replace(targetRoute ?? '/radar');
-  }, [router]);
 
   // Track mounted state to prevent setState on unmounted
   const mountedRef = useRef(true);
@@ -139,6 +141,7 @@ const CompleteProfileScreen: React.FC = () => {
   const handleSave = async () => {
     if (isSaving) return;
     setIsSaving(true);
+    setErrorMessage('');
 
     try {
       // Guard against missing Supabase configuration in preview-safe mode
@@ -159,23 +162,17 @@ const CompleteProfileScreen: React.FC = () => {
       const finalAvatarUrl = uploadedAvatarUrl ?? profileImageUrl ?? null;
       const finalBannerUrl = uploadedBannerUrl ?? bannerImageUrl ?? null;
 
-      // Prepare payload for social_links using actual schema columns
-      const payload: Record<string, any> = {
-        id: user.id,
+      const { data: state, error } = await saveOptionalProfileDetails({
         bio: bio?.trim() || null,
         instagram: instagram?.trim() || null,
         x_twitter: twitter?.trim() || null,
         linkedin: linkedin?.trim() || null,
         profile_pic_url: finalAvatarUrl,
         banner_url: finalBannerUrl,
-      };
+      }, user.id);
 
-      const { error: upsertError } = await supabase
-        .from('social_links')
-        .upsert(payload, { onConflict: 'id' });
-
-      if (upsertError) {
-        throw upsertError;
+      if (error || !state) {
+        throw error ?? new Error('Failed to save optional profile details');
       }
 
       if (uploadedAvatarUrl) {
@@ -191,25 +188,21 @@ const CompleteProfileScreen: React.FC = () => {
       // Success UI
       clearSuccessTimeout();
       if (mountedRef.current) {
+        setSuccessMessage('Profile updated successfully.');
         setShowSuccess(true);
         successTimeoutRef.current = setTimeout(() => {
           if (mountedRef.current) {
             setShowSuccess(false);
-            void redirectToNextScreen();
+            router.replace(getRouteForOnboardingState(state));
             successTimeoutRef.current = null;
           }
         }, 800);
       }
     } catch (error: any) {
-      console.error('Error saving social profile:', error);
-      const message =
-        error?.message === 'Backend not configured'
-          ? 'Backend not configured. Please set Supabase env variables.'
-          : 'Failed to save profile. Please try again.';
       if (mountedRef.current) {
         setShowSuccess(false);
+        setErrorMessage(getFriendlyOnboardingError(error));
       }
-      // Optionally surface message via a lightweight inline mechanism in the future
     } finally {
       if (mountedRef.current) {
         setIsSaving(false);
@@ -217,11 +210,40 @@ const CompleteProfileScreen: React.FC = () => {
     }
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    if (isSaving) return;
     clearSuccessTimeout();
     setShowSuccess(false);
+    setErrorMessage('');
     clearPendingImages();
-    router.replace('/radar');
+    setIsSaving(true);
+
+    try {
+      const { data: state, error } = await skipOptionalProfileDetails();
+      if (error || !state) {
+        throw error ?? new Error('Failed to skip optional details');
+      }
+
+      if (mountedRef.current) {
+        setSuccessMessage('Optional details skipped.');
+        setShowSuccess(true);
+        successTimeoutRef.current = setTimeout(() => {
+          if (mountedRef.current) {
+            setShowSuccess(false);
+            router.replace(getRouteForOnboardingState(state));
+            successTimeoutRef.current = null;
+          }
+        }, 500);
+      }
+    } catch (error) {
+      if (mountedRef.current) {
+        setErrorMessage(getFriendlyOnboardingError(error));
+      }
+    } finally {
+      if (mountedRef.current) {
+        setIsSaving(false);
+      }
+    }
   };
 
   const openBannerMenu = () => {
@@ -259,10 +281,18 @@ const CompleteProfileScreen: React.FC = () => {
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.header}>
-          <View style={{ width: 44 }} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back to profile basics"
+            onPress={handleBack}
+            style={styles.headerButton}
+          >
+            <Feather name="arrow-left" size={22} color="#ffffff" />
+          </Pressable>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.stepIndicator}>Step 2 of 2</Text>
             <GradientTitle text="Complete your profile" style={styles.headerTitle} />
+            <Text style={styles.headerHelper}>You can add these now or later.</Text>
           </View>
           <View style={{ width: 44 }} />
         </View>
@@ -271,7 +301,7 @@ const CompleteProfileScreen: React.FC = () => {
       {showSuccess && (
         <View style={styles.successBar}>
           <Feather name="check" size={18} color="#ffffff" />
-          <Text style={styles.successText}>Profile updated successfully!</Text>
+          <Text style={styles.successText}>{successMessage}</Text>
         </View>
       )}
 
@@ -375,8 +405,14 @@ const CompleteProfileScreen: React.FC = () => {
         </View>
 
         <View style={styles.footerActions}>
-          <Pressable style={[styles.actionButton, styles.cancelButton]} onPress={handleSkip} accessibilityRole="button">
-            <Text style={[styles.actionLabel, styles.cancelLabel]}>Skip</Text>
+          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+          <Pressable
+            style={[styles.actionButton, styles.cancelButton, isSaving ? styles.disabledButton : null]}
+            onPress={handleSkip}
+            accessibilityRole="button"
+            disabled={isSaving}
+          >
+            <Text style={[styles.actionLabel, styles.cancelLabel]}>Skip optional details</Text>
           </Pressable>
           <Pressable
             style={[
@@ -388,7 +424,21 @@ const CompleteProfileScreen: React.FC = () => {
             disabled={!supabaseReady || isSaving}
             accessibilityRole="button"
           >
-            <Text style={styles.actionLabel}>{isSaving ? 'SavingΓÇª' : 'Save'}</Text>
+            <LinearGradient
+              colors={['#2563eb', '#7e22ce']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.saveGradient}
+            >
+              {isSaving ? (
+                <View style={styles.savingRow}>
+                  <ActivityIndicator color="#ffffff" size="small" />
+                  <Text style={[styles.actionLabel, styles.savingLabel]}>Saving...</Text>
+                </View>
+              ) : (
+                <Text style={styles.actionLabel}>Finish</Text>
+              )}
+            </LinearGradient>
           </Pressable>
         </View>
       </ScrollView>
@@ -520,6 +570,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   headerTitle: { fontSize: 24, fontWeight: '700', color: '#ffffff' },
+  headerHelper: { marginTop: 4, color: '#94a3b8', fontSize: 13, textAlign: 'center' },
   successBar: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#16a34a', paddingHorizontal: 16, paddingVertical: 10 },
   successText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
   content: { paddingBottom: 120 },
@@ -550,13 +601,17 @@ const styles = StyleSheet.create({
   socialValue: { color: '#94a3b8', fontSize: 14 },
   charCount: { color: '#94a3b8', fontSize: 12, alignSelf: 'flex-end', marginTop: 4 },
   editButton: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.85)', borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.35)' },
-  footerActions: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, marginTop: 24 },
-  actionButton: { flex: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderWidth: 1 },
+  footerActions: { gap: 12, paddingHorizontal: 20, marginTop: 24 },
+  actionButton: { minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, overflow: 'hidden' },
   cancelButton: { backgroundColor: '#000000', borderColor: 'rgba(148, 163, 184, 0.35)' },
-  saveButton: { backgroundColor: '#6d28d9', borderColor: '#6d28d9' },
+  saveButton: { backgroundColor: '#6d28d9', borderColor: '#6d28d9', paddingVertical: 0 },
   disabledButton: { opacity: 0.5 },
   actionLabel: { color: '#ffffff', fontSize: 16, fontWeight: '700' },
   cancelLabel: { color: '#cbd5f5' },
+  errorText: { color: '#fca5a5', fontSize: 13, lineHeight: 18, textAlign: 'center' },
+  saveGradient: { width: '100%', minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  savingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  savingLabel: { marginLeft: 8 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', alignItems: 'center', justifyContent: 'center' },
   modalCard: { width: '90%', maxWidth: 420, backgroundColor: '#000000', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.35)' },
   modalTitle: { color: '#ffffff', fontSize: 18, fontWeight: '700', marginBottom: 12 },

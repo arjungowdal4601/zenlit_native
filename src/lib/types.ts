@@ -20,6 +20,15 @@ export interface SocialLinks {
   updated_at: string;
 }
 
+export interface ProfileBasicsDraft {
+  id: string;
+  display_name: string | null;
+  user_name: string | null;
+  date_of_birth: string | null;
+  gender: 'male' | 'female' | 'other' | null;
+  updated_at: string;
+}
+
 export interface Post {
   id: string;
   user_id: string;
