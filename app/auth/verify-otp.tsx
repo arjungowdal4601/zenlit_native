@@ -193,7 +193,7 @@ export default function VerifyOTPScreen() {
           <View style={styles.topBar}>
             <Pressable
               accessibilityRole="button"
-              onPress={() => router.back()}
+              onPress={() => router.replace('/auth')}
               style={styles.backButton}
             >
               <Feather name="arrow-left" size={24} color="#ffffff" />

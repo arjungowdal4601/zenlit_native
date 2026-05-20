@@ -1,4 +1,4 @@
-﻿import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
 
 type ShadowConfig = {

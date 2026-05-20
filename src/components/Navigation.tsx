@@ -66,7 +66,7 @@ const Navigation: React.FC<NavigationProps> = ({ activePath }) => {
                 }
 
                 if (currentPath !== path) {
-                  router.push(path);
+                  router.replace(path);
                 }
               }}
               style={[styles.tabButton, isActive ? styles.tabButtonActive : null]}

@@ -1,4 +1,4 @@
-﻿import { applyWebShadowPatch } from './shadow';
+import { applyWebShadowPatch } from './shadow';
 
 applyWebShadowPatch();
 
