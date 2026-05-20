@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseReady } from '../lib/supabase';
 import { logger } from '../utils/logger';
 
 export type NotificationPreferences = {
@@ -18,6 +18,10 @@ export function useNotifications() {
   const responseListener = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
+    if (!supabaseReady) {
+      return;
+    }
+
     registerForPushNotificationsAsync();
 
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {

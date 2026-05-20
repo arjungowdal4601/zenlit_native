@@ -82,14 +82,15 @@ export const getFriendlyOnboardingError = (error: unknown) => {
 const getAuthenticatedUser = async (userId?: string | null) => {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) {
-    if (userId) {
-      return { id: userId, email: null as string | null };
-    }
-    throw error ?? new Error('Not authenticated');
+    throw new Error('Not authenticated');
+  }
+
+  if (userId && userId !== data.user.id) {
+    throw new Error('Authenticated user mismatch');
   }
 
   return {
-    id: userId ?? data.user.id,
+    id: data.user.id,
     email: data.user.email ?? null,
   };
 };

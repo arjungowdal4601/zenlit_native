@@ -153,9 +153,19 @@ jest.mock('../../src/lib/supabase', () => {
   return {
     supabase,
     supabaseReady: true,
+    supabaseConfigStatus: {
+      ready: true,
+      error: null,
+      source: 'jest',
+    },
     getSupabaseConfig: jest.fn(() => ({
       url: 'https://example.supabase.co',
       anonKey: 'test-anon-key',
+      source: 'jest',
+    })),
+    validateSupabaseConfig: jest.fn(() => ({
+      ready: true,
+      error: null,
       source: 'jest',
     })),
     clearInvalidSession: jest.fn(async () => undefined),

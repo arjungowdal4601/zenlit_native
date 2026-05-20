@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, Image, Platform } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, View, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -7,8 +7,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import ImageUploadDialog from '../../../src/components/ImageUploadDialog';
 import { SOCIAL_PLATFORMS, extractUsername } from '../../../src/constants/socialPlatforms';
 import GradientTitle from '../../../src/components/GradientTitle';
-import { supabase, supabaseReady } from '../../../src/lib/supabase';
-import { compressImage, MAX_IMAGE_SIZE_BYTES, base64ToUint8Array, type CompressedImage } from '../../../src/utils/imageCompression';
+import { supabaseReady } from '../../../src/lib/supabase';
+import { type CompressedImage } from '../../../src/utils/imageCompression';
+import { uploadProfileImage } from '../../../src/services/storageService';
 import {
   getFriendlyOnboardingError,
   saveOptionalProfileDetails,
@@ -79,59 +80,19 @@ const CompleteProfileScreen: React.FC = () => {
   const uploadImageIfNeeded = async (
     image: CompressedImage | null,
     filePrefix: 'avatar' | 'banner',
-    userId: string,
   ): Promise<string | undefined> => {
     try {
       if (!image) {
         return undefined;
       }
 
-      let workingImage = image;
-
-      if (workingImage.metadata?.compressedSize > MAX_IMAGE_SIZE_BYTES) {
-        workingImage = await compressImage(workingImage.uri);
-      }
-
-      const mimeType = workingImage.mimeType || 'image/jpeg';
-      const extension = mimeType.includes('png')
-        ? 'png'
-        : mimeType.includes('webp')
-          ? 'webp'
-          : 'jpg';
-
-      const fileName = `${userId}/${filePrefix}-${Date.now()}.${extension}`;
-
-      let uploadBody: ArrayBuffer | Blob;
-
-      if (workingImage.base64) {
-        const u8 = base64ToUint8Array(workingImage.base64);
-        uploadBody = (u8.buffer as ArrayBuffer);
-      } else if (Platform.OS === 'web') {
-        const response = await fetch(workingImage.uri);
-        if (!response.ok) {
-          throw new Error('Failed to fetch image for upload');
-        }
-        uploadBody = await response.blob();
-      } else {
-        const response = await fetch(workingImage.uri);
-        if (!response.ok) {
-          throw new Error('Failed to fetch image for upload');
-        }
-        const arrayBuffer = await response.arrayBuffer();
-        uploadBody = arrayBuffer;
-      }
-
-      const { error: uploadError } = await supabase.storage
-        .from('profile-images')
-        .upload(fileName, uploadBody, { contentType: mimeType, upsert: true });
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
+      const { url, error } = await uploadProfileImage(image, filePrefix);
+      if (error || !url) {
+        console.error('Upload error:', error);
         return undefined;
       }
 
-      const { data } = supabase.storage.from('profile-images').getPublicUrl(fileName);
-      return data.publicUrl;
+      return url;
     } catch (err) {
       console.error('Failed to upload image:', err);
       return undefined;
@@ -144,20 +105,17 @@ const CompleteProfileScreen: React.FC = () => {
     setErrorMessage('');
 
     try {
-      // Guard against missing Supabase configuration in preview-safe mode
-      if (!supabase || !(supabase as any).auth || !(supabase as any).from) {
-        throw new Error('Backend not configured');
-      }
-
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        throw new Error('User not authenticated');
-      }
-
       // Upload images if needed
-      const uploadedAvatarUrl = await uploadImageIfNeeded(profileImage, 'avatar', user.id);
-      const uploadedBannerUrl = await uploadImageIfNeeded(bannerImage, 'banner', user.id);
+      const uploadedAvatarUrl = await uploadImageIfNeeded(profileImage, 'avatar');
+      const uploadedBannerUrl = await uploadImageIfNeeded(bannerImage, 'banner');
+
+      if (profileImage && !uploadedAvatarUrl) {
+        throw new Error('Failed to upload the new profile picture. Please try again.');
+      }
+
+      if (bannerImage && !uploadedBannerUrl) {
+        throw new Error('Failed to upload the new banner image. Please try again.');
+      }
 
       const finalAvatarUrl = uploadedAvatarUrl ?? profileImageUrl ?? null;
       const finalBannerUrl = uploadedBannerUrl ?? bannerImageUrl ?? null;
@@ -169,7 +127,7 @@ const CompleteProfileScreen: React.FC = () => {
         linkedin: linkedin?.trim() || null,
         profile_pic_url: finalAvatarUrl,
         banner_url: finalBannerUrl,
-      }, user.id);
+      });
 
       if (error || !state) {
         throw error ?? new Error('Failed to save optional profile details');

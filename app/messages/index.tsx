@@ -147,6 +147,11 @@ const MessagesScreen: React.FC = () => {
   const channelRef = useRef<any>(null);
   const locationChannelRef = useRef<any>(null);
   const newConversationCheckRef = useRef<Set<string>>(new Set());
+  const threadsRef = useRef<MessageThread[]>([]);
+
+  useEffect(() => {
+    threadsRef.current = state.threads;
+  }, [state.threads]);
 
   useEffect(() => {
     let mounted = true;
@@ -238,7 +243,7 @@ const MessagesScreen: React.FC = () => {
       const isMyMessage = messageData.sender_id === currentUserId;
       const otherUserId = isMyMessage ? messageData.receiver_id : messageData.sender_id;
 
-      const existingThread = state.threads.find((t) => t.other_user_id === otherUserId);
+      const existingThread = threadsRef.current.find((t) => t.other_user_id === otherUserId);
 
       if (!existingThread && !newConversationCheckRef.current.has(otherUserId)) {
         logger.debug('RT:List', 'New conversation detected, fetching threads silently');

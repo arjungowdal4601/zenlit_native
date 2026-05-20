@@ -14,7 +14,7 @@ import { VisibilityProvider } from '../src/contexts/VisibilityContext';
 import { MessagingProvider } from '../src/contexts/MessagingContext';
 import { ProfileProvider } from '../src/contexts/ProfileContext';
 import { theme } from '../src/styles/theme';
-import { supabase, supabaseReady } from '../src/lib/supabase';
+import { supabase, supabaseConfigStatus, supabaseReady } from '../src/lib/supabase';
 import Navigation from '../src/components/Navigation';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { logger } from '../src/utils/logger';
@@ -123,6 +123,10 @@ const RootLayout: React.FC = () => {
   }, [refreshOnboardingState, supabaseReady]);
 
   useEffect(() => {
+    if (!supabaseReady || !supabase) {
+      return;
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
         const hasSession = !!session;
@@ -222,6 +226,18 @@ const RootLayout: React.FC = () => {
     segments,
   ]);
 
+  if (!supabaseReady) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorTitle}>Backend configuration error</Text>
+        <Text style={styles.errorText}>
+          {supabaseConfigStatus.error ?? 'Supabase is not configured.'}
+        </Text>
+        <Text style={styles.errorMeta}>Source: {supabaseConfigStatus.source}</Text>
+      </View>
+    );
+  }
+
   if (
     !fontsLoaded ||
     isCheckingAuth ||
@@ -233,7 +249,7 @@ const RootLayout: React.FC = () => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loadingText}>Checking setup…</Text>
+        <Text style={styles.loadingText}>Checking setup...</Text>
       </View>
     );
   }
@@ -282,6 +298,32 @@ const styles = StyleSheet.create({
     marginTop: 16,
     color: '#94a3b8',
     fontSize: 16,
+  },
+  errorContainer: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  errorTitle: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  errorText: {
+    marginTop: 12,
+    color: '#fca5a5',
+    fontSize: 15,
+    lineHeight: 21,
+    textAlign: 'center',
+  },
+  errorMeta: {
+    marginTop: 8,
+    color: '#94a3b8',
+    fontSize: 13,
+    textAlign: 'center',
   },
 });
 

@@ -230,6 +230,28 @@ export const evaluateOnboardingState = ({
     };
   }
 
+  if (draftError) {
+    return {
+      status: 'recovery',
+      userId,
+      canAccessMainApp: false,
+      prefill,
+      missingFields: getMissingFields(prefill),
+      reason: 'draft-read-failed',
+    };
+  }
+
+  if (socialLinksError) {
+    return {
+      status: 'recovery',
+      userId,
+      canAccessMainApp: false,
+      prefill,
+      missingFields: getMissingFields(prefill),
+      reason: 'optional-profile-read-failed',
+    };
+  }
+
   if (hasInvalidSavedProfileValue(profile)) {
     return {
       status: 'recovery',

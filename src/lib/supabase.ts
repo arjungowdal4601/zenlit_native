@@ -12,7 +12,15 @@ const normalize = (val?: string): string | undefined => {
   return trimmed
 }
 
-const getSupabaseConfig = (): { url?: string; anonKey?: string; source: string } => {
+export type SupabaseConfig = { url?: string; anonKey?: string; source: string }
+
+export type SupabaseConfigStatus = {
+  ready: boolean
+  error: string | null
+  source: string
+}
+
+const getSupabaseConfig = (): SupabaseConfig => {
   let url = normalize(process.env.EXPO_PUBLIC_SUPABASE_URL)
   let anonKey = normalize(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY)
   let source = 'process.env'
@@ -31,8 +39,6 @@ const getSupabaseConfig = (): { url?: string; anonKey?: string; source: string }
 
   return { url, anonKey, source };
 };
-
-const { url: envUrl, anonKey: envAnon, source: configSource } = getSupabaseConfig()
 
 const isValidHttpUrl = (url?: string): boolean => {
   if (!url) return false;
@@ -57,7 +63,57 @@ const isLikelySupabaseUrl = (url?: string): boolean => {
   }
 }
 
-const hasValidConfig = isLikelySupabaseUrl(envUrl) && !!envAnon
+export const validateSupabaseConfig = ({
+  url,
+  anonKey,
+  source,
+}: SupabaseConfig): SupabaseConfigStatus => {
+  if (!url && !anonKey) {
+    return {
+      ready: false,
+      error: 'Supabase URL and anon key are required.',
+      source,
+    }
+  }
+
+  if (!url) {
+    return {
+      ready: false,
+      error: 'Supabase URL is required.',
+      source,
+    }
+  }
+
+  if (!anonKey) {
+    return {
+      ready: false,
+      error: 'Supabase anon key is required.',
+      source,
+    }
+  }
+
+  if (!isLikelySupabaseUrl(url)) {
+    return {
+      ready: false,
+      error: 'Supabase URL must point to a Supabase project or local Supabase instance.',
+      source,
+    }
+  }
+
+  return {
+    ready: true,
+    error: null,
+    source,
+  }
+}
+
+const { url: envUrl, anonKey: envAnon, source: configSource } = getSupabaseConfig()
+
+export let supabaseConfigStatus = validateSupabaseConfig({
+  url: envUrl,
+  anonKey: envAnon,
+  source: configSource,
+})
 
 const cryptoAvailable = typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function';
 const urlAvailable = typeof URL !== 'undefined';
@@ -71,127 +127,18 @@ const urlAvailable = typeof URL !== 'undefined';
     looksLikeSupabaseUrl: isLikelySupabaseUrl(envUrl),
     cryptoAvailable,
     urlAvailable,
-    ready: hasValidConfig,
+    ready: supabaseConfigStatus.ready,
+    error: supabaseConfigStatus.error,
   }
   logger.info('Supabase', 'Initialization config', meta)
 })()
 
-// Create client with defensive try/catch; fall back to safe stub if creation fails
+// Create the real client only when configuration is valid. Missing config is a
+// hard app state, not a fake unauthenticated backend.
 let supabase: any
 let supabaseReady = false
 
-const makeStub = () => {
-  logger.warn('Supabase', 'Not configured or failed to initialize. Running in stub mode without backend.')
-  const unsupported = (method?: string) => {
-    const err = new Error(`[Supabase] Not configured. ${method ? method + ' is unavailable in preview-safe mode.' : 'Backend unavailable.'}`)
-    return Promise.reject(err)
-  }
-
-  const createQueryBuilder = () => {
-    const builder: any = {
-      select: (columns?: string) => {
-        builder._select = columns;
-        return builder;
-      },
-      insert: (data: any) => {
-        builder._insert = data;
-        return builder;
-      },
-      update: (data: any) => {
-        builder._update = data;
-        return builder;
-      },
-      delete: () => {
-        builder._delete = true;
-        return builder;
-      },
-      upsert: (data: any) => {
-        builder._upsert = data;
-        return builder;
-      },
-      eq: (column: string, value: any) => {
-        builder._filters = builder._filters || [];
-        builder._filters.push({ type: 'eq', column, value });
-        return builder;
-      },
-      neq: (column: string, value: any) => {
-        builder._filters = builder._filters || [];
-        builder._filters.push({ type: 'neq', column, value });
-        return builder;
-      },
-      gt: (column: string, value: any) => {
-        builder._filters = builder._filters || [];
-        builder._filters.push({ type: 'gt', column, value });
-        return builder;
-      },
-      gte: (column: string, value: any) => {
-        builder._filters = builder._filters || [];
-        builder._filters.push({ type: 'gte', column, value });
-        return builder;
-      },
-      lt: (column: string, value: any) => {
-        builder._filters = builder._filters || [];
-        builder._filters.push({ type: 'lt', column, value });
-        return builder;
-      },
-      lte: (column: string, value: any) => {
-        builder._filters = builder._filters || [];
-        builder._filters.push({ type: 'lte', column, value });
-        return builder;
-      },
-      in: (column: string, values: any[]) => {
-        builder._filters = builder._filters || [];
-        builder._filters.push({ type: 'in', column, values });
-        return builder;
-      },
-      not: (column: string, operator: string, value: any) => {
-        builder._filters = builder._filters || [];
-        builder._filters.push({ type: 'not', column, operator, value });
-        return builder;
-      },
-      or: (query: string) => {
-        builder._filters = builder._filters || [];
-        builder._filters.push({ type: 'or', query });
-        return builder;
-      },
-      order: (column: string, options?: { ascending?: boolean }) => {
-        builder._order = { column, ascending: options?.ascending ?? true };
-        return builder;
-      },
-      limit: (count: number) => {
-        builder._limit = count;
-        return builder;
-      },
-      single: () => unsupported('query.single'),
-      maybeSingle: () => unsupported('query.maybeSingle'),
-      then: (resolve: any, reject: any) => {
-        return unsupported('query.execute').then(resolve, reject);
-      },
-    };
-    return builder;
-  };
-
-  return {
-    auth: {
-      getUser: () => unsupported('auth.getUser'),
-      getSession: async () => ({ data: { session: null }, error: new Error('Not configured') } as any),
-      signInWithOtp: () => unsupported('auth.signInWithOtp'),
-      signOut: () => unsupported('auth.signOut'),
-      onAuthStateChange: () => ({ data: { subscription: null } }),
-    },
-    from: (table: string) => createQueryBuilder(),
-    rpc: (fn: string, params?: any) => unsupported(`rpc.${fn}`),
-    storage: {
-      from: (bucket: string) => ({
-        upload: (path: string, file: any, options?: any) => unsupported('storage.upload'),
-        getPublicUrl: (path: string) => ({ data: { publicUrl: '' }, error: null }),
-        remove: (paths: string[]) => unsupported('storage.remove'),
-      }),
-    },
-  } as any
-}
-
-if (hasValidConfig) {
+if (supabaseConfigStatus.ready) {
   try {
     supabase = createClient(envUrl as string, envAnon as string, {
       auth: {
@@ -204,11 +151,17 @@ if (hasValidConfig) {
     supabaseReady = true
   } catch (err) {
     logger.error('Supabase', 'Failed to initialize client:', err)
-    supabase = makeStub()
+    supabase = null
     supabaseReady = false
+    supabaseConfigStatus = {
+      ready: false,
+      error: 'Supabase client failed to initialize.',
+      source: configSource,
+    }
   }
 } else {
-  supabase = makeStub()
+  logger.error('Supabase', 'Supabase configuration is invalid', supabaseConfigStatus)
+  supabase = null
   supabaseReady = false
 }
 

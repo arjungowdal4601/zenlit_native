@@ -107,6 +107,36 @@ describe('onboarding state evaluation', () => {
     expect(canAccessMainApp(state)).toBe(false);
   });
 
+  it('routes draft read failures to recovery instead of silently dropping saved setup', () => {
+    const state = evaluateOnboardingState({
+      userId: USER_ID,
+      profile: null,
+      draft: null,
+      socialLinks: null,
+      draftError: new Error('relation "profile_basics_drafts" does not exist'),
+    });
+
+    expect(state.status).toBe('recovery');
+    expect(state.reason).toBe('draft-read-failed');
+    expect(getRouteForOnboardingState(state)).toBe(ROUTES.onboardingRecovery);
+    expect(canAccessMainApp(state)).toBe(false);
+  });
+
+  it('routes optional profile read failures to recovery instead of treating optional details as missing', () => {
+    const state = evaluateOnboardingState({
+      userId: USER_ID,
+      profile: completeProfile,
+      draft: null,
+      socialLinks: null,
+      socialLinksError: new Error('permission denied for table social_links'),
+    });
+
+    expect(state.status).toBe('recovery');
+    expect(state.reason).toBe('optional-profile-read-failed');
+    expect(getRouteForOnboardingState(state)).toBe(ROUTES.onboardingRecovery);
+    expect(canAccessMainApp(state)).toBe(false);
+  });
+
   it('routes corrupt saved required profile data to recovery', () => {
     const state = evaluateOnboardingState({
       userId: USER_ID,

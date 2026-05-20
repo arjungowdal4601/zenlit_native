@@ -19,11 +19,65 @@ export type LocationError = {
 
 export type LocationPermissionStatus = 'granted' | 'denied' | 'undetermined';
 
-const getErrorCode = (error: any): number => {
-  if (Platform.OS === 'web') {
-    return error.code || 0;
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (typeof error === 'object' && error && 'message' in error) {
+    const message = String((error as { message?: unknown }).message ?? '').trim();
+    if (message) {
+      return message;
+    }
   }
-  return 1;
+
+  return fallback;
+};
+
+const getRawErrorCode = (error: unknown): unknown => {
+  if (typeof error === 'object' && error && 'code' in error) {
+    return (error as { code?: unknown }).code;
+  }
+
+  return undefined;
+};
+
+export const normalizeLocationError = (
+  error: unknown,
+  platform: typeof Platform.OS = Platform.OS,
+): LocationError => {
+  const message = getErrorMessage(error, 'Failed to get location');
+  const rawCode = getRawErrorCode(error);
+
+  if (platform === 'web') {
+    return {
+      code: typeof rawCode === 'number' ? rawCode : 0,
+      message,
+    };
+  }
+
+  const normalizedCode = String(rawCode ?? '').toLowerCase();
+  const normalizedMessage = message.toLowerCase();
+  const combined = `${normalizedCode} ${normalizedMessage}`;
+
+  if (
+    combined.includes('permission') ||
+    combined.includes('denied') ||
+    combined.includes('unauthorized')
+  ) {
+    return { code: 1, message };
+  }
+
+  if (
+    combined.includes('unavailable') ||
+    combined.includes('provider') ||
+    combined.includes('disabled') ||
+    combined.includes('services')
+  ) {
+    return { code: 2, message };
+  }
+
+  if (combined.includes('timeout') || combined.includes('timed out')) {
+    return { code: 3, message };
+  }
+
+  return { code: 0, message };
 };
 
 export const requestLocationPermission = async (): Promise<LocationPermissionStatus> => {
@@ -104,10 +158,7 @@ export const getCurrentLocation = (): Promise<LocationCoords> => {
           });
         })
         .catch((error) => {
-          reject({
-            code: getErrorCode(error),
-            message: error.message || 'Failed to get location',
-          });
+          reject(normalizeLocationError(error));
         });
     }
   });
@@ -177,10 +228,7 @@ export const watchLocation = (
         );
       } catch (error: any) {
         if (isActive) {
-          onError({
-            code: getErrorCode(error),
-            message: error.message || 'Failed to watch location',
-          });
+          onError(normalizeLocationError(error));
         }
       }
     };

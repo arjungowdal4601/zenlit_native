@@ -146,6 +146,11 @@ const OnboardingBasicScreen: React.FC = () => {
 
         setCurrentUserId(data.user.id);
 
+        if (state.status === 'recovery') {
+          router.replace(ROUTES.onboardingRecovery);
+          return;
+        }
+
         if (canAccessMainApp(state)) {
           router.replace(getRouteForOnboardingState(state));
           return;
@@ -160,8 +165,9 @@ const OnboardingBasicScreen: React.FC = () => {
         setHasLoadedProfile(true);
       } catch (error) {
         if (mounted) {
-          setSaveError('We could not load your saved setup. You can continue from here.');
+          setSaveError('We could not load your saved setup.');
           setHasLoadedProfile(true);
+          router.replace(ROUTES.onboardingRecovery);
         }
       } finally {
         if (mounted) {
@@ -418,7 +424,7 @@ const OnboardingBasicScreen: React.FC = () => {
         <StatusBar barStyle="light-content" backgroundColor="#000000" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#60a5fa" />
-          <Text style={styles.loadingText}>Checking setup…</Text>
+          <Text style={styles.loadingText}>Checking setup...</Text>
         </View>
       </SafeAreaView>
     );

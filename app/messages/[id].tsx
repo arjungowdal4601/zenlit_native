@@ -31,8 +31,7 @@ import {
 } from '../../src/services';
 import { supabase } from '../../src/lib/supabase';
 import { useMessaging } from '../../src/contexts/MessagingContext';
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
-import { createConversationChannel, type BroadcastMessage, type TypingEvent } from '../../src/utils/realtime';
+import { type BroadcastMessage, type TypingEvent } from '../../src/utils/realtime';
 import { setupChatRealtime } from '../../src/utils/chatRealtimeSetup';
 import { generateUUID } from '../../src/utils/uuid';
 import { logger } from '../../src/utils/logger';
@@ -46,17 +45,6 @@ const formatDayLabel = (isoDate: string): string => {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yyyy = d.getFullYear();
   return `${dd}/${mm}/${yyyy}`;
-};
-
-const isServerMessage = (obj: unknown): obj is Message => {
-  if (typeof obj !== 'object' || obj === null) return false;
-  const o = obj as Partial<Message>;
-  return (
-    typeof o.id === 'string' &&
-    typeof o.sender_id === 'string' &&
-    typeof o.receiver_id === 'string' &&
-    typeof o.created_at === 'string'
-  );
 };
 
 type ChatMsg = {
@@ -172,7 +160,7 @@ const ChatDetailScreen: React.FC = () => {
   });
 
   const listRef = useRef<FlatList<RenderItem>>(null);
-  const realtimeManagerRef = useRef<ReturnType<typeof createConversationChannel> | null>(null);
+  const realtimeManagerRef = useRef<ReturnType<typeof setupChatRealtime> | null>(null);
   const eventQueueRef = useRef<Array<() => void>>([]);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -345,14 +333,12 @@ const ChatDetailScreen: React.FC = () => {
 
   // Initial scroll effect removed - Inverted FlatList handles this naturally
 
-  useEffect(() => {
+  const createRealtimeManager = useCallback(() => {
     if (!otherUserId || !currentUserId) {
-      return;
+      return null;
     }
 
-    logger.debug('RT:Thread', 'Setting up realtime subscription');
-
-    const manager = setupChatRealtime({
+    return setupChatRealtime({
       currentUserId,
       otherUserId,
       handlers: {
@@ -389,6 +375,19 @@ const ChatDetailScreen: React.FC = () => {
         },
       },
     });
+  }, [otherUserId, currentUserId, queueEvent, mapServerMessage, markThreadRead, checkAnonymity, handlePresenceSync, handleTypingEvent]);
+
+  useEffect(() => {
+    if (!otherUserId || !currentUserId) {
+      return;
+    }
+
+    logger.debug('RT:Thread', 'Setting up realtime subscription');
+
+    const manager = createRealtimeManager();
+    if (!manager) {
+      return;
+    }
 
     realtimeManagerRef.current = manager;
 
@@ -397,48 +396,21 @@ const ChatDetailScreen: React.FC = () => {
       manager.unsubscribe();
       realtimeManagerRef.current = null;
     };
-  }, [otherUserId, currentUserId, mapServerMessage, checkAnonymity, markThreadRead, queueEvent, handlePresenceSync, handleTypingEvent]);
+  }, [otherUserId, currentUserId, createRealtimeManager]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active' && otherUserId && currentUserId) {
         logger.info('RT:Thread', 'App became active, resubscribing');
         if (realtimeManagerRef.current && !realtimeManagerRef.current.isActive()) {
-          realtimeManagerRef.current.unsubscribe();
-
-          const manager = createConversationChannel(otherUserId);
-          manager.subscribeToConversation(
-            { currentUserId, otherUserId },
-            {
-              onInsert: (payload: RealtimePostgresChangesPayload<any>) => {
-                const raw = payload.new;
-                if (!isServerMessage(raw)) return;
-
-                queueEvent(() => {
-                  const mapped = mapServerMessage(raw);
-                  dispatch({ type: 'UPSERT_MESSAGE', message: mapped });
-                });
-              },
-              onUpdate: (payload: RealtimePostgresChangesPayload<any>) => {
-                const raw = payload.new;
-                if (!isServerMessage(raw)) return;
-
-                logger.debug('RT:Thread', 'Message status updated');
-                queueEvent(() => {
-                  const mapped = mapServerMessage(raw);
-                  dispatch({ type: 'UPSERT_MESSAGE', message: mapped });
-                });
-              },
+          const currentManager = realtimeManagerRef.current;
+          void (async () => {
+            await currentManager.unsubscribe();
+            const manager = createRealtimeManager();
+            if (manager) {
+              realtimeManagerRef.current = manager;
             }
-          );
-
-          manager.subscribeToLocationUpdates({ currentUserId, otherUserId }, () => {
-            queueEvent(() => {
-              checkAnonymity();
-            });
-          });
-
-          realtimeManagerRef.current = manager;
+          })();
         }
       }
     });
@@ -446,7 +418,7 @@ const ChatDetailScreen: React.FC = () => {
     return () => {
       subscription.remove();
     };
-  }, [otherUserId, currentUserId, mapServerMessage, checkAnonymity, queueEvent]);
+  }, [otherUserId, currentUserId, createRealtimeManager]);
 
   useEffect(() => {
     const loadChat = async () => {

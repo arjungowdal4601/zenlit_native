@@ -35,6 +35,7 @@ export {
 export {
   deleteImageFromStorage,
   uploadImage,
+  uploadProfileImage,
 } from './storageService';
 
 export {

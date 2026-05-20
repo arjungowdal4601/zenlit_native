@@ -1,5 +1,46 @@
 import { supabase } from '../lib/supabase';
 import type { StorageBucket } from '../lib/types';
+import {
+  base64ToUint8Array,
+  compressImage,
+  MAX_IMAGE_SIZE_BYTES,
+  type CompressedImage,
+} from '../utils/imageCompression';
+
+type ProfileImageKind = 'avatar' | 'banner';
+
+type UploadProfileImageOptions = {
+  timestamp?: number;
+};
+
+const mimeToExtension = (mimeType: string): string => {
+  const lower = mimeType.toLowerCase();
+  if (lower.includes('png')) return 'png';
+  if (lower.includes('webp')) return 'webp';
+  if (lower.includes('gif')) return 'gif';
+  return 'jpg';
+};
+
+const arrayBufferFromBytes = (bytes: Uint8Array): ArrayBuffer => {
+  if (bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength) {
+    return bytes.buffer as ArrayBuffer;
+  }
+
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+};
+
+const getUploadBody = async (image: CompressedImage): Promise<ArrayBuffer | Blob> => {
+  if (image.base64) {
+    return arrayBufferFromBytes(base64ToUint8Array(image.base64));
+  }
+
+  const response = await fetch(image.uri);
+  if (!response.ok) {
+    throw new Error('Failed to fetch image for upload');
+  }
+
+  return response.arrayBuffer();
+};
 
 export async function deleteImageFromStorage(
   imageUrl: string | null,
@@ -79,6 +120,55 @@ export async function uploadImage(
     const { data } = supabase.storage
       .from(bucket)
       .getPublicUrl(filePath);
+
+    return { url: data.publicUrl, error: null };
+  } catch (error) {
+    return { url: null, error: error as Error };
+  }
+}
+
+export async function uploadProfileImage(
+  image: CompressedImage | null | undefined,
+  filePrefix: ProfileImageKind,
+  options: UploadProfileImageOptions = {},
+): Promise<{ url: string | null; error: Error | null }> {
+  if (!image) {
+    return { url: null, error: null };
+  }
+
+  try {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return { url: null, error: new Error('Not authenticated') };
+    }
+
+    let workingImage = image;
+    if (
+      workingImage.size > MAX_IMAGE_SIZE_BYTES ||
+      workingImage.metadata.compressedSize > MAX_IMAGE_SIZE_BYTES
+    ) {
+      workingImage = await compressImage(workingImage.uri);
+    }
+
+    const mimeType = workingImage.mimeType || 'image/jpeg';
+    const extension = mimeToExtension(mimeType);
+    const timestamp = options.timestamp ?? Date.now();
+    const filePath = `${user.id}/${filePrefix}-${timestamp}.${extension}`;
+    const uploadBody = await getUploadBody(workingImage);
+    const bucket = supabase.storage.from('profile-images');
+
+    const { error: uploadError } = await bucket.upload(
+      filePath,
+      uploadBody as any,
+      { contentType: mimeType, upsert: true },
+    );
+
+    if (uploadError) {
+      return { url: null, error: uploadError };
+    }
+
+    const { data } = bucket.getPublicUrl(filePath);
 
     return { url: data.publicUrl, error: null };
   } catch (error) {

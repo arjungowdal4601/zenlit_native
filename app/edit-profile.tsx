@@ -7,9 +7,9 @@ import ImageUploadDialog from '../src/components/ImageUploadDialog';
 import { SOCIAL_PLATFORMS, extractUsername } from '../src/constants/socialPlatforms';
 import GradientTitle from '../src/components/GradientTitle';
 import { supabase } from '../src/lib/supabase';
-import { getCurrentUserProfile, updateSocialLinks, uploadImage, deleteImageFromStorage, updateProfileDisplayName } from '../src/services';
+import { getCurrentUserProfile, updateSocialLinks, uploadProfileImage, deleteImageFromStorage, updateProfileDisplayName } from '../src/services';
 import { useProfile } from '../src/contexts/ProfileContext';
-import { compressImage, MAX_IMAGE_SIZE_BYTES, base64ToUint8Array, type CompressedImage } from '../src/utils/imageCompression';
+import { type CompressedImage } from '../src/utils/imageCompression';
 
 const EditProfileScreen: React.FC = () => {
   const router = useRouter();
@@ -152,30 +152,14 @@ const EditProfileScreen: React.FC = () => {
         return undefined;
       }
 
-      let workingImage = image;
-
-      if (
-        workingImage.size > MAX_IMAGE_SIZE_BYTES ||
-        workingImage.metadata.compressedSize > MAX_IMAGE_SIZE_BYTES
-      ) {
-        workingImage = await compressImage(workingImage.uri);
-      }
-
-      const fileName = `${filePrefix}-${Date.now()}.jpg`;
-      const uploadBody = workingImage.base64
-        ? base64ToUint8Array(workingImage.base64)
-        : workingImage.uri;
-
-      const { url, error } = await uploadImage(uploadBody, 'profile-images', fileName, {
-        contentType: workingImage.mimeType,
-      });
+      const { url, error } = await uploadProfileImage(image, filePrefix);
 
       if (error || !url) {
         throw error ?? new Error('Upload failed');
       }
 
       if (typeof __DEV__ !== 'undefined' && __DEV__) {
-        console.log(`[profile-upload/${filePrefix}]`, workingImage.metadata);
+        console.log(`[profile-upload/${filePrefix}]`, image.metadata);
       }
 
       return url;
