@@ -9,7 +9,7 @@ import {
 
 type ProfileImageKind = 'avatar' | 'banner';
 
-type UploadProfileImageOptions = {
+type UploadCompressedImageOptions = {
   timestamp?: number;
 };
 
@@ -71,66 +71,11 @@ export async function deleteImageFromStorage(
   }
 }
 
-export async function uploadImage(
-  fileOrUri: Blob | File | ArrayBuffer | Uint8Array | string,
-  bucket: StorageBucket,
-  fileName: string,
-  options?: { contentType?: string }
-): Promise<{ url: string | null; error: Error | null }> {
-  try {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      return { url: null, error: new Error('Not authenticated') };
-    }
-
-    let fileToUpload: Blob | File | ArrayBuffer | Uint8Array;
-
-    if (typeof fileOrUri === 'string') {
-      const response = await fetch(fileOrUri);
-      const blob = await response.blob();
-      fileToUpload = blob;
-    } else {
-      fileToUpload = fileOrUri;
-    }
-
-    const uploadPayload =
-      fileToUpload instanceof Uint8Array
-        ? fileToUpload.buffer
-        : fileToUpload;
-
-    const uploadOptions: { upsert: boolean; contentType?: string } = {
-      upsert: true,
-    };
-
-    if (options?.contentType) {
-      uploadOptions.contentType = options.contentType;
-    }
-
-    const filePath = `${user.id}/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from(bucket)
-      .upload(filePath, uploadPayload as any, uploadOptions);
-
-    if (uploadError) {
-      return { url: null, error: uploadError };
-    }
-
-    const { data } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(filePath);
-
-    return { url: data.publicUrl, error: null };
-  } catch (error) {
-    return { url: null, error: error as Error };
-  }
-}
-
-export async function uploadProfileImage(
+export async function uploadCompressedImage(
   image: CompressedImage | null | undefined,
-  filePrefix: ProfileImageKind,
-  options: UploadProfileImageOptions = {},
+  bucketName: StorageBucket,
+  filePrefix: string,
+  options: UploadCompressedImageOptions = {},
 ): Promise<{ url: string | null; error: Error | null }> {
   if (!image) {
     return { url: null, error: null };
@@ -156,7 +101,7 @@ export async function uploadProfileImage(
     const timestamp = options.timestamp ?? Date.now();
     const filePath = `${user.id}/${filePrefix}-${timestamp}.${extension}`;
     const uploadBody = await getUploadBody(workingImage);
-    const bucket = supabase.storage.from('profile-images');
+    const bucket = supabase.storage.from(bucketName);
 
     const { error: uploadError } = await bucket.upload(
       filePath,
@@ -175,3 +120,9 @@ export async function uploadProfileImage(
     return { url: null, error: error as Error };
   }
 }
+
+export const uploadProfileImage = (
+  image: CompressedImage | null | undefined,
+  filePrefix: ProfileImageKind,
+  options: UploadCompressedImageOptions = {},
+) => uploadCompressedImage(image, 'profile-images', filePrefix, options);

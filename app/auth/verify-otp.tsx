@@ -20,9 +20,10 @@ import { useRef, useCallback } from 'react';
 
 import { createShadowStyle } from '../../src/utils/shadow';
 import GradientTitle from '../../src/components/GradientTitle';
-import { supabase, supabaseReady } from '../../src/lib/supabase';
+import { isAuthReady, signInWithEmailOtp, verifyEmailOtp } from '../../src/services/authService';
 import { logger } from '../../src/utils/logger';
-import { determinePostAuthRoute } from '../../src/utils/authNavigation';
+import { resolveOnboardingRoute } from '../../src/services/onboardingService';
+import { theme } from '../../src/styles/theme';
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const COOLDOWN_SECONDS = 60;
@@ -71,7 +72,7 @@ export default function VerifyOTPScreen() {
       return;
     }
 
-    if (!supabaseReady) {
+    if (!isAuthReady()) {
       logger.error('Auth', 'Supabase not configured for OTP verification');
       setError('Authentication service is not available. Please contact support.');
       return;
@@ -84,11 +85,7 @@ export default function VerifyOTPScreen() {
     setStatus('');
 
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        email: email || '',
-        token: code,
-        type: 'email'
-      });
+      const { user, error } = await verifyEmailOtp(email || '', code);
 
       if (error) {
         logger.error('Auth', 'OTP verification failed', {
@@ -110,8 +107,8 @@ export default function VerifyOTPScreen() {
         return;
       }
 
-      if (data.user) {
-        const targetRoute = await determinePostAuthRoute({ userId: data.user.id });
+      if (user) {
+        const targetRoute = await resolveOnboardingRoute({ userId: user.id });
         // Use replace to prevent going back to OTP screen
         router.replace(targetRoute ?? '/onboarding/profile/basic');
       } else {
@@ -141,12 +138,7 @@ export default function VerifyOTPScreen() {
     setStatus('');
 
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email || '',
-        options: {
-          shouldCreateUser: true,
-        }
-      });
+      const { error } = await signInWithEmailOtp(email || '');
 
       if (error) {
         logger.error('Auth', 'OTP resend failed', {
@@ -314,8 +306,9 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   brandTitle: {
+    ...theme.typography.title,
     fontSize: 40,
-    fontWeight: '700',
+    lineHeight: 44,
     letterSpacing: -0.8,
     textAlign: 'center',
   },

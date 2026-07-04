@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Check, CheckCheck, Clock3 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { theme } from '../../styles/theme';
+
 export type MessageStatus = 'pending' | 'failed' | 'sent' | 'delivered' | 'read';
 
 export type MessageBubbleProps = {
@@ -143,9 +145,7 @@ const styles = StyleSheet.create({
   },
   text: {
     color: '#ffffff',
-    fontSize: 15,
-    lineHeight: 22,
-    fontFamily: 'Inter_400Regular', // Assuming Inter is loaded, fallback will be system
+    ...theme.typography.body,
   },
   metaRow: {
     flexDirection: 'row',

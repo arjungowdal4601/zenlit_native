@@ -11,6 +11,18 @@ Prerequisites:
 - A Supabase project with email OTP enabled
 - Expo Go or a development build for device testing
 
+On macOS, install the full Xcode app and open it once to finish setup before
+running the iOS Simulator. Confirm the toolchain with:
+
+```bash
+node --version
+npm --version
+xcodebuild -version
+```
+
+If `xcodebuild` points only to Command Line Tools, select Xcode with
+`sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer`.
+
 Install dependencies:
 
 ```bash
@@ -36,6 +48,16 @@ npm run web
 ```
 
 `npm run dev` starts the web target and is useful for quick UI checks.
+
+## Docker
+
+Build and run the production web container:
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:8081`. Compose reads `.env` and passes the `EXPO_PUBLIC_SUPABASE_*` values at build time.
 
 ## Scripts
 
@@ -78,7 +100,7 @@ npm run web
 
 ## Onboarding Summary
 
-Authenticated routing is intentionally centralized. `src/services/onboardingService.ts` reads Supabase profile state, `src/utils/onboardingState.ts` evaluates it, and `src/utils/authNavigation.ts` exposes route helpers used by the root layout and onboarding screens.
+Authenticated routing is intentionally centralized. `src/services/onboardingService.ts` reads Supabase profile state and resolves route targets, while `src/utils/onboardingState.ts` evaluates local onboarding state used by the root layout and onboarding screens.
 
 The required journey is:
 

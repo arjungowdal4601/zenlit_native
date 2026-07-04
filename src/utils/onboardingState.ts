@@ -322,6 +322,13 @@ export const getRouteForOnboardingState = (
   }
 };
 
+export const shouldRefreshBeforeOnboardingRedirect = (
+  state: OnboardingState | null | undefined,
+  pathname: string | null | undefined,
+) =>
+  state?.status === 'profile-basics-required' &&
+  pathname === ROUTES.onboardingComplete;
+
 export type UsernameAvailabilityInput = {
   requestedUsername: string;
   currentUserId?: string | null;

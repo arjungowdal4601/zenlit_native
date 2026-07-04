@@ -213,8 +213,9 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     color: '#ffffff',
-    fontFamily: 'Inter_600SemiBold',
-    letterSpacing: 0.3,
+    fontFamily: theme.typography.fontFamily.system,
+    lineHeight: 22,
+    letterSpacing: -0.1,
   },
   subtitle: {
     fontSize: 13,

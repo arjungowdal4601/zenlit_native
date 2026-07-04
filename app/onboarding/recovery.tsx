@@ -5,9 +5,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 
 import GradientTitle from '../../src/components/GradientTitle';
-import { supabase } from '../../src/lib/supabase';
+import { signOut } from '../../src/services/authService';
 import { resolveOnboardingState } from '../../src/services/onboardingService';
-import { getPostLogoutRoute, getRouteForOnboardingState, ROUTES } from '../../src/utils/authNavigation';
+import { getRouteForOnboardingState, ROUTES } from '../../src/utils/onboardingState';
+import { theme } from '../../src/styles/theme';
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 
@@ -49,10 +50,10 @@ const OnboardingRecoveryScreen: React.FC = () => {
     setError('');
 
     try {
-      await supabase.auth.signOut({ scope: 'global' });
+      await signOut('global');
     } finally {
       setIsSigningOut(false);
-      router.replace(getPostLogoutRoute());
+      router.replace(ROUTES.auth);
     }
   };
 
@@ -143,8 +144,10 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
   },
   brandTitle: {
+    ...theme.typography.title,
     fontSize: 36,
-    fontWeight: '700',
+    lineHeight: 40,
+    letterSpacing: -0.7,
     textAlign: 'center',
     marginBottom: 24,
   },

@@ -24,7 +24,7 @@ export async function updateUserLocation(
         lat_short: latShort,
         long_short: longShort,
         updated_at: new Date().toISOString(),
-      });
+      }, { onConflict: 'id' });
 
     if (error) {
       return { success: false, error };
@@ -53,7 +53,7 @@ export async function deleteUserLocation(): Promise<{ success: boolean; error: E
         lat_short: null,
         long_short: null,
         updated_at: new Date().toISOString(),
-      });
+      }, { onConflict: 'id' });
 
     if (error) {
       return { success: false, error };

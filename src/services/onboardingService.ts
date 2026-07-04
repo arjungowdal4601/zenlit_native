@@ -116,14 +116,16 @@ export const resolveOnboardingState = async (
   options: ResolveOnboardingOptions = {},
 ): Promise<OnboardingState> => {
   try {
-    let userId = options.userId ?? null;
-    if (!userId) {
-      const { data, error } = await supabase.auth.getUser();
-      if (error || !data.user) {
-        return evaluateOnboardingState({ userId: null });
-      }
-      userId = data.user.id;
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) {
+      return evaluateOnboardingState({ userId: null });
     }
+
+    if (options.userId && options.userId !== data.user.id) {
+      throw new Error('Authenticated user mismatch');
+    }
+
+    const userId = data.user.id;
 
     const [
       { data: profile, error: profileError },

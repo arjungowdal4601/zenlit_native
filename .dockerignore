@@ -1,0 +1,16 @@
+.git
+.expo
+.vercel
+node_modules
+dist
+web-build
+ios
+android
+qa-runs
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.env
+.env.*
+!.env.example

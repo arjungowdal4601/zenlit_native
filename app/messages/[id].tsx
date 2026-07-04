@@ -20,16 +20,14 @@ import DayDivider from '../../src/components/messaging/DayDivider';
 import MessageBubble, { type MessageStatus } from '../../src/components/messaging/MessageBubble';
 import TypingIndicator from '../../src/components/messaging/TypingIndicator';
 import { theme } from '../../src/styles/theme';
+import type { Message, Profile, SocialLinks } from '../../src/lib/types';
 import {
   getMessagesBetweenUsers,
   sendMessage,
-  type Message,
-  getProfileById,
-  type Profile,
-  type SocialLinks,
-  isUserNearby,
-} from '../../src/services';
-import { supabase } from '../../src/lib/supabase';
+} from '../../src/services/messagingService';
+import { getProfileById } from '../../src/services/profileService';
+import { isUserNearby } from '../../src/services/locationDbService';
+import { getCurrentUser } from '../../src/services/authService';
 import { useMessaging } from '../../src/contexts/MessagingContext';
 import { type BroadcastMessage, type TypingEvent } from '../../src/utils/realtime';
 import { setupChatRealtime } from '../../src/utils/chatRealtimeSetup';
@@ -426,7 +424,7 @@ const ChatDetailScreen: React.FC = () => {
 
       setLoading(true);
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (user) {
         setCurrentUserId(user.id);
       }

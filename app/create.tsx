@@ -6,39 +6,9 @@ import { AppHeader } from '../src/components/AppHeader';
 import { PostComposer, PostComposerSharePayload } from '../src/components/PostComposer';
 import SuccessPopup from '../src/components/SuccessPopup';
 import { theme } from '../src/styles/theme';
-import { createPost, getCurrentUserProfile, uploadImage } from '../src/services';
-import { compressImage, MAX_IMAGE_SIZE_BYTES, base64ToUint8Array, type CompressedImage } from '../src/utils/imageCompression';
-
-const uploadPostImageIfNeeded = async (image: CompressedImage | null | undefined): Promise<string | undefined> => {
-  if (!image) {
-    return undefined;
-  }
-
-  let workingImage = image;
-
-  if (
-    workingImage.size > MAX_IMAGE_SIZE_BYTES ||
-    workingImage.metadata.compressedSize > MAX_IMAGE_SIZE_BYTES
-  ) {
-    workingImage = await compressImage(workingImage.uri);
-  }
-
-  const fileName = `post-${Date.now()}.jpg`;
-  const uploadBody = workingImage.base64 ? base64ToUint8Array(workingImage.base64) : workingImage.uri;
-  const { url, error } = await uploadImage(uploadBody, 'post-images', fileName, {
-    contentType: workingImage.mimeType,
-  });
-
-  if (error || !url) {
-    throw error ?? new Error('Upload failed');
-  }
-
-  if (typeof __DEV__ !== 'undefined' && __DEV__) {
-    console.log('[post-image/compression]', workingImage.metadata);
-  }
-
-  return url;
-};
+import { createPost } from '../src/services/postService';
+import { getCurrentUserProfile } from '../src/services/profileService';
+import { uploadCompressedImage } from '../src/services/storageService';
 
 const CreateScreen: React.FC = () => {
   const router = useRouter();
@@ -74,11 +44,12 @@ const CreateScreen: React.FC = () => {
     let uploadedImageUrl: string | undefined;
 
     if (image) {
-      uploadedImageUrl = await uploadPostImageIfNeeded(image);
-      if (!uploadedImageUrl) {
+      const { url, error } = await uploadCompressedImage(image, 'post-images', 'post');
+      if (error || !url) {
         Alert.alert('Upload Failed', 'We could not upload your image. Please try again.');
         return false;
       }
+      uploadedImageUrl = url;
     }
 
     const { post, error } = await createPost(trimmed, uploadedImageUrl);

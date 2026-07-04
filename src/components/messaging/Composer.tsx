@@ -145,9 +145,7 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     paddingVertical: 0,
     color: '#ffffff',
-    fontSize: 15,
-    lineHeight: 20,
-    fontFamily: 'Inter_400Regular',
+    ...theme.typography.body,
   },
   inputTextDisabled: {
     color: theme.colors.iconInactive,

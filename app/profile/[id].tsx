@@ -24,13 +24,9 @@ import {
   ensureSocialUrl,
   type SocialPlatformId,
 } from '../../src/constants/socialPlatforms';
-import {
-  getProfileById,
-  getUserPosts,
-  type Profile,
-  type SocialLinks,
-  type Post as DbPost,
-} from '../../src/services';
+import type { Post as DbPost, Profile, SocialLinks } from '../../src/lib/types';
+import { getProfileById } from '../../src/services/profileService';
+import { getUserPosts } from '../../src/services/postService';
 
 const FALLBACK_BANNER =
   'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1600&q=80';

@@ -1,3 +1,16 @@
+const transpiledPackages = [
+  '(jest-)?react-native',
+  '@react-native(?:\\+[^/]+)?',
+  '@react-native-community(?:\\+[^/]+)?',
+  '@react-navigation(?:\\+[^/]+)?',
+  'expo(nent)?',
+  '@expo(nent)?(?:\\+[^/]+)?',
+  'expo-[^/]+',
+  '@expo-google-fonts(?:\\+[^/]+)?',
+  'react-native-[^/]+',
+  'lucide-react-native',
+].join('|');
+
 module.exports = {
   preset: 'jest-expo',
   setupFilesAfterEnv: ['<rootDir>/test/setup/jest.setup.tsx'],
@@ -6,7 +19,7 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/$1',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@react-navigation|expo(nent)?|@expo(nent)?/.*|expo-.*|@expo/.*|@expo-google-fonts/.*|react-native-.*|lucide-react-native)/)',
+    `node_modules/(?!\\.pnpm/(?:${transpiledPackages})@|(?:${transpiledPackages})/)`,
   ],
   testPathIgnorePatterns: ['/node_modules/', '/dist/'],
 };

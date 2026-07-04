@@ -3,6 +3,8 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { theme } from '../../styles/theme';
+
 export type ChatListItemProps = {
   title: string;
   subtitle: string;
@@ -158,7 +160,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
     marginRight: 8,
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: theme.typography.fontFamily.system,
+    lineHeight: 21,
+    letterSpacing: -0.1,
   },
   titleUnread: {
     color: '#ffffff',

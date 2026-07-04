@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { useVisibility } from '../contexts/VisibilityContext';
-import { getFeedPosts, PostWithAuthor } from '../services';
+import type { PostWithAuthor } from '../lib/types';
+import { getFeedPosts } from '../services/postService';
 import Post from './Post';
 import { AnimatedStatusView } from './AnimatedStatusView';
 

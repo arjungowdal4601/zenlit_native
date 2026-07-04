@@ -101,6 +101,18 @@ jest.mock('lucide-react-native', () => ({
 
 jest.mock('../../src/lib/supabase', () => {
   const queryBuilder: Record<string, jest.Mock> = {};
+  const createChannel = () => {
+    const channel: Record<string, jest.Mock> = {};
+    Object.assign(channel, {
+      on: jest.fn(() => channel),
+      subscribe: jest.fn(() => channel),
+      track: jest.fn(async () => undefined),
+      untrack: jest.fn(async () => undefined),
+      send: jest.fn(async () => undefined),
+      presenceState: jest.fn(() => ({})),
+    });
+    return channel;
+  };
 
   Object.assign(queryBuilder, {
     select: jest.fn(() => queryBuilder),
@@ -131,16 +143,17 @@ jest.mock('../../src/lib/supabase', () => {
       getUser: jest.fn(async () => ({ data: { user: null }, error: null })),
       getSession: jest.fn(async () => ({ data: { session: null }, error: null })),
       signInWithOtp: jest.fn(async () => ({ data: {}, error: null })),
+      verifyOtp: jest.fn(async () => ({ data: { user: null }, error: null })),
       signOut: jest.fn(async () => ({ error: null })),
       onAuthStateChange: jest.fn(() => ({ data: { subscription: { unsubscribe: jest.fn() } } })),
     },
+    realtime: {
+      setAuth: jest.fn(async () => undefined),
+    },
     from: jest.fn(() => queryBuilder),
     rpc: jest.fn(async () => ({ data: null, error: null })),
-    channel: jest.fn(() => ({
-      on: jest.fn().mockReturnThis(),
-      subscribe: jest.fn(),
-    })),
-    removeChannel: jest.fn(),
+    channel: jest.fn(() => createChannel()),
+    removeChannel: jest.fn(async () => 'ok'),
     storage: {
       from: jest.fn(() => ({
         upload: jest.fn(async () => ({ data: null, error: null })),

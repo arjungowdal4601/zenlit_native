@@ -1,0 +1,10 @@
+services:
+  zenlit-web:
+    image: zenlit-web
+    build:
+      context: .
+      args:
+        EXPO_PUBLIC_SUPABASE_URL: "${EXPO_PUBLIC_SUPABASE_URL}"
+        EXPO_PUBLIC_SUPABASE_ANON_KEY: "${EXPO_PUBLIC_SUPABASE_ANON_KEY}"
+    ports:
+      - "8081:80"

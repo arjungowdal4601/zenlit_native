@@ -18,7 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import AppHeader from '../../src/components/AppHeader';
-import LogoutConfirmation from '../../src/components/LogoutConfirmation';
+import ConfirmDialog from '../../src/components/ConfirmDialog';
 import ProfileMenuSheet from '../../src/components/profile/ProfileMenuSheet';
 import Post from '../../src/components/Post';
 import {
@@ -26,10 +26,11 @@ import {
   ensureSocialUrl,
   getTwitterHandle,
 } from '../../src/constants/socialPlatforms';
-import { getUserPosts, deletePost as deletePostDb, Post as PostType } from '../../src/services';
+import type { Post as PostType } from '../../src/lib/types';
+import { deletePost as deletePostDb, getUserPosts } from '../../src/services/postService';
 import { useProfile } from '../../src/contexts/ProfileContext';
-import { supabase } from '../../src/lib/supabase';
-import { getPostLogoutRoute } from '../../src/utils/authNavigation';
+import { getCurrentSessionUser, signOut } from '../../src/services/authService';
+import { ROUTES } from '../../src/utils/onboardingState';
 
 const SOCIAL_ORDER: Array<'instagram' | 'linkedin' | 'twitter'> = [
   'instagram',
@@ -141,13 +142,13 @@ const ProfileScreen: React.FC = () => {
 
   const handleConfirmLogout = useCallback(async () => {
     setLogoutOpen(false);
-    const { data } = await supabase.auth.getSession();
-    if (data?.session) {
+    const sessionUser = await getCurrentSessionUser();
+    if (sessionUser) {
       try {
-        await supabase.auth.signOut({ scope: 'global' });
+        await signOut('global');
       } catch {}
     }
-    router.replace(getPostLogoutRoute());
+    router.replace(ROUTES.auth);
   }, [router]);
 
   const handleDeletePost = useCallback(async (id: string) => {
@@ -229,8 +230,11 @@ const ProfileScreen: React.FC = () => {
         onFeedback={handleFeedback}
         onLogout={handleLogout}
       />
-      <LogoutConfirmation
+      <ConfirmDialog
         visible={logoutOpen}
+        message="Are you sure you want to log out?"
+        confirmLabel="Log Out"
+        cancelLabel="Cancel"
         onCancel={handleCancelLogout}
         onConfirm={handleConfirmLogout}
       />

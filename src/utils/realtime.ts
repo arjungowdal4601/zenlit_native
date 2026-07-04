@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { logger } from './logger';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import type { Location, Message } from '../lib/types';
 
 type ChannelStatus = 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR';
 
@@ -16,6 +17,14 @@ export type MessageFilter = {
 };
 
 export type MessageEventHandler = (payload: RealtimePostgresChangesPayload<any>) => void;
+
+export type RealtimeChange<T> = {
+  eventType: string;
+  new: T | null;
+  old: T | null;
+};
+
+export type RealtimeUnsubscribe = () => void;
 
 export type PresenceState = {
   userId: string;
@@ -361,4 +370,163 @@ export function createMessagesListChannel(
     logTag: 'RT:List',
     ...config,
   });
+}
+
+const toRealtimeChange = <T,>(payload: RealtimePostgresChangesPayload<any>): RealtimeChange<T> => ({
+  eventType: payload.eventType,
+  new: (payload.new ?? null) as T | null,
+  old: (payload.old ?? null) as T | null,
+});
+
+const cleanupChannel = (channel: RealtimeChannel): RealtimeUnsubscribe => {
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+};
+
+export function subscribeToUnreadMessageInserts(
+  currentUserId: string,
+  onInsert: (event: RealtimeChange<Message>) => void,
+  onStatus?: (status: string) => void,
+): RealtimeUnsubscribe {
+  const channel = supabase
+    .channel('messaging-unread-watch')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'messages' },
+      (payload: RealtimePostgresChangesPayload<any>) => {
+        const message = payload.new as Message | null;
+        if (!message || message.sender_id === currentUserId) {
+          return;
+        }
+        onInsert(toRealtimeChange<Message>(payload));
+      },
+    )
+    .subscribe((status: string) => {
+      onStatus?.(status);
+    });
+
+  return cleanupChannel(channel);
+}
+
+export function subscribeToMessageListUpdates(
+  currentUserId: string,
+  handlers: {
+    onInsert: (event: RealtimeChange<Message>) => void;
+    onUpdate: (event: RealtimeChange<Message>) => void;
+    onStatus?: (status: string) => void;
+  },
+): RealtimeUnsubscribe {
+  const handleInsert = (payload: RealtimePostgresChangesPayload<any>) => {
+    handlers.onInsert(toRealtimeChange<Message>(payload));
+  };
+
+  const channel = supabase
+    .channel('messages-list-realtime')
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `receiver_id=eq.${currentUserId}`,
+      },
+      handleInsert,
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `sender_id=eq.${currentUserId}`,
+      },
+      handleInsert,
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+      },
+      (payload: RealtimePostgresChangesPayload<any>) => {
+        const message = payload.new as Message | null;
+        if (!message) {
+          return;
+        }
+
+        if (message.sender_id !== currentUserId && message.receiver_id !== currentUserId) {
+          return;
+        }
+
+        handlers.onUpdate(toRealtimeChange<Message>(payload));
+      },
+    )
+    .subscribe((status: string) => {
+      handlers.onStatus?.(status);
+    });
+
+  return cleanupChannel(channel);
+}
+
+export function subscribeToMessagePartnerLocationUpdates(
+  partnerIds: string[],
+  onUpdate: (event: RealtimeChange<Location>) => void,
+  onStatus?: (status: string) => void,
+): RealtimeUnsubscribe {
+  const partnerIdSet = new Set(partnerIds);
+  const channel = supabase
+    .channel('messages-location-updates')
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'locations' },
+      (payload: RealtimePostgresChangesPayload<any>) => {
+        const location = payload.new as Location | null;
+        if (!location || !partnerIdSet.has(location.id)) {
+          return;
+        }
+        onUpdate(toRealtimeChange<Location>(payload));
+      },
+    )
+    .subscribe((status: string) => {
+      onStatus?.(status);
+    });
+
+  return cleanupChannel(channel);
+}
+
+export function subscribeToRadarLocationUpdates(
+  onChange: (event: RealtimeChange<Location>) => void,
+  onStatus?: (status: string) => void,
+): RealtimeUnsubscribe {
+  const handleChange = (payload: RealtimePostgresChangesPayload<any>) => {
+    onChange(toRealtimeChange<Location>(payload));
+  };
+
+  const channel = supabase
+    .channel('radar-location-updates')
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'locations',
+      },
+      handleChange,
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'locations',
+      },
+      handleChange,
+    )
+    .subscribe((status: string) => {
+      onStatus?.(status);
+    });
+
+  return cleanupChannel(channel);
 }

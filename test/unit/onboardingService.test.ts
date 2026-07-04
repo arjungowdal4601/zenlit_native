@@ -1,5 +1,8 @@
 import { supabase } from '../../src/lib/supabase';
-import { saveProfileBasicsDraft } from '../../src/services/onboardingService';
+import {
+  resolveOnboardingState,
+  saveProfileBasicsDraft,
+} from '../../src/services/onboardingService';
 
 const mockSupabase = supabase as unknown as {
   auth: { getUser: jest.Mock };
@@ -50,6 +53,19 @@ describe('onboarding service auth guard', () => {
 
     expect(result.data).toBeNull();
     expect(result.error?.message).toContain('Authenticated user mismatch');
+    expect(mockSupabase.from).not.toHaveBeenCalled();
+  });
+
+  it('treats a cached user id as guest when Supabase says the auth user no longer exists', async () => {
+    mockSupabase.auth.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: new Error('User from sub claim in JWT does not exist'),
+    });
+
+    const state = await resolveOnboardingState({ userId: 'deleted-user' });
+
+    expect(state.status).toBe('guest');
+    expect(state.userId).toBeNull();
     expect(mockSupabase.from).not.toHaveBeenCalled();
   });
 });

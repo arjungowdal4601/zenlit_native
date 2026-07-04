@@ -1,30 +1,34 @@
 import '../src/polyfills';
-import '../src/utils/applyWebShadowPatch';
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useFonts } from 'expo-font';
-import { Inter_500Medium } from '@expo-google-fonts/inter';
 import * as Notifications from 'expo-notifications';
 
 import { VisibilityProvider } from '../src/contexts/VisibilityContext';
 import { MessagingProvider } from '../src/contexts/MessagingContext';
 import { ProfileProvider } from '../src/contexts/ProfileContext';
 import { theme } from '../src/styles/theme';
-import { supabase, supabaseConfigStatus, supabaseReady } from '../src/lib/supabase';
 import Navigation from '../src/components/Navigation';
-import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { logger } from '../src/utils/logger';
 import {
   canAccessMainApp,
   getRouteForOnboardingState,
   ROUTES,
+  shouldRefreshBeforeOnboardingRedirect,
   type OnboardingState,
-} from '../src/utils/authNavigation';
+} from '../src/utils/onboardingState';
 import { resolveOnboardingState } from '../src/services/onboardingService';
+import {
+  getAuthConfigStatus,
+  getCurrentSessionUser,
+  getCurrentUser,
+  isAuthReady,
+  onAuthChange,
+  signOut,
+} from '../src/services/authService';
 import { useNotifications } from '../src/hooks/useNotifications';
 import { readHasSeenGetStarted, persistHasSeenGetStarted } from '../src/utils/getStartedPreference';
 
@@ -46,16 +50,68 @@ const RootLayout: React.FC = () => {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
   const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
-  const [fontsLoaded] = useFonts({ Inter_500Medium });
   const { notification } = useNotifications();
   const [hasSeenGetStarted, setHasSeenGetStarted] = useState<boolean | null>(null);
+  const authConfigStatus = getAuthConfigStatus();
+
+  const clearStaleAuthSession = useCallback(async () => {
+    try {
+      await signOut('local');
+    } catch (error) {
+      logger.warn('Auth', 'Failed to clear stale local session', error);
+    }
+
+    setIsAuthenticated(false);
+    setOnboardingState(null);
+    setIsCheckingAuth(false);
+    setIsCheckingOnboarding(false);
+  }, []);
 
   const refreshOnboardingState = useCallback(async (userId?: string | null) => {
     setIsCheckingOnboarding(true);
     const state = await resolveOnboardingState({ userId });
+
+    if (state.status === 'guest') {
+      await clearStaleAuthSession();
+      return state;
+    }
+
     setOnboardingState(state);
     setIsCheckingOnboarding(false);
     return state;
+  }, [clearStaleAuthSession]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') {
+      return;
+    }
+
+    const styleId = 'zenlit-web-typography';
+    if (document.getElementById(styleId)) {
+      return;
+    }
+
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      html,
+      body,
+      #root,
+      #expo-root {
+        font-family: ${theme.typography.fontFamily.web};
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      button,
+      input,
+      textarea,
+      select {
+        font-family: inherit;
+      }
+    `;
+    document.head.appendChild(style);
   }, []);
 
   useEffect(() => {
@@ -90,22 +146,30 @@ const RootLayout: React.FC = () => {
   useEffect(() => {
     const checkInitialAuth = async () => {
       try {
-        if (!supabaseReady) {
+        if (!isAuthReady()) {
           logger.warn('App', 'Supabase not ready, skipping session check');
           setIsCheckingAuth(false);
           setIsAuthenticated(false);
           return;
         }
 
-        const { data: { session }, error } = await supabase.auth.getSession();
-        const hasSession = !!session;
-
-        setIsAuthenticated(hasSession);
-        setIsCheckingAuth(false);
+        const sessionUser = await getCurrentSessionUser();
+        const hasSession = !!sessionUser;
 
         if (hasSession) {
-          await refreshOnboardingState(session?.user.id ?? null);
+          const user = await getCurrentUser();
+          if (!user) {
+            logger.warn('Auth', 'Stored session user is no longer valid');
+            await clearStaleAuthSession();
+            return;
+          }
+
+          setIsAuthenticated(true);
+          setIsCheckingAuth(false);
+          await refreshOnboardingState(user.id);
         } else {
+          setIsAuthenticated(false);
+          setIsCheckingAuth(false);
           setOnboardingState(null);
         }
 
@@ -120,23 +184,26 @@ const RootLayout: React.FC = () => {
     };
 
     checkInitialAuth();
-  }, [refreshOnboardingState, supabaseReady]);
+  }, [clearStaleAuthSession, refreshOnboardingState]);
 
   useEffect(() => {
-    if (!supabaseReady || !supabase) {
+    if (!isAuthReady()) {
       return;
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: Session | null) => {
-        const hasSession = !!session;
+    const unsubscribe = onAuthChange(
+      async (event, user) => {
+        const hasSession = !!user;
 
         setIsAuthenticated(hasSession);
 
         if (event === 'SIGNED_IN' && hasSession) {
           setHasSeenGetStarted(true);
           void persistHasSeenGetStarted();
-          const state = await refreshOnboardingState(session.user.id);
+          const state = await refreshOnboardingState(user.id);
+          if (state.status === 'guest') {
+            return;
+          }
           router.replace(getRouteForOnboardingState(state));
         } else if (event === 'SIGNED_OUT') {
           setOnboardingState(null);
@@ -145,9 +212,7 @@ const RootLayout: React.FC = () => {
         }
       }
     );
-    return () => {
-      subscription?.unsubscribe?.();
-    };
+    return unsubscribe;
   }, [refreshOnboardingState, router]);
 
   useEffect(() => {
@@ -170,7 +235,6 @@ const RootLayout: React.FC = () => {
 
   useEffect(() => {
     if (
-      !fontsLoaded ||
       isCheckingAuth ||
       isCheckingOnboarding ||
       isAuthenticated === null ||
@@ -196,6 +260,23 @@ const RootLayout: React.FC = () => {
         pathname === ROUTES.onboardingComplete &&
         onboardingState.status === 'optional-profile-details';
 
+      if (shouldRefreshBeforeOnboardingRedirect(onboardingState, pathname)) {
+        void refreshOnboardingState(onboardingState.userId).then((refreshedState) => {
+          if (
+            refreshedState.status === 'optional-profile-details' &&
+            pathname === ROUTES.onboardingComplete
+          ) {
+            return;
+          }
+
+          const refreshedRoute = getRouteForOnboardingState(refreshedState);
+          if (pathname !== refreshedRoute) {
+            router.replace(refreshedRoute);
+          }
+        });
+        return;
+      }
+
       if (!hasMainAccess && pathname !== targetRoute) {
         router.replace(targetRoute);
         return;
@@ -214,7 +295,6 @@ const RootLayout: React.FC = () => {
       }
     }
   }, [
-    fontsLoaded,
     hasSeenGetStarted,
     isAuthenticated,
     isCheckingAuth,
@@ -226,20 +306,19 @@ const RootLayout: React.FC = () => {
     segments,
   ]);
 
-  if (!supabaseReady) {
+  if (!isAuthReady()) {
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorTitle}>Backend configuration error</Text>
         <Text style={styles.errorText}>
-          {supabaseConfigStatus.error ?? 'Supabase is not configured.'}
+          {authConfigStatus.error ?? 'Supabase is not configured.'}
         </Text>
-        <Text style={styles.errorMeta}>Source: {supabaseConfigStatus.source}</Text>
+        <Text style={styles.errorMeta}>Source: {authConfigStatus.source}</Text>
       </View>
     );
   }
 
   if (
-    !fontsLoaded ||
     isCheckingAuth ||
     isCheckingOnboarding ||
     isAuthenticated === null ||
@@ -264,7 +343,7 @@ const RootLayout: React.FC = () => {
 
   return (
     <SafeAreaProvider>
-      <VisibilityProvider>
+      <VisibilityProvider enabled={shouldShowNav}>
         <MessagingProvider>
           <ProfileProvider>
             <View style={{ flex: 1, backgroundColor: theme.colors.background }}>

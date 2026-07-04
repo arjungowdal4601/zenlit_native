@@ -13,9 +13,12 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
 import { theme } from '../src/styles/theme';
-import { supabase } from '../src/lib/supabase';
 import { logger } from '../src/utils/logger';
 import { useNotifications, type NotificationPreferences } from '../src/hooks/useNotifications';
+import {
+  getNotificationSettings,
+  updateNotificationSettings,
+} from '../src/services/notificationService';
 
 const NotificationSettingsScreen: React.FC = () => {
   const router = useRouter();
@@ -34,27 +37,13 @@ const NotificationSettingsScreen: React.FC = () => {
 
   async function loadSettings() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        logger.warn('NotificationSettings', 'No authenticated user');
-        setLoading(false);
-        return;
-      }
-
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('notification_enabled, notification_preferences')
-        .eq('id', user.id)
-        .single();
+      const { settings, error } = await getNotificationSettings();
 
       if (error) {
         logger.error('NotificationSettings', 'Error loading settings:', error);
-      } else if (profile) {
-        setNotificationsEnabled(profile.notification_enabled ?? true);
-        if (profile.notification_preferences) {
-          setPreferences(normalizePreferences(profile.notification_preferences));
-        }
+      } else if (settings) {
+        setNotificationsEnabled(settings.enabled);
+        setPreferences(settings.preferences);
       }
 
       setLoading(false);
@@ -71,33 +60,23 @@ const NotificationSettingsScreen: React.FC = () => {
     setSaving(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        setSaving(false);
-        return;
-      }
-
-      const updates: any = {};
-
-      if (enabled !== undefined) {
-        updates.notification_enabled = enabled;
-      }
-
+      const nextPrefs = prefs ? { ...preferences, ...prefs } : undefined;
       if (prefs) {
-        const updatedPrefs = { ...preferences, ...prefs };
-        updates.notification_preferences = updatedPrefs;
-        setPreferences(updatedPrefs);
+        setPreferences(nextPrefs as NotificationPreferences);
       }
 
-      const { error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', user.id);
+      const { settings, error } = await updateNotificationSettings({
+        enabled,
+        preferences: nextPrefs,
+      });
 
       if (error) {
         logger.error('NotificationSettings', 'Error saving settings:', error);
       } else {
+        if (settings) {
+          setNotificationsEnabled(settings.enabled);
+          setPreferences(settings.preferences);
+        }
         logger.info('NotificationSettings', 'Settings saved successfully');
       }
 
@@ -239,17 +218,6 @@ const NotificationSettingsScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
-
-function normalizePreferences(
-  prefs?: Partial<NotificationPreferences> | null
-): NotificationPreferences {
-  return {
-    messages: prefs?.messages !== false,
-    muted_conversations: Array.isArray(prefs?.muted_conversations)
-      ? (prefs.muted_conversations as string[])
-      : [],
-  };
-}
 
 const styles = StyleSheet.create({
   container: {

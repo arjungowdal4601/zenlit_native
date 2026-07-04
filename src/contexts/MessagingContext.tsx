@@ -8,15 +8,14 @@ import React, {
   useState,
 } from 'react';
 
-import { supabase, supabaseReady } from '../lib/supabase';
+import type { UserUnreadCount } from '../lib/types';
 import {
-  UserUnreadCount,
   markMessagesDelivered,
   markMessagesRead,
   getUnreadCounts,
-  type Message,
-} from '../services';
-import type { AuthChangeEvent, Session, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+} from '../services/messagingService';
+import { getCurrentUser, isAuthReady, onAuthChange } from '../services/authService';
+import { subscribeToUnreadMessageInserts } from '../utils/realtime';
 
 type MessagingContextValue = {
   isReady: boolean;
@@ -53,23 +52,23 @@ export const MessagingProvider: React.FC<ProviderProps> = ({ children }) => {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      if (!supabaseReady) {
+      if (!isAuthReady()) {
         setCurrentUserId(null);
         return;
       }
-      const { data } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (mounted) {
-        setCurrentUserId(data.user?.id ?? null);
+        setCurrentUserId(user?.id ?? null);
       }
     })();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
-      setCurrentUserId(session?.user?.id ?? null);
+    const unsubscribeAuth = onAuthChange((_event, user) => {
+      setCurrentUserId(user?.id ?? null);
     });
 
     return () => {
       mounted = false;
-      authListener?.subscription.unsubscribe();
+      unsubscribeAuth();
     };
   }, []);
 
@@ -125,18 +124,10 @@ export const MessagingProvider: React.FC<ProviderProps> = ({ children }) => {
       return;
     }
 
-    const channel = supabase
-      .channel('messaging-unread-watch')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload: RealtimePostgresChangesPayload<Message>) => {
-          const newMessage = payload.new as Message;
+    return subscribeToUnreadMessageInserts(
+      currentUserId,
+      ({ new: newMessage }) => {
           if (!newMessage) {
-            return;
-          }
-
-          if (newMessage.sender_id === currentUserId) {
             return;
           }
 
@@ -174,13 +165,8 @@ export const MessagingProvider: React.FC<ProviderProps> = ({ children }) => {
             next[newMessage.sender_id] = nextValue;
             return next;
           });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      },
+    );
   }, [activeConversationId, currentUserId]);
 
   const markThreadDelivered = useCallback(async (userId: string) => {

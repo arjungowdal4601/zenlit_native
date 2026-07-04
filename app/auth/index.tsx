@@ -16,13 +16,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { createShadowStyle } from '../../src/utils/shadow';
 import GradientTitle from '../../src/components/GradientTitle';
-import { supabase, supabaseReady } from '../../src/lib/supabase';
+import { isAuthReady, signInWithEmailOtp } from '../../src/services/authService';
 import { logger } from '../../src/utils/logger';
+import { theme } from '../../src/styles/theme';
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const DIVIDER_LINE_COLORS = [
@@ -85,8 +85,8 @@ const AuthScreen: React.FC = () => {
       return;
     }
 
-    if (!supabaseReady) {
-      logger.error('Auth', 'Supabase not configured', { supabaseReady });
+    if (!isAuthReady()) {
+      logger.error('Auth', 'Supabase not configured', { authReady: false });
       Alert.alert('Configuration Error', 'Authentication service is not properly configured. Please contact support.');
       return;
     }
@@ -96,12 +96,7 @@ const AuthScreen: React.FC = () => {
     setEmailLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: {
-          shouldCreateUser: true,
-        }
-      });
+      const { error } = await signInWithEmailOtp(email.trim());
 
       if (error) {
         logger.error('Auth', 'OTP signin failed', {
@@ -247,9 +242,7 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   brandTitle: {
-    fontSize: 48,
-    fontFamily: 'Inter_500Medium',
-    letterSpacing: -1,
+    ...theme.typography.display,
     textAlign: 'center',
   },
   brandSubtitle: {

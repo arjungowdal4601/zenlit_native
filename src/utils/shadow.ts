@@ -1,4 +1,4 @@
-import { Platform, StyleSheet } from 'react-native';
+import { Platform } from 'react-native';
 import type { ViewStyle } from 'react-native';
 
 type ShadowConfig = {
@@ -62,50 +62,5 @@ export const createShadowStyle = ({ native, web }: ShadowConfig): ShadowStyle =>
   }
 
   return native as ShadowStyle;
-};
-
-let hasPatched = false;
-
-export const applyWebShadowPatch = () => {
-  if (hasPatched || Platform.OS !== 'web') {
-    return;
-  }
-
-  hasPatched = true;
-
-  const originalCreate = StyleSheet.create;
-
-  StyleSheet.create = ((styles: Record<string, any>) => {
-    const transformed: Record<string, any> = {};
-
-    Object.keys(styles).forEach((key) => {
-      const value = styles[key];
-
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
-        const hasShadow =
-          'shadowColor' in (value as Record<string, any>) ||
-          'shadowOpacity' in (value as Record<string, any>) ||
-          'shadowRadius' in (value as Record<string, any>) ||
-          'shadowOffset' in (value as Record<string, any>) ||
-          'elevation' in (value as Record<string, any>);
-
-        if (hasShadow) {
-          const { boxShadow } = createShadowStyle({ native: value as ViewStyle });
-          const { shadowColor, shadowOpacity, shadowRadius, shadowOffset, elevation, ...rest } =
-            value as Record<string, any>;
-
-          transformed[key] = {
-            ...rest,
-            ...(boxShadow ? { boxShadow } : {}),
-          };
-          return;
-        }
-      }
-
-      transformed[key] = value;
-    });
-
-    return originalCreate(transformed);
-  }) as typeof StyleSheet.create;
 };
 

@@ -6,9 +6,6 @@ const mockPersistHasSeenGetStarted = jest.fn(async () => undefined);
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace }),
-}));
-
-jest.mock('@react-navigation/native', () => ({
   useFocusEffect: (callback: () => void) => {
     const React = require('react');
     React.useEffect(() => callback(), [callback]);

@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { Profile, SocialLinks } from '../lib/types';
-import { getCurrentUserProfile } from '../services';
+import { getCurrentUserProfile } from '../services/profileService';
 
 type ProfileContextValue = {
   profile: Profile | null;
@@ -69,4 +69,3 @@ export function useProfile(): ProfileContextValue {
   }
   return ctx;
 }
-

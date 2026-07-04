@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { Profile, SocialLinks } from '../lib/types';
+import { evaluateUsernameAvailability } from '../utils/onboardingState';
+import type { UsernameCheckResult } from '../utils/profileValidation';
 
 export async function getCurrentUserProfile(): Promise<{ profile: Profile | null; socialLinks: SocialLinks | null; error: Error | null }> {
   try {
@@ -112,3 +114,80 @@ export async function updateSocialLinks(data: Partial<Omit<SocialLinks, 'id' | '
     return { socialLinks: null, error: error as Error };
   }
 }
+
+/**
+ * Checks if username is available and provides suggestions if not.
+ */
+export const checkUsernameAvailability = async (
+  username: string,
+  currentUserId?: string | null,
+): Promise<UsernameCheckResult> => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, user_name')
+      .eq('user_name', username)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    const suggestions = data ? await generateUsernameSuggestions(username) : [];
+    return evaluateUsernameAvailability({
+      requestedUsername: username,
+      currentUserId,
+      ownerId: data?.id ?? null,
+      suggestions,
+    });
+  } catch (error) {
+    console.error('Error checking username availability:', error);
+    throw new Error('Failed to check username availability');
+  }
+};
+
+/**
+ * Generates username suggestions when the desired username is taken.
+ */
+export const generateUsernameSuggestions = async (baseUsername: string): Promise<string[]> => {
+  const suggestions: string[] = [];
+  const maxSuggestions = 5;
+  const maxAttempts = 15;
+
+  const suggestionTypes = [
+    () => `${baseUsername}${Math.floor(Math.random() * 999) + 1}`,
+    () => `${baseUsername}_${Math.floor(Math.random() * 99) + 1}`,
+    () => `${baseUsername}.${Math.floor(Math.random() * 99) + 1}`,
+    () => `${baseUsername}${new Date().getFullYear()}`,
+    () => `${baseUsername}_user`,
+    () => `${baseUsername}${Math.floor(Math.random() * 9999) + 100}`,
+  ];
+
+  for (let i = 0; i < maxAttempts && suggestions.length < maxSuggestions; i++) {
+    const suggestion = suggestionTypes[i % suggestionTypes.length]();
+
+    if (suggestions.includes(suggestion)) {
+      continue;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_name')
+        .eq('user_name', suggestion)
+        .maybeSingle();
+
+      if (error) {
+        continue;
+      }
+
+      if (!data) {
+        suggestions.push(suggestion);
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+
+  return suggestions;
+};

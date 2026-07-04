@@ -5,10 +5,16 @@ import { useFocusEffect, useRouter } from 'expo-router';
 
 import AppHeader from '../../src/components/AppHeader';
 import ChatList from '../../src/components/messaging/ChatList';
-import { getUserMessageThreads, type MessageThread, type Message } from '../../src/services';
+import type { Message, MessageThread } from '../../src/lib/types';
+import { getUserMessageThreads } from '../../src/services/messagingService';
 import { useVisibility } from '../../src/contexts/VisibilityContext';
-import { supabase } from '../../src/lib/supabase';
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { getCurrentUser } from '../../src/services/authService';
+import {
+  subscribeToMessageListUpdates,
+  subscribeToMessagePartnerLocationUpdates,
+  type RealtimeChange,
+  type RealtimeUnsubscribe,
+} from '../../src/utils/realtime';
 import { useMessaging } from '../../src/contexts/MessagingContext';
 import { isUserNearby } from '../../src/services/locationDbService';
 
@@ -144,8 +150,8 @@ const MessagesScreen: React.FC = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const eventQueueRef = useRef<Array<() => void>>([]);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const channelRef = useRef<any>(null);
-  const locationChannelRef = useRef<any>(null);
+  const channelRef = useRef<RealtimeUnsubscribe | null>(null);
+  const locationChannelRef = useRef<RealtimeUnsubscribe | null>(null);
   const newConversationCheckRef = useRef<Set<string>>(new Set());
   const threadsRef = useRef<MessageThread[]>([]);
 
@@ -156,8 +162,8 @@ const MessagesScreen: React.FC = () => {
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (mounted) setCurrentUserId(data.user?.id ?? null);
+      const user = await getCurrentUser();
+      if (mounted) setCurrentUserId(user?.id ?? null);
     })();
     return () => {
       mounted = false;
@@ -236,8 +242,7 @@ const MessagesScreen: React.FC = () => {
 
     logger.debug('RT:List', 'Setting up message realtime subscription');
 
-    const handleMessageEvent = async (payload: RealtimePostgresChangesPayload<any>) => {
-      const messageData = payload.new as Message;
+    const handleMessageEvent = async ({ new: messageData }: RealtimeChange<Message>) => {
       if (!messageData) return;
 
       const isMyMessage = messageData.sender_id === currentUserId;
@@ -268,45 +273,10 @@ const MessagesScreen: React.FC = () => {
       }
     };
 
-    channelRef.current = supabase
-      .channel('messages-list-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `receiver_id=eq.${currentUserId}`,
-        },
-        handleMessageEvent
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `sender_id=eq.${currentUserId}`,
-        },
-        handleMessageEvent
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'messages',
-        },
-        (payload: RealtimePostgresChangesPayload<any>) => {
-          const messageData = payload.new as Message;
+    channelRef.current = subscribeToMessageListUpdates(currentUserId, {
+      onInsert: handleMessageEvent,
+      onUpdate: ({ new: messageData }) => {
           if (!messageData) return;
-
-          if (
-            messageData.sender_id !== currentUserId &&
-            messageData.receiver_id !== currentUserId
-          ) {
-            return;
-          }
 
           const isMyMessage = messageData.sender_id === currentUserId;
           const otherUserId = isMyMessage ? messageData.receiver_id : messageData.sender_id;
@@ -318,16 +288,16 @@ const MessagesScreen: React.FC = () => {
               message: messageData,
             });
           });
-        }
-      )
-      .subscribe((status: string) => {
+      },
+      onStatus: (status: string) => {
         logger.info('RT:List', `Messages channel status: ${status}`);
-      });
+      },
+    });
 
     return () => {
       if (channelRef.current) {
         logger.debug('RT:List', 'Cleaning up message subscription');
-        supabase.removeChannel(channelRef.current);
+        channelRef.current();
         channelRef.current = null;
       }
     };
@@ -352,26 +322,22 @@ const MessagesScreen: React.FC = () => {
       });
     };
 
-    locationChannelRef.current = supabase
-      .channel('messages-location-updates')
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'locations' },
-        (payload: RealtimePostgresChangesPayload<any>) => {
-          const locationData = payload.new as any;
-          if (locationData && conversationPartnerIds.includes(locationData.id)) {
-            handleLocationUpdate(locationData.id);
-          }
+    locationChannelRef.current = subscribeToMessagePartnerLocationUpdates(
+      conversationPartnerIds,
+      ({ new: locationData }) => {
+        if (locationData) {
+          void handleLocationUpdate(locationData.id);
         }
-      )
-      .subscribe((status: string) => {
+      },
+      (status: string) => {
         logger.info('RT:List', `Location channel status: ${status}`);
-      });
+      },
+    );
 
     return () => {
       if (locationChannelRef.current) {
         logger.debug('RT:List', 'Cleaning up location subscription');
-        supabase.removeChannel(locationChannelRef.current);
+        locationChannelRef.current();
         locationChannelRef.current = null;
       }
     };

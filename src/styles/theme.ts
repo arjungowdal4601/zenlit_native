@@ -1,8 +1,13 @@
+import { Platform } from 'react-native';
+
 const PRIMARY = '#2563EB';
 const PRIMARY_MID = '#4F46E5';
 const SECONDARY = '#7E22CE';
 const BACKGROUND_DARK = '#0A0A0A';
 const SURFACE_DARK = '#101225';
+const SYSTEM_FONT_WEB =
+  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+const SYSTEM_FONT = Platform.OS === 'web' ? SYSTEM_FONT_WEB : undefined;
 
 export const gradientColors = [PRIMARY, PRIMARY_MID, SECONDARY] as const;
 
@@ -50,6 +55,53 @@ export const theme = {
     lg: 18,
     xl: 24,
   },
+  typography: {
+    fontFamily: {
+      web: SYSTEM_FONT_WEB,
+      system: SYSTEM_FONT,
+    },
+    weight: {
+      regular: '400' as const,
+      medium: '500' as const,
+      semibold: '600' as const,
+      bold: '700' as const,
+    },
+    display: {
+      fontFamily: SYSTEM_FONT,
+      fontSize: 48,
+      lineHeight: 52,
+      letterSpacing: -1.2,
+      fontWeight: '700' as const,
+    },
+    title: {
+      fontFamily: SYSTEM_FONT,
+      fontSize: 28,
+      lineHeight: 32,
+      letterSpacing: -0.5,
+      fontWeight: '700' as const,
+    },
+    body: {
+      fontFamily: SYSTEM_FONT,
+      fontSize: 15,
+      lineHeight: 22,
+      letterSpacing: -0.1,
+      fontWeight: '400' as const,
+    },
+    label: {
+      fontFamily: SYSTEM_FONT,
+      fontSize: 14,
+      lineHeight: 18,
+      letterSpacing: -0.1,
+      fontWeight: '600' as const,
+    },
+    nav: {
+      fontFamily: SYSTEM_FONT,
+      fontSize: 11,
+      lineHeight: 14,
+      letterSpacing: 0.1,
+      fontWeight: '700' as const,
+    },
+  },
   header: {
     height: 56,
     paddingHorizontal: 24,
@@ -61,6 +113,7 @@ export const theme = {
       lineHeight: 32,
       letterSpacing: -0.4,
       fontWeight: '700' as const,
+      fontFamily: SYSTEM_FONT,
     },
   },
 };

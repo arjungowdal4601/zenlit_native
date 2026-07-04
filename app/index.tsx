@@ -10,8 +10,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { createShadowStyle } from '../src/utils/shadow';
 import GradientTitle from '../src/components/GradientTitle';

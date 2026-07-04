@@ -17,7 +17,7 @@ jest.mock('../../src/contexts/VisibilityContext', () => ({
   useVisibility: () => mockVisibilityState,
 }));
 
-jest.mock('../../src/services', () => ({
+jest.mock('../../src/services/locationDbService', () => ({
   getNearbyUsers: jest.fn(async () => ({ users: [], error: null })),
 }));
 
@@ -36,7 +36,7 @@ import RadarScreen from '../../app/radar';
 const renderRadarScreen = () => {
   const timeoutSpy = jest
     .spyOn(global, 'setTimeout')
-    .mockImplementation(() => 0 as ReturnType<typeof setTimeout>);
+    .mockImplementation(() => 0 as unknown as ReturnType<typeof setTimeout>);
 
   const result = render(<RadarScreen />);
   timeoutSpy.mockRestore();

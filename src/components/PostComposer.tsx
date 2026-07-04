@@ -3,10 +3,10 @@ import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from 'reac
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import type { FeedPost } from '../constants/feedData';
 import type { CompressedImage } from '../utils/imageCompression';
 import { theme } from '../styles/theme';
 import ImageUploadDialog from './ImageUploadDialog';
+import type { FeedPostAuthor } from './Post';
 
 const AVATAR_SIZE = 48;
 const LINE_HEIGHT = 22;
@@ -19,7 +19,7 @@ export type PostComposerSharePayload = {
 };
 
 export type PostComposerProps = {
-  author: FeedPost['author'];
+  author: FeedPostAuthor;
   onShare?: (payload: PostComposerSharePayload) => Promise<boolean> | boolean;
 };
 

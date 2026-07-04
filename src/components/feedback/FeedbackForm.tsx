@@ -9,9 +9,8 @@ import {
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { supabase } from '../../lib/supabase';
-import { uploadImage } from '../../services';
-import { compressImage, MAX_IMAGE_SIZE_BYTES, base64ToUint8Array, type CompressedImage } from '../../utils/imageCompression';
+import { submitFeedback } from '../../services/feedbackService';
+import type { CompressedImage } from '../../utils/imageCompression';
 import ImageUploadDialog from '../ImageUploadDialog';
 
 const MAX_LENGTH = 1000;
@@ -53,46 +52,6 @@ const FeedbackForm: React.FC = () => {
     setAttachedImage(null);
   };
 
-  const uploadImageIfNeeded = async (image: CompressedImage | null, _userId: string): Promise<string | undefined> => {
-    try {
-      if (!image) {
-        return undefined;
-      }
-
-      let workingImage = image;
-
-      if (
-        workingImage.size > MAX_IMAGE_SIZE_BYTES ||
-        workingImage.metadata.compressedSize > MAX_IMAGE_SIZE_BYTES
-      ) {
-        workingImage = await compressImage(workingImage.uri);
-      }
-
-      const fileName = `feedback-${Date.now()}.jpg`;
-      const uploadBody = workingImage.base64
-        ? base64ToUint8Array(workingImage.base64)
-        : workingImage.uri;
-
-      const { url, error } = await uploadImage(uploadBody, 'feedback-images', fileName, {
-        contentType: workingImage.mimeType,
-      });
-
-      if (error || !url) {
-        throw error ?? new Error('Upload failed');
-      }
-
-      if (typeof __DEV__ !== 'undefined' && __DEV__) {
-        console.log('[feedback-upload]', workingImage.metadata);
-      }
-
-      return url;
-    } catch (uploadError) {
-      console.error('Failed to upload feedback image:', uploadError);
-      return undefined;
-    }
-  };
-
-
   const handleSubmit = async () => {
     const trimmed = message.trim();
     if (!trimmed) {
@@ -108,26 +67,7 @@ const FeedbackForm: React.FC = () => {
     setError(null);
 
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        throw new Error('User not authenticated');
-      }
-
-      let imageUrl: string | undefined = undefined;
-      if (attachedImage) {
-        imageUrl = await uploadImageIfNeeded(attachedImage, user.id);
-        if (!imageUrl) {
-          throw new Error('Failed to upload your screenshot. Please try again.');
-        }
-      }
-
-      const { error: insertError } = await supabase
-        .from('feedback')
-        .insert({
-          user_id: user.id,
-          message: trimmed,
-          image_url: imageUrl || null,
-        });
+      const { error: insertError } = await submitFeedback(trimmed, attachedImage);
 
       if (insertError) {
         throw insertError;

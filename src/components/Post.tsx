@@ -6,9 +6,8 @@ import { Feather } from '@expo/vector-icons';
 import ConfirmDialog from './ConfirmDialog';
 import OptionsDialog from './OptionsDialog';
 import DropdownMenu from './DropdownMenu';
-import { supabase } from '../lib/supabase';
+import { getCurrentUser } from '../services/authService';
 
-import type { FeedPost } from '../constants/feedData';
 import {
   DEFAULT_VISIBLE_PLATFORMS,
   SOCIAL_PLATFORMS,
@@ -24,6 +23,28 @@ const INSTAGRAM_GRADIENT = [
   '#cc2366',
   '#bc1888',
 ] as const;
+
+export type FeedPostAuthorSocialLinks = {
+  instagram?: string | null;
+  twitter?: string | null;
+  linkedin?: string | null;
+};
+
+export type FeedPostAuthor = {
+  id?: string;
+  name: string;
+  username: string;
+  avatar?: string | null;
+  socialLinks?: FeedPostAuthorSocialLinks;
+};
+
+export type FeedPost = {
+  id: string;
+  author: FeedPostAuthor;
+  content: string;
+  image?: string | null;
+  timestamp?: string | null;
+};
 
 export type PostProps = {
   post: FeedPost;
@@ -86,7 +107,7 @@ export const Post: React.FC<PostProps> = ({
       return;
     }
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getCurrentUser();
       if (user && user.id === author.id) {
         router.push('/profile');
       } else {

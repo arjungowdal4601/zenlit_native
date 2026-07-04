@@ -3,7 +3,7 @@ import type { PropsWithChildren } from 'react';
 
 import type { SocialPlatformId } from '../constants/socialPlatforms';
 import { DEFAULT_VISIBLE_PLATFORMS } from '../constants/socialPlatforms';
-import { updateUserLocation, deleteUserLocation } from '../services';
+import { updateUserLocation, deleteUserLocation } from '../services/locationDbService';
 import {
   getCurrentLocation,
   watchLocation,
@@ -63,7 +63,14 @@ export const useVisibility = () => {
   return context;
 };
 
-export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) => {
+type VisibilityProviderProps = PropsWithChildren<{
+  enabled?: boolean;
+}>;
+
+export const VisibilityProvider: React.FC<VisibilityProviderProps> = ({
+  children,
+  enabled = true,
+}) => {
   const [isVisible, setIsVisibleState] = useState(false);
   const [radiusKm, setRadiusKm] = useState(5);
   const [selectedAccounts, setSelectedAccounts] = useState<SocialPlatformId[]>(
@@ -150,6 +157,11 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
   );
 
   const handleLocationUpdate = useCallback(async () => {
+    if (!enabled) {
+      stopLocationRefresh();
+      return;
+    }
+
     if (isVisible) {
       setLocationStatus('fetching');
       try {
@@ -182,9 +194,14 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
       setLocationStatus('not-attempted');
       stopLocationRefresh();
     }
-  }, [isVisible, startLocationRefresh, stopLocationRefresh]);
+  }, [enabled, isVisible, startLocationRefresh, stopLocationRefresh]);
 
   useEffect(() => {
+    if (!enabled) {
+      stopLocationRefresh();
+      return;
+    }
+
     handleLocationUpdate();
 
     return () => {
@@ -193,7 +210,7 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
         locationWatchRef.current = null;
       }
     };
-  }, [handleLocationUpdate]);
+  }, [enabled, handleLocationUpdate, stopLocationRefresh]);
 
   const toggleAccount = (platformId: SocialPlatformId) => {
     setSelectedAccounts((prev) =>
@@ -214,6 +231,10 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
   const requestLocationPermission = useCallback(async (
     options: LocationPermissionRequestOptions = {},
   ): Promise<boolean> => {
+    if (!enabled) {
+      return false;
+    }
+
     const { autoEnable = true } = options;
     hasRequestedPermissionRef.current = true;
 
@@ -272,7 +293,7 @@ export const VisibilityProvider: React.FC<PropsWithChildren> = ({ children }) =>
       setLocationStatus('permission-denied');
       return false;
     }
-  }, [setIsVisible, startLocationRefresh]);
+  }, [enabled, setIsVisible, startLocationRefresh]);
 
   const value = useMemo(
     () => ({

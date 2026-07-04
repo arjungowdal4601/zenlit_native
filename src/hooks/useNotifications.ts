@@ -2,13 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { supabase, supabaseReady } from '../lib/supabase';
+import { isAuthReady } from '../services/authService';
+import {
+  removePushToken,
+  savePushToken,
+  updateNotificationSettings,
+  type NotificationPreferences,
+} from '../services/notificationService';
 import { logger } from '../utils/logger';
 
-export type NotificationPreferences = {
-  messages: boolean;
-  muted_conversations: string[];
-};
+export type { NotificationPreferences } from '../services/notificationService';
 
 export function useNotifications() {
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null);
@@ -18,7 +21,7 @@ export function useNotifications() {
   const responseListener = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
-    if (!supabaseReady) {
+    if (!isAuthReady()) {
       return;
     }
 
@@ -100,20 +103,7 @@ export function useNotifications() {
 
   async function saveTokenToDatabase(token: string) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) {
-        logger.warn('Notifications', 'No authenticated user to save token');
-        return;
-      }
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          expo_push_token: token,
-          last_token_update: new Date().toISOString(),
-        })
-        .eq('id', user.id);
+      const { error } = await savePushToken(token);
 
       if (error) {
         logger.error('Notifications', 'Error saving token to database:', error);
@@ -127,17 +117,7 @@ export function useNotifications() {
 
   async function unregisterToken() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          expo_push_token: null,
-          last_token_update: new Date().toISOString(),
-        })
-        .eq('id', user.id);
+      const { error } = await removePushToken();
 
       if (error) {
         logger.error('Notifications', 'Error removing token from database:', error);
@@ -152,23 +132,7 @@ export function useNotifications() {
 
   async function updateNotificationPreferences(preferences: Partial<NotificationPreferences>) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) return { error: 'Not authenticated' };
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('notification_preferences')
-        .eq('id', user.id)
-        .single();
-
-      const currentPrefs = normalizePreferences(profile?.notification_preferences);
-      const updatedPrefs = normalizePreferences({ ...currentPrefs, ...preferences });
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({ notification_preferences: updatedPrefs })
-        .eq('id', user.id);
+      const { error } = await updateNotificationSettings({ preferences });
 
       if (error) {
         logger.error('Notifications', 'Error updating preferences:', error);
@@ -185,14 +149,7 @@ export function useNotifications() {
 
   async function toggleNotifications(enabled: boolean) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (!user) return { error: 'Not authenticated' };
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({ notification_enabled: enabled })
-        .eq('id', user.id);
+      const { error } = await updateNotificationSettings({ enabled });
 
       if (error) {
         logger.error('Notifications', 'Error toggling notifications:', error);
@@ -213,15 +170,6 @@ export function useNotifications() {
     logger.info('Notifications', 'Handling notification response with data:', data);
 
     // Routing is handled in the root layout; keep this stub for future deep link handling.
-  }
-
-  function normalizePreferences(preferences?: Partial<NotificationPreferences> | null): NotificationPreferences {
-    return {
-      messages: preferences?.messages !== false,
-      muted_conversations: Array.isArray(preferences?.muted_conversations)
-        ? (preferences?.muted_conversations as string[])
-        : [],
-    };
   }
 
   return {

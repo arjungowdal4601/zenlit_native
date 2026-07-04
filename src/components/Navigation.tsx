@@ -157,8 +157,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: '#ffffff',
-    fontSize: 11,
-    fontWeight: '700',
+    ...theme.typography.nav,
   },
 });
 

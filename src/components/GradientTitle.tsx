@@ -19,12 +19,17 @@ export const GradientTitle: React.FC<GradientTitleProps> = ({
   ellipsizeMode = 'tail',
 }) => {
   const effectiveStyle = useMemo<TextStyle>(() => {
+    const overrides = StyleSheet.flatten(style) as TextStyle | undefined;
     const flattened = StyleSheet.flatten([styles.text, style]) as TextStyle | undefined;
     const computed: TextStyle = { ...(flattened ?? {}) };
     const fallbackFontSize =
       typeof computed.fontSize === 'number' ? computed.fontSize : theme.header.title.fontSize;
-    if (computed.lineHeight == null && typeof fallbackFontSize === 'number') {
-      computed.lineHeight = Math.round(fallbackFontSize * 1.1);
+    const hasCustomFontSize = overrides?.fontSize != null;
+    const hasCustomLineHeight = overrides?.lineHeight != null;
+    if (!hasCustomLineHeight && typeof fallbackFontSize === 'number') {
+      computed.lineHeight = hasCustomFontSize
+        ? Math.round(fallbackFontSize * 1.1)
+        : theme.header.title.lineHeight;
     }
     return computed;
   }, [style]);
@@ -92,9 +97,11 @@ export const GradientTitle: React.FC<GradientTitleProps> = ({
 
 const styles = StyleSheet.create({
   text: {
+    fontFamily: theme.header.title.fontFamily,
     fontSize: theme.header.title.fontSize,
     fontWeight: theme.header.title.fontWeight,
     letterSpacing: theme.header.title.letterSpacing,
+    lineHeight: theme.header.title.lineHeight,
   },
   maskContainer: {
     flexShrink: 1,

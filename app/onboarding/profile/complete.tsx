@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import ImageUploadDialog from '../../../src/components/ImageUploadDialog';
 import { SOCIAL_PLATFORMS, extractUsername } from '../../../src/constants/socialPlatforms';
 import GradientTitle from '../../../src/components/GradientTitle';
-import { supabaseReady } from '../../../src/lib/supabase';
+import { isAuthReady } from '../../../src/services/authService';
 import { type CompressedImage } from '../../../src/utils/imageCompression';
 import { uploadProfileImage } from '../../../src/services/storageService';
 import {
@@ -15,12 +15,14 @@ import {
   saveOptionalProfileDetails,
   skipOptionalProfileDetails,
 } from '../../../src/services/onboardingService';
-import { getRouteForOnboardingState } from '../../../src/utils/authNavigation';
+import { getRouteForOnboardingState } from '../../../src/utils/onboardingState';
+import { theme } from '../../../src/styles/theme';
 
 const FALLBACK_AVATAR = null;
 
 const CompleteProfileScreen: React.FC = () => {
   const router = useRouter();
+  const authReady = isAuthReady();
 
   // Local state (UI-only)
   const [bio, setBio] = useState('');
@@ -376,10 +378,10 @@ const CompleteProfileScreen: React.FC = () => {
             style={[
               styles.actionButton,
               styles.saveButton,
-              (!supabaseReady || isSaving) && { opacity: 0.5 },
+              (!authReady || isSaving) && { opacity: 0.5 },
             ]}
             onPress={handleSave}
-            disabled={!supabaseReady || isSaving}
+            disabled={!authReady || isSaving}
             accessibilityRole="button"
           >
             <LinearGradient
@@ -527,7 +529,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 4,
   },
-  headerTitle: { fontSize: 24, fontWeight: '700', color: '#ffffff' },
+  headerTitle: { ...theme.typography.title, fontSize: 24, lineHeight: 28, color: '#ffffff' },
   headerHelper: { marginTop: 4, color: '#94a3b8', fontSize: 13, textAlign: 'center' },
   successBar: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#16a34a', paddingHorizontal: 16, paddingVertical: 10 },
   successText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
@@ -547,7 +549,7 @@ const styles = StyleSheet.create({
   input: { color: '#ffffff', backgroundColor: '#000000', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16, borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.35)' },
   textarea: { minHeight: 100, textAlignVertical: 'top' },
   socialSection: { marginTop: 24, paddingHorizontal: 20 },
-  sectionTitle: { color: '#ffffff', fontSize: 18, fontWeight: '700', marginBottom: 12 },
+  sectionTitle: { ...theme.typography.label, color: '#ffffff', fontSize: 18, lineHeight: 22, fontWeight: '700', marginBottom: 12 },
   socialRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
   socialCard: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(148, 163, 184, 0.35)', borderRadius: 12, backgroundColor: '#000000', marginBottom: 12 },
   socialIconWrap: { display: 'none' },

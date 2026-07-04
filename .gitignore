@@ -26,6 +26,10 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
+# generated QA/reports
+qa-runs/
+auth_onboarding_report.html
+
 # macOS
 .DS_Store
 *.pem
@@ -41,3 +45,4 @@ yarn-error.*
 /ios
 /android
 .env
+.vercel

@@ -24,8 +24,15 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import { createShadowStyle } from '../../../src/utils/shadow';
 import GradientTitle from '../../../src/components/GradientTitle';
-import { supabase } from '../../../src/lib/supabase';
-import { validateProfileData, validateDateOfBirth, validateUsername, validateDisplayName, checkUsernameAvailability, formatDate, parseDobString, normalizeGender, type ProfileData } from '../../../src/utils/profileValidation';
+import { getCurrentUser } from '../../../src/services/authService';
+import { checkUsernameAvailability } from '../../../src/services/profileService';
+import { validateProfileData, formatDate, parseDobString, normalizeGender, type ProfileData } from '../../../src/utils/profileValidation';
+import {
+  canSubmitProfileBasics,
+  EMPTY_PROFILE_BASICS_FORM_ERRORS,
+  getProfileBasicsFormErrors,
+} from '../../../src/utils/profileBasicsForm';
+import { validateUsername } from '../../../src/utils/profileValidation';
 import UsernameSuggestions from '../../../src/components/UsernameSuggestions';
 import {
   getFriendlyOnboardingError,
@@ -37,7 +44,8 @@ import {
   canAccessMainApp,
   getRouteForOnboardingState,
   ROUTES,
-} from '../../../src/utils/authNavigation';
+} from '../../../src/utils/onboardingState';
+import { theme } from '../../../src/styles/theme';
 
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
@@ -98,7 +106,7 @@ const OnboardingBasicScreen: React.FC = () => {
   const webDateInputRef = useRef<HTMLInputElement | null>(null);
   const [isWebDateFocused, setIsWebDateFocused] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState({ displayName: '', username: '', dob: '', gender: '' });
+  const [errors, setErrors] = useState(EMPTY_PROFILE_BASICS_FORM_ERRORS);
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
@@ -133,18 +141,18 @@ const OnboardingBasicScreen: React.FC = () => {
       setSaveError('');
 
       try {
-        const { data, error } = await supabase.auth.getUser();
-        if (error || !data.user) {
+        const user = await getCurrentUser();
+        if (!user) {
           router.replace(ROUTES.auth);
           return;
         }
 
-        const state = await resolveOnboardingState({ userId: data.user.id });
+        const state = await resolveOnboardingState({ userId: user.id });
         if (!mounted) {
           return;
         }
 
-        setCurrentUserId(data.user.id);
+        setCurrentUserId(user.id);
 
         if (state.status === 'recovery') {
           router.replace(ROUTES.onboardingRecovery);
@@ -237,42 +245,25 @@ const OnboardingBasicScreen: React.FC = () => {
   };
 
   const isFilled = useMemo(() => {
-    const hasDisplayName = validateDisplayName(displayName.trim()).isValid;
-    const hasUsername = validateUsername(username.trim()).isValid;
-    const dobStr = dobDate ? formatDate(dobDate) : dob.trim();
-    const hasDob = validateDateOfBirth(dobStr).isValid;
-    const hasGender = gender.trim().length > 0;
-    const isUsernameValid = usernameAvailable === true && !isCheckingUsername;
-    return hasDisplayName && hasUsername && hasDob && hasGender && isUsernameValid;
+    return canSubmitProfileBasics({
+      displayName,
+      username,
+      dob,
+      dobDate,
+      gender,
+      usernameAvailable,
+      isCheckingUsername,
+    });
   }, [displayName, username, dob, dobDate, gender, usernameAvailable, isCheckingUsername]);
 
   const validateForm = (): boolean => {
-    const nextErrors = { displayName: '', username: '', dob: '', gender: '' };
-
-    const dnRes = validateDisplayName(displayName.trim());
-    if (!dnRes.isValid) {
-      nextErrors.displayName = dnRes.error || 'Display name is invalid';
-    }
-
-    const unRes = validateUsername(username.trim());
-    if (!unRes.isValid) {
-      nextErrors.username = unRes.error || 'Username is invalid';
-    }
-
-    if (!(dob.trim().length > 0 || dobDate)) {
-      nextErrors.dob = 'Date of birth is required';
-    } else {
-      const dobStr = dobDate ? formatDate(dobDate) : dob;
-      const dobRes = validateDateOfBirth(dobStr);
-      if (!dobRes.isValid) {
-        nextErrors.dob = dobRes.error || 'Date of birth is invalid';
-      }
-    }
-
-    if (!gender.trim().length) {
-      nextErrors.gender = 'Please select your gender';
-    }
-
+    const nextErrors = getProfileBasicsFormErrors({
+      displayName,
+      username,
+      dob,
+      dobDate,
+      gender,
+    });
     setErrors(nextErrors);
     return !nextErrors.displayName && !nextErrors.username && !nextErrors.dob && !nextErrors.gender;
   };
@@ -362,17 +353,17 @@ const OnboardingBasicScreen: React.FC = () => {
   };
 
   const handleContinue = async () => {
-    if (!isFilled || isSubmitting) {
-      return;
-    }
-
-    if (usernameAvailable !== true) {
-      setSaveError('Please choose an available username.');
+    if (isSubmitting) {
       return;
     }
 
     const isValid = validateForm();
     if (!isValid) {
+      return;
+    }
+
+    if (usernameAvailable !== true) {
+      setSaveError(isCheckingUsername ? 'Please wait for username availability.' : 'Please choose an available username.');
       return;
     }
 
@@ -610,12 +601,12 @@ const OnboardingBasicScreen: React.FC = () => {
 
             <Pressable
               accessibilityRole="button"
-              disabled={!isFilled || isSubmitting}
+              disabled={isSubmitting}
               onPress={handleContinue}
               style={({ pressed }) => [
                 styles.primaryButton,
                 (!isFilled || isSubmitting) ? styles.disabled : null,
-                pressed && isFilled && !isSubmitting ? styles.primaryButtonPressed : null,
+                pressed && !isSubmitting ? styles.primaryButtonPressed : null,
               ]}
             >
               <LinearGradient
@@ -717,8 +708,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   brandTitle: {
+    ...theme.typography.title,
     fontSize: 40,
-    fontWeight: '700',
+    lineHeight: 44,
     letterSpacing: -0.8,
     textAlign: 'center',
   },

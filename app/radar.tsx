@@ -15,15 +15,18 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 import { AppHeader } from '../src/components/AppHeader';
 import { SocialProfileCard } from '../src/components/SocialProfileCard';
 import VisibilitySheet from '../src/components/VisibilitySheet';
 import { useVisibility } from '../src/contexts/VisibilityContext';
 import { theme } from '../src/styles/theme';
-import { getNearbyUsers, type NearbyUserData } from '../src/services';
-import { supabase } from '../src/lib/supabase';
+import type { NearbyUserData } from '../src/lib/types';
+import { getNearbyUsers } from '../src/services/locationDbService';
+import {
+  subscribeToRadarLocationUpdates,
+  type RealtimeUnsubscribe,
+} from '../src/utils/realtime';
 import { AnimatedStatusView } from '../src/components/AnimatedStatusView';
 
 const SEARCH_DEBOUNCE_DELAY = 120;
@@ -58,7 +61,7 @@ const RadarScreen: React.FC = () => {
   const [permissionCardDismissed, setPermissionCardDismissed] = useState(false);
   const [isRequestingLocation, setIsRequestingLocation] = useState(false);
   const inputRef = useRef<TextInput>(null);
-  const realtimeChannelRef = useRef<any>(null);
+  const realtimeChannelRef = useRef<RealtimeUnsubscribe | null>(null);
   const realtimeDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previousUserIdsRef = useRef<Set<string>>(new Set());
 
@@ -236,7 +239,7 @@ const RadarScreen: React.FC = () => {
     if (!isVisible || locationPermissionDenied) {
       if (realtimeChannelRef.current) {
         logger.debug('RT:Radar', 'Cleaning up realtime subscription (visibility off or permission denied)');
-        supabase.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current();
         realtimeChannelRef.current = null;
       }
       if (realtimeDebounceTimerRef.current) {
@@ -259,40 +262,20 @@ const RadarScreen: React.FC = () => {
       }, REALTIME_DEBOUNCE_DELAY);
     };
 
-    realtimeChannelRef.current = supabase
-      .channel('radar-location-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'locations',
-        },
-        (payload: RealtimePostgresChangesPayload<any>) => {
-          logger.debug('RT:Radar', 'Location INSERT event received');
-          handleLocationChange();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'locations',
-        },
-        (payload: RealtimePostgresChangesPayload<any>) => {
-          logger.debug('RT:Radar', 'Location UPDATE event received');
-          handleLocationChange();
-        }
-      )
-      .subscribe((status: string) => {
+    realtimeChannelRef.current = subscribeToRadarLocationUpdates(
+      ({ eventType }) => {
+        logger.debug('RT:Radar', `Location ${eventType} event received`);
+        handleLocationChange();
+      },
+      (status: string) => {
         logger.info('RT:Radar', `Location channel status: ${status}`);
-      });
+      },
+    );
 
     return () => {
       if (realtimeChannelRef.current) {
         logger.debug('RT:Radar', 'Cleaning up realtime subscription');
-        supabase.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current();
         realtimeChannelRef.current = null;
       }
       if (realtimeDebounceTimerRef.current) {

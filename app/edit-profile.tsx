@@ -6,8 +6,13 @@ import { useRouter } from 'expo-router';
 import ImageUploadDialog from '../src/components/ImageUploadDialog';
 import { SOCIAL_PLATFORMS, extractUsername } from '../src/constants/socialPlatforms';
 import GradientTitle from '../src/components/GradientTitle';
-import { supabase } from '../src/lib/supabase';
-import { getCurrentUserProfile, updateSocialLinks, uploadProfileImage, deleteImageFromStorage, updateProfileDisplayName } from '../src/services';
+import { getCurrentUser } from '../src/services/authService';
+import {
+  getCurrentUserProfile,
+  updateProfileDisplayName,
+  updateSocialLinks,
+} from '../src/services/profileService';
+import { deleteImageFromStorage, uploadProfileImage } from '../src/services/storageService';
 import { useProfile } from '../src/contexts/ProfileContext';
 import { type CompressedImage } from '../src/utils/imageCompression';
 
@@ -184,11 +189,8 @@ const EditProfileScreen: React.FC = () => {
     let socialLinksUpdated = false;
 
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-      if (userError || !user) {
+      const user = await getCurrentUser();
+      if (!user) {
         throw new Error('User not authenticated');
       }
 

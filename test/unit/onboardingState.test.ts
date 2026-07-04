@@ -5,6 +5,7 @@ import {
   evaluateOnboardingState,
   evaluateUsernameAvailability,
   getRouteForOnboardingState,
+  shouldRefreshBeforeOnboardingRedirect,
 } from '../../src/utils/onboardingState';
 
 const USER_ID = 'user-123';
@@ -91,6 +92,30 @@ describe('onboarding state evaluation', () => {
     expect(getRouteForOnboardingState(state, { preferOptionalDetails: true })).toBe(
       ROUTES.onboardingComplete,
     );
+  });
+
+  it('refreshes before redirecting away from optional details during stale basics handoff', () => {
+    const state = evaluateOnboardingState({
+      userId: USER_ID,
+      profile: null,
+      draft: null,
+      socialLinks: null,
+    });
+
+    expect(shouldRefreshBeforeOnboardingRedirect(state, ROUTES.onboardingComplete)).toBe(true);
+    expect(shouldRefreshBeforeOnboardingRedirect(state, ROUTES.onboardingBasic)).toBe(false);
+    expect(shouldRefreshBeforeOnboardingRedirect(state, ROUTES.home)).toBe(false);
+  });
+
+  it('does not refresh before redirect for users already in optional details state', () => {
+    const state = evaluateOnboardingState({
+      userId: USER_ID,
+      profile: completeProfile,
+      draft: null,
+      socialLinks: null,
+    });
+
+    expect(shouldRefreshBeforeOnboardingRedirect(state, ROUTES.onboardingComplete)).toBe(false);
   });
 
   it('routes ambiguous backend failures to recovery instead of Radar', () => {
