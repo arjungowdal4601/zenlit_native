@@ -12,10 +12,12 @@ expo-env.d.ts
 # Native
 .kotlin/
 *.orig.*
+*.keystore
 *.jks
 *.p8
 *.p12
 *.key
+*.pem
 *.mobileprovision
 
 # Metro
@@ -32,11 +34,32 @@ auth_onboarding_report.html
 
 # macOS
 .DS_Store
-*.pem
 
-# local env files
-.env*.local
-# .env
+# local env and secrets
+.env
+.env.*
+!.env.example
+!.env.template
+.envrc
+.direnv/
+
+# credential files
+credentials*.json
+*credentials*.json
+credential*.json
+*credential*.json
+*secret*.json
+*service-account*.json
+*service_account*.json
+client_secret*.json
+google-services.json
+GoogleService-Info.plist
+
+# encrypted or local secret blobs
+*.aes
+*.enc
+*.encrypted
+*.gpg
 
 # typescript
 *.tsbuildinfo
@@ -44,5 +67,7 @@ auth_onboarding_report.html
 # generated native folders
 /ios
 /android
-.env
-.vercel
+
+# provider local state
+.vercel/
+supabase/.temp/
