@@ -399,8 +399,9 @@ const MessagesScreen: React.FC = () => {
       <AppHeader title="Messages" onTitlePress={handleHeaderRefresh} />
       {state.threads.length === 0 ? (
         <View style={styles.centerContainer}>
+          <Text style={styles.emptyTitle}>No conversations yet</Text>
           <Text style={styles.emptyText}>
-            You don't have any conversations yet. Start chatting by discovering people nearby.
+            Discover people on Radar, open a profile, and start a message when someone feels worth meeting.
           </Text>
         </View>
       ) : (
@@ -434,6 +435,15 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#94a3b8',
     fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 23,
+    maxWidth: 320,
+  },
+  emptyTitle: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 8,
     textAlign: 'center',
   },
 });

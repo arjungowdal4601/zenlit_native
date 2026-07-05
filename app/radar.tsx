@@ -402,8 +402,8 @@ const RadarScreen: React.FC = () => {
 
       {shouldShowInitialPermissionCard ? (
         renderRadarGateCard({
-          title: 'Share your location to discover people nearby.',
-          body: 'Zenlit uses your location to show people around you. You control your visibility.',
+          title: 'Share your location to start Radar.',
+          body: 'Your browser will ask for permission. Zenlit uses your location to show nearby people, and you can turn visibility off anytime.',
           primaryLabel: 'Enable location',
           secondaryLabel: 'Not now',
           onPrimary: handleEnableLocation,
@@ -474,7 +474,7 @@ const RadarScreen: React.FC = () => {
             ) : (
               <AnimatedStatusView
                 title="No nearby users"
-                subtitle="No one is visible"
+                subtitle="No one is visible nearby yet. Keep Radar on or invite someone to join."
                 icon="users"
               />
             )

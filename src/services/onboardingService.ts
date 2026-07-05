@@ -8,6 +8,13 @@ import {
   type OnboardingState,
   type ProfileBasicsDraftRecord,
 } from '../utils/onboardingState';
+import type {
+  OptionalProfileDetailsInput,
+  ProfileBasicsInput,
+  ResolveOnboardingOptions,
+  ResolveRouteOptions,
+  ServiceResult,
+} from '../types/onboarding';
 import {
   formatDate,
   normalizeGender,
@@ -20,35 +27,6 @@ import {
 } from '../utils/profileValidation';
 import { logger } from '../utils/logger';
 
-export type ResolveOnboardingOptions = {
-  userId?: string | null;
-};
-
-export type ResolveRouteOptions = ResolveOnboardingOptions & {
-  preferOptionalDetails?: boolean;
-};
-
-export type ProfileBasicsInput = {
-  display_name: string;
-  user_name: string;
-  date_of_birth: string;
-  gender: string;
-};
-
-export type OptionalProfileDetailsInput = {
-  bio?: string | null;
-  instagram?: string | null;
-  x_twitter?: string | null;
-  linkedin?: string | null;
-  profile_pic_url?: string | null;
-  banner_url?: string | null;
-};
-
-type ServiceResult<T> = {
-  data: T | null;
-  error: Error | null;
-};
-
 const asError = (value: unknown, fallback: string): Error => {
   if (value instanceof Error) {
     return value;
@@ -59,24 +37,6 @@ const asError = (value: unknown, fallback: string): Error => {
   }
 
   return new Error(fallback);
-};
-
-export const getFriendlyOnboardingError = (error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error ?? '');
-
-  if (message.includes('23505') || message.toLowerCase().includes('duplicate')) {
-    return 'That username is already taken. Please choose another.';
-  }
-
-  if (message.toLowerCase().includes('network') || message.toLowerCase().includes('fetch')) {
-    return 'We could not connect right now. Please check your connection and try again.';
-  }
-
-  if (message.toLowerCase().includes('not authenticated')) {
-    return 'Your session expired. Please sign in again.';
-  }
-
-  return 'Something went wrong. Please try again.';
 };
 
 const getAuthenticatedUser = async (userId?: string | null) => {

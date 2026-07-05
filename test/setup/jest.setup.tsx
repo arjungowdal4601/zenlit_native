@@ -91,6 +91,14 @@ jest.mock('@expo/vector-icons', () => ({
   FontAwesome6: mockCreateIcon('FontAwesome6'),
 }));
 
+jest.mock('@vercel/analytics/react', () => ({
+  Analytics: () => null,
+}));
+
+jest.mock('@vercel/speed-insights/react', () => ({
+  SpeedInsights: () => null,
+}));
+
 jest.mock('lucide-react-native', () => ({
   Compass: mockCreateIcon('Compass'),
   MessageSquare: mockCreateIcon('MessageSquare'),

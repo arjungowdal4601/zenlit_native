@@ -1,29 +1,15 @@
 import * as React from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  Alert,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useRef, useCallback } from 'react';
 
-import { createShadowStyle } from '../../src/utils/shadow';
 import GradientTitle from '../../src/components/GradientTitle';
 import { isAuthReady, signInWithEmailOtp, verifyEmailOtp } from '../../src/services/authService';
 import { logger } from '../../src/utils/logger';
-import { resolveOnboardingRoute } from '../../src/services/onboardingService';
-import { theme } from '../../src/styles/theme';
+import { styles } from './verifyOtp.styles';
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const COOLDOWN_SECONDS = 60;
@@ -108,9 +94,7 @@ export default function VerifyOTPScreen() {
       }
 
       if (user) {
-        const targetRoute = await resolveOnboardingRoute({ userId: user.id });
-        // Use replace to prevent going back to OTP screen
-        router.replace(targetRoute ?? '/onboarding/profile/basic');
+        setStatus('Code verified. Checking setup...');
       } else {
         logger.error('Auth', 'OTP verification returned no user');
         setError('Verification failed. Please try again.');
@@ -220,6 +204,7 @@ export default function VerifyOTPScreen() {
                   textContentType="oneTimeCode"
                   inputMode="numeric"
                   maxLength={6}
+                  accessibilityLabel="OTP code"
                   autoFocus
                   style={styles.otpInput}
                 />
@@ -271,192 +256,3 @@ export default function VerifyOTPScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  root: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 40,
-    alignItems: 'center',
-  },
-  topBar: {
-    width: '100%',
-    maxWidth: 400,
-    alignItems: 'flex-start',
-    marginBottom: 24,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  brandSection: {
-    alignItems: 'center',
-    marginBottom: 32,
-  },
-  brandTitle: {
-    ...theme.typography.title,
-    fontSize: 40,
-    lineHeight: 44,
-    letterSpacing: -0.8,
-    textAlign: 'center',
-  },
-  brandSubtitle: {
-    marginTop: 6,
-    fontSize: 16,
-    color: '#94a3b8',
-  },
-  card: {
-    width: '100%',
-    maxWidth: 400,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-    borderRadius: 24,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
-    shadowColor: '#000000',
-    shadowOpacity: 0.5,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 12,
-  },
-  infoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.3)',
-    backgroundColor: 'rgba(30, 58, 138, 0.2)',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#cbd5f5',
-    lineHeight: 20,
-  },
-  infoTextStrong: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  statusText: {
-    marginTop: 16,
-    fontSize: 13,
-    textAlign: 'center',
-    color: '#60a5fa',
-  },
-  errorText: {
-    marginTop: 16,
-    fontSize: 13,
-    textAlign: 'center',
-    color: '#fca5a5',
-  },
-  errorWithStatus: {
-    marginTop: 8,
-  },
-  inputBlock: {
-    marginTop: 32,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#cbd5f5',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  otpWrapper: {
-    position: 'relative',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    alignItems: 'center',
-    width: 260,
-    maxWidth: 260,
-  },
-  otpInput: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.3)',
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
-    color: '#ffffff',
-    fontSize: 28,
-    fontWeight: '600',
-    letterSpacing: 14,
-    textAlign: 'center',
-    paddingVertical: 12,
-    width: '100%',
-    height: 64,
-    flexShrink: 0,
-  },
-  ghostCode: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    textAlign: 'center',
-    fontSize: 28,
-    fontWeight: '600',
-    letterSpacing: 14,
-    color: 'rgba(148, 163, 184, 0.15)',
-    textTransform: 'none',
-    textAlignVertical: 'center',
-    lineHeight: 60,
-    pointerEvents: 'none' as unknown as undefined,
-  },
-  primaryButton: {
-    width: '100%',
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginTop: 32,
-  },
-  primaryButtonPressed: {
-    transform: [{ scale: 0.98 }],
-    opacity: 0.9,
-  },
-  primaryGradient: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-  },
-  primaryLabel: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-  resendBlock: {
-    marginTop: 24,
-    alignItems: 'center',
-  },
-  cooldownText: {
-    fontSize: 13,
-    color: '#94a3b8',
-  },
-  cooldownStrong: {
-    color: '#ffffff',
-    fontWeight: '600',
-  },
-  resendLink: {
-    fontSize: 13,
-    color: '#60a5fa',
-    fontWeight: '600',
-  },
-});

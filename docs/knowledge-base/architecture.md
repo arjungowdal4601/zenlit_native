@@ -4,7 +4,7 @@ This file documents the current structure. It is not a redesign plan and does no
 
 ## App Shape
 
-Zenlit is an Expo Router app. Screens live in `app/`, shared UI and services live in `src/`, and Supabase migrations/functions live in `supabase/`.
+Zenlit is an Expo Router app. The current product direction is web-first, native-ready: ship the browser MVP on Vercel now while keeping core logic and reusable UI portable for future native apps. Screens live in `app/`, shared UI and services live in `src/`, and Supabase migrations/functions live in `supabase/`.
 
 The main app tabs are:
 
@@ -37,6 +37,8 @@ Bottom navigation is rendered by `src/components/Navigation.tsx`, but only after
 | `/edit-profile` | `app/edit-profile.tsx` | Edit current profile |
 | `/feedback` | `app/feedback.tsx` | Feedback form |
 | `/notification-settings` | `app/notification-settings.tsx` | Notification preferences |
+| `/terms` | `app/terms.tsx` | Draft Terms of Service |
+| `/privacy` | `app/privacy.tsx` | Draft Privacy Policy |
 
 ## Onboarding And Auth Boundary
 
@@ -72,6 +74,15 @@ Radar-specific gates are separate from onboarding:
 - Discovery-ready state
 
 Do not route back into onboarding because location permission is denied or Radar visibility is off.
+
+## Web Shell Direction
+
+Current launch work should optimize the browser app:
+
+- Vercel deploys the Expo web export from `dist/`.
+- `app.json` keeps `web.output` as `single` because authenticated dynamic routes need SPA refresh behavior.
+- Mobile Safari and mobile Chrome are the first browser QA targets.
+- Native app store, native push, and native build pipeline work stays future/traction-gated.
 
 ## Shared Boundaries
 

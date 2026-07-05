@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { Profile, SocialLinks } from '../lib/types';
-import { evaluateUsernameAvailability } from '../utils/onboardingState';
+import { evaluateUsernameAvailability } from '../utils/usernameAvailability';
 import type { UsernameCheckResult } from '../utils/profileValidation';
 
 export async function getCurrentUserProfile(): Promise<{ profile: Profile | null; socialLinks: SocialLinks | null; error: Error | null }> {

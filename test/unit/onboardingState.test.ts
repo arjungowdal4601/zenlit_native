@@ -3,10 +3,10 @@ import {
   canAccessMainApp,
   createCheckingOnboardingState,
   evaluateOnboardingState,
-  evaluateUsernameAvailability,
   getRouteForOnboardingState,
   shouldRefreshBeforeOnboardingRedirect,
 } from '../../src/utils/onboardingState';
+import { evaluateUsernameAvailability } from '../../src/utils/usernameAvailability';
 
 const USER_ID = 'user-123';
 

@@ -98,6 +98,14 @@ const GetStartedScreen: React.FC = () => {
         <View style={styles.titleWrapper}>
           <GradientTitle text="Zenlit" style={styles.title} numberOfLines={1} />
           <Text style={styles.subtitle}>Connect with people around you.</Text>
+          <Text style={styles.heroText}>
+            A browser-first social radar for discovering nearby people, sharing posts, and starting conversations.
+          </Text>
+          <View style={styles.trustRow}>
+            <Text style={styles.trustPill}>No app store</Text>
+            <Text style={styles.trustPill}>Email OTP</Text>
+            <Text style={styles.trustPill}>You control visibility</Text>
+          </View>
         </View>
 
         <Pressable
@@ -122,6 +130,16 @@ const GetStartedScreen: React.FC = () => {
             )}
           </LinearGradient>
         </Pressable>
+
+        <View style={styles.footerLinks}>
+          <Text onPress={() => router.push('/terms')} style={styles.footerLink}>
+            Terms
+          </Text>
+          <Text style={styles.footerDot}>•</Text>
+          <Text onPress={() => router.push('/privacy')} style={styles.footerLink}>
+            Privacy
+          </Text>
+        </View>
       </Animated.View>
     </View>
   );
@@ -142,7 +160,7 @@ const styles = StyleSheet.create({
   },
   titleWrapper: {
     alignItems: 'center',
-    marginBottom: 64,
+    marginBottom: 52,
   },
   title: {
     fontSize: 72,
@@ -157,6 +175,32 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     textAlign: 'center',
     letterSpacing: -0.5,
+  },
+  heroText: {
+    marginTop: 16,
+    color: '#cbd5e1',
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: 'center',
+    maxWidth: 340,
+  },
+  trustRow: {
+    marginTop: 18,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  trustPill: {
+    color: '#93c5fd',
+    fontSize: 12,
+    fontWeight: '600',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(96, 165, 250, 0.28)',
+    backgroundColor: 'rgba(37, 99, 235, 0.12)',
   },
   buttonWrapper: {
     width: '70%',
@@ -188,6 +232,21 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginLeft: 8,
+  },
+  footerLinks: {
+    marginTop: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  footerLink: {
+    color: '#60a5fa',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  footerDot: {
+    color: '#475569',
+    fontSize: 13,
   },
 });
 

@@ -61,9 +61,9 @@ describe('Radar gate states', () => {
 
     renderRadarScreen();
 
-    expect(screen.getByText('Share your location to discover people nearby.')).toBeTruthy();
+    expect(screen.getByText('Share your location to start Radar.')).toBeTruthy();
     expect(
-      screen.getByText('Zenlit uses your location to show people around you. You control your visibility.'),
+      screen.getByText('Your browser will ask for permission. Zenlit uses your location to show nearby people, and you can turn visibility off anytime.'),
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Enable location' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Not now' })).toBeTruthy();
