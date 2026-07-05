@@ -3,8 +3,8 @@ import React from 'react';
 import {
   ProfileBasicsForm,
   ProfileBasicsLoading,
-} from './ProfileBasicsForm';
-import { useProfileBasicsOnboarding } from './useProfileBasicsOnboarding';
+} from '../../../src/components/onboarding/ProfileBasicsForm';
+import { useProfileBasicsOnboarding } from '../../../src/hooks/useProfileBasicsOnboarding';
 
 const OnboardingBasicScreen: React.FC = () => {
   const form = useProfileBasicsOnboarding();

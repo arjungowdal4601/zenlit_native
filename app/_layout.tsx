@@ -14,8 +14,8 @@ import { ProfileProvider } from '../src/contexts/ProfileContext';
 import { VisibilityProvider } from '../src/contexts/VisibilityContext';
 import Navigation from '../src/components/Navigation';
 import { theme } from '../src/styles/theme';
-import { styles } from './rootLayout.styles';
-import { useRootLayoutController } from './useRootLayoutController';
+import { styles } from '../src/styles/rootLayout.styles';
+import { useRootLayoutController } from '../src/hooks/useRootLayoutController';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({

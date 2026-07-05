@@ -2,16 +2,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { usePathname, useRouter, useSegments } from 'expo-router';
 
-import { theme } from '../src/styles/theme';
-import { logger } from '../src/utils/logger';
+import { theme } from '../styles/theme';
+import { logger } from '../utils/logger';
 import {
   canAccessMainApp,
   getRouteForOnboardingState,
   ROUTES,
   shouldRefreshBeforeOnboardingRedirect,
   type OnboardingState,
-} from '../src/utils/onboardingState';
-import { resolveOnboardingState } from '../src/services/onboardingService';
+} from '../utils/onboardingState';
+import { resolveOnboardingState } from '../services/onboardingService';
 import {
   getAuthConfigStatus,
   getCurrentSessionUser,
@@ -19,9 +19,9 @@ import {
   isAuthReady,
   onAuthChange,
   signOut,
-} from '../src/services/authService';
-import { useNotifications } from '../src/hooks/useNotifications';
-import { persistHasSeenGetStarted, readHasSeenGetStarted } from '../src/utils/getStartedPreference';
+} from '../services/authService';
+import { useNotifications } from './useNotifications';
+import { persistHasSeenGetStarted, readHasSeenGetStarted } from '../utils/getStartedPreference';
 
 const PUBLIC_ROUTES = new Set(['/terms', '/privacy']);
 

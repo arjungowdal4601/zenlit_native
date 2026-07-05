@@ -3,13 +3,13 @@ import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { DateTimePickerAndroid, type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
-import { getCurrentUser } from '../../../src/services/authService';
-import { resolveOnboardingState, saveProfileBasicsDraft, saveRequiredProfileBasics } from '../../../src/services/onboardingService';
-import { checkUsernameAvailability } from '../../../src/services/profileService';
-import { getFriendlyOnboardingError } from '../../../src/utils/onboardingErrors';
-import { canSubmitProfileBasics, EMPTY_PROFILE_BASICS_FORM_ERRORS, getProfileBasicsFormErrors } from '../../../src/utils/profileBasicsForm';
-import { formatDate, normalizeGender, parseDobString, validateProfileData, validateUsername, type ProfileData } from '../../../src/utils/profileValidation';
-import { canAccessMainApp, getRouteForOnboardingState, ROUTES } from '../../../src/utils/onboardingState';
+import { getCurrentUser } from '../services/authService';
+import { resolveOnboardingState, saveProfileBasicsDraft, saveRequiredProfileBasics } from '../services/onboardingService';
+import { checkUsernameAvailability } from '../services/profileService';
+import { getFriendlyOnboardingError } from '../utils/onboardingErrors';
+import { canSubmitProfileBasics, EMPTY_PROFILE_BASICS_FORM_ERRORS, getProfileBasicsFormErrors } from '../utils/profileBasicsForm';
+import { formatDate, normalizeGender, parseDobString, validateProfileData, validateUsername, type ProfileData } from '../utils/profileValidation';
+import { canAccessMainApp, getRouteForOnboardingState, ROUTES } from '../utils/onboardingState';
 
 export const GENDERS = ['Male', 'Female', 'Others'] as const;
 export type GenderOption = typeof GENDERS[number];

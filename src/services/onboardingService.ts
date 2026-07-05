@@ -1,8 +1,6 @@
 import { supabase } from '../lib/supabase';
 import {
   evaluateOnboardingState,
-  getRouteForOnboardingState,
-  type AppRoute,
   type BasicProfileValues,
   type OnboardingProfileRecord,
   type OnboardingState,
@@ -12,7 +10,6 @@ import type {
   OptionalProfileDetailsInput,
   ProfileBasicsInput,
   ResolveOnboardingOptions,
-  ResolveRouteOptions,
   ServiceResult,
 } from '../types/onboarding';
 import {
@@ -127,15 +124,6 @@ export const resolveOnboardingState = async (
       profileError: asError(error, 'Failed to resolve onboarding'),
     });
   }
-};
-
-export const resolveOnboardingRoute = async (
-  options: ResolveRouteOptions = {},
-): Promise<AppRoute> => {
-  const state = await resolveOnboardingState({ userId: options.userId });
-  return getRouteForOnboardingState(state, {
-    preferOptionalDetails: options.preferOptionalDetails,
-  });
 };
 
 export const saveProfileBasicsDraft = async (

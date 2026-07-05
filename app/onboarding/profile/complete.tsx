@@ -6,9 +6,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import ImageUploadDialog from '../../../src/components/ImageUploadDialog';
 import GradientTitle from '../../../src/components/GradientTitle';
-import { SocialLinksEditor } from './SocialLinksEditor';
-import { styles } from './complete.styles';
-import { useCompleteProfileOnboarding } from './useCompleteProfileOnboarding';
+import { SocialLinksEditor } from '../../../src/components/onboarding/SocialLinksEditor';
+import { styles } from '../../../src/styles/completeProfile.styles';
+import { useCompleteProfileOnboarding } from '../../../src/hooks/useCompleteProfileOnboarding';
 
 const CompleteProfileScreen: React.FC = () => {
   const profile = useCompleteProfileOnboarding();

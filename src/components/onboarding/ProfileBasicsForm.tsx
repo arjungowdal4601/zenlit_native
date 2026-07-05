@@ -6,10 +6,10 @@ import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import GradientTitle from '../../../src/components/GradientTitle';
-import UsernameSuggestions from '../../../src/components/UsernameSuggestions';
-import { styles } from './basic.styles';
-import { GENDERS, type useProfileBasicsOnboarding } from './useProfileBasicsOnboarding';
+import GradientTitle from '../GradientTitle';
+import UsernameSuggestions from '../UsernameSuggestions';
+import { styles } from '../../styles/profileBasics.styles';
+import { GENDERS, type useProfileBasicsOnboarding } from '../../hooks/useProfileBasicsOnboarding';
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const WEB_DATE_INPUT_OVERLAY_STYLE: CSSProperties = {

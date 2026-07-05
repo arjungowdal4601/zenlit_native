@@ -22,7 +22,6 @@ Bottom navigation is rendered by `src/components/Navigation.tsx`, but only after
 | --- | --- | --- |
 | `/` | `app/index.tsx` | Minimal Get Started screen |
 | `/auth` | `app/auth/index.tsx` | Email entry and OTP request |
-| `/auth/signup` | `app/auth/signup.tsx` | Auth variant route kept for compatibility |
 | `/auth/verify-otp` | `app/auth/verify-otp.tsx` | OTP verification handoff |
 | `/onboarding/profile/basic` | `app/onboarding/profile/basic.tsx` | Mandatory Profile Basics, Step 1 of 2 |
 | `/onboarding/profile/complete` | `app/onboarding/profile/complete.tsx` | Optional Profile Details, Step 2 of 2 |
@@ -54,7 +53,6 @@ Do not add separate final route decisions inside onboarding screens. Screens sho
 Current onboarding states:
 
 - Guest user
-- Authenticated user while setup is being checked
 - Profile Basics required
 - Optional Profile Details available
 - Fully onboarded

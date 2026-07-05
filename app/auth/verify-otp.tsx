@@ -9,7 +9,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import GradientTitle from '../../src/components/GradientTitle';
 import { isAuthReady, signInWithEmailOtp, verifyEmailOtp } from '../../src/services/authService';
 import { logger } from '../../src/utils/logger';
-import { styles } from './verifyOtp.styles';
+import { styles } from '../../src/styles/verifyOtp.styles';
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const COOLDOWN_SECONDS = 60;
@@ -255,4 +255,3 @@ export default function VerifyOTPScreen() {
     </SafeAreaView>
   );
 }
-

@@ -2,10 +2,6 @@ export type ResolveOnboardingOptions = {
   userId?: string | null;
 };
 
-export type ResolveRouteOptions = ResolveOnboardingOptions & {
-  preferOptionalDetails?: boolean;
-};
-
 export type ProfileBasicsInput = {
   display_name: string;
   user_name: string;

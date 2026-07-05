@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Modal, Pressable, Text, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
-import { SOCIAL_PLATFORMS, extractUsername } from '../../../src/constants/socialPlatforms';
-import GradientTitle from '../../../src/components/GradientTitle';
-import { styles } from './complete.styles';
+import { SOCIAL_PLATFORMS, extractUsername } from '../../constants/socialPlatforms';
+import GradientTitle from '../GradientTitle';
+import { styles } from '../../styles/completeProfile.styles';
 
 type SocialLinksEditorProps = {
   instagram: string;

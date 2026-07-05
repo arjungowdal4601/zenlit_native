@@ -1,7 +1,6 @@
 import {
   ROUTES,
   canAccessMainApp,
-  createCheckingOnboardingState,
   evaluateOnboardingState,
   getRouteForOnboardingState,
   shouldRefreshBeforeOnboardingRedirect,
@@ -29,14 +28,6 @@ describe('onboarding state evaluation', () => {
     });
 
     expect(state.status).toBe('guest');
-    expect(getRouteForOnboardingState(state)).toBe(ROUTES.auth);
-    expect(canAccessMainApp(state)).toBe(false);
-  });
-
-  it('keeps authenticated users out of the main app while setup is being checked', () => {
-    const state = createCheckingOnboardingState(USER_ID);
-
-    expect(state.status).toBe('checking');
     expect(getRouteForOnboardingState(state)).toBe(ROUTES.auth);
     expect(canAccessMainApp(state)).toBe(false);
   });

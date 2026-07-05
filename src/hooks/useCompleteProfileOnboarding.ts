@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 
-import { useOnboardingProfileDraft } from '../../../src/contexts/OnboardingProfileDraftContext';
-import { isAuthReady } from '../../../src/services/authService';
-import { saveOptionalProfileDetails, skipOptionalProfileDetails } from '../../../src/services/onboardingService';
-import { uploadProfileImage } from '../../../src/services/storageService';
-import type { CompressedImage } from '../../../src/utils/imageCompression';
-import { getFriendlyOnboardingError } from '../../../src/utils/onboardingErrors';
-import { getRouteForOnboardingState } from '../../../src/utils/onboardingState';
+import { useOnboardingProfileDraft } from '../contexts/OnboardingProfileDraftContext';
+import { isAuthReady } from '../services/authService';
+import { saveOptionalProfileDetails, skipOptionalProfileDetails } from '../services/onboardingService';
+import { uploadProfileImage } from '../services/storageService';
+import type { CompressedImage } from '../utils/imageCompression';
+import { getFriendlyOnboardingError } from '../utils/onboardingErrors';
+import { getRouteForOnboardingState } from '../utils/onboardingState';
 
 const uploadImageIfNeeded = async (
   image: CompressedImage | null,

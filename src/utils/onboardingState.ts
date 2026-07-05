@@ -44,7 +44,6 @@ export type OptionalProfileRecord = {
 
 export type OnboardingStatus =
   | 'guest'
-  | 'checking'
   | 'profile-basics-required'
   | 'optional-profile-details'
   | 'fully-onboarded'
@@ -68,14 +67,6 @@ export type EvaluateOnboardingInput = {
   draftError?: Error | null;
   socialLinksError?: Error | null;
 };
-
-export const createCheckingOnboardingState = (userId?: string | null): OnboardingState => ({
-  status: 'checking',
-  userId: userId ?? null,
-  canAccessMainApp: false,
-  prefill: EMPTY_PREFILL,
-  missingFields: [],
-});
 
 export const evaluateOnboardingState = ({
   userId = null,
@@ -185,8 +176,6 @@ export const getRouteForOnboardingState = (
 
   switch (state.status) {
     case 'guest':
-      return ROUTES.auth;
-    case 'checking':
       return ROUTES.auth;
     case 'profile-basics-required':
       return ROUTES.onboardingBasic;

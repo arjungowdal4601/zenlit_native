@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import GradientTitle from '../../src/components/GradientTitle';
-import { styles } from './auth.styles';
+import { styles } from '../../src/styles/auth.styles';
 import { isAuthReady, signInWithEmailOtp } from '../../src/services/authService';
 import { logger } from '../../src/utils/logger';
 

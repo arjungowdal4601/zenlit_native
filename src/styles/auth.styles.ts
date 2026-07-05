@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
 
-import { createShadowStyle } from '../../src/utils/shadow';
-import { theme } from '../../src/styles/theme';
+import { createShadowStyle } from '../utils/shadow';
+import { theme } from './theme';
 
 const CARD_ELEVATION = createShadowStyle({
   native: {

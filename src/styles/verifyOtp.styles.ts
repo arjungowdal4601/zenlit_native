@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { theme } from '../../src/styles/theme';
+import { theme } from './theme';
 
 export const styles = StyleSheet.create({
   safeArea: {
