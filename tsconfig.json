@@ -2,13 +2,12 @@
   "extends": "./node_modules/expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "baseUrl": ".",
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "paths": {
-      "@/*": ["*"]
+      "@/*": ["./*"]
     }
   },
   "exclude": [
