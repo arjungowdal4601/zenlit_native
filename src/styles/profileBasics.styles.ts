@@ -3,25 +3,27 @@ import { StyleSheet } from 'react-native';
 import { createShadowStyle } from '../utils/shadow';
 import { theme } from './theme';
 
+const prism = theme.prism.colors;
+
 export const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: prism.background,
   },
   root: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: prism.background,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: prism.background,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
   loadingText: {
     marginTop: 12,
-    color: '#94a3b8',
+    color: prism.muted,
     fontSize: 16,
   },
   scroll: {
@@ -43,7 +45,7 @@ export const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(20, 24, 32, 0.72)',
   },
   brandSection: {
     alignItems: 'center',
@@ -53,20 +55,20 @@ export const styles = StyleSheet.create({
     ...theme.typography.title,
     fontSize: 40,
     lineHeight: 44,
-    letterSpacing: -0.8,
+    letterSpacing: 0,
     textAlign: 'center',
   },
   brandSubtitle: {
     marginTop: 6,
     fontSize: 14,
-    color: '#2563eb',
+    color: prism.accent,
     fontWeight: '600',
     textAlign: 'center',
   },
   onboardingSubtitle: {
     marginTop: 4,
     fontSize: 16,
-    color: '#94a3b8',
+    color: prism.textSoft,
     textAlign: 'center',
   },
   card: {
@@ -74,10 +76,10 @@ export const styles = StyleSheet.create({
     maxWidth: 400,
     paddingHorizontal: 24,
     paddingVertical: 28,
-    borderRadius: 26,
-    backgroundColor: 'rgba(15, 23, 42, 0.78)',
+    borderRadius: 18,
+    backgroundColor: 'rgba(20, 24, 32, 0.82)',
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
+    borderColor: prism.border,
     ...createShadowStyle({
       native: {
         shadowColor: '#000000',
@@ -94,15 +96,15 @@ export const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#cbd5f5',
+    color: prism.textSoft,
     marginBottom: 10,
   },
   input: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.45)',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    color: '#ffffff',
+    borderColor: prism.border,
+    backgroundColor: 'rgba(8, 13, 16, 0.86)',
+    color: prism.text,
     fontSize: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -111,8 +113,8 @@ export const styles = StyleSheet.create({
   pickerField: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.45)',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderColor: prism.border,
+    backgroundColor: 'rgba(8, 13, 16, 0.86)',
     paddingHorizontal: 16,
     paddingVertical: 14,
     justifyContent: 'center',
@@ -120,10 +122,10 @@ export const styles = StyleSheet.create({
     minHeight: 48,
   },
   pickerFieldPressed: {
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    backgroundColor: 'rgba(20, 24, 32, 0.94)',
   },
   pickerFieldFocused: {
-    borderColor: 'rgba(96, 165, 250, 0.7)',
+    borderColor: prism.borderStrong,
   },
   webDateWrapper: {},
   pickerRow: {
@@ -135,11 +137,11 @@ export const styles = StyleSheet.create({
     marginLeft: 12,
   },
   dobValue: {
-    color: '#ffffff',
+    color: prism.text,
     fontSize: 16,
   },
   dobPlaceholder: {
-    color: 'rgba(148, 163, 184, 0.7)',
+    color: prism.muted,
     fontSize: 16,
   },
   usernameInputWrapper: {
@@ -151,36 +153,36 @@ export const styles = StyleSheet.create({
     top: 15,
   },
   inputSuccess: {
-    borderColor: 'rgba(16, 185, 129, 0.5)',
-    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+    borderColor: 'rgba(34, 197, 94, 0.55)',
+    backgroundColor: 'rgba(34, 197, 94, 0.08)',
   },
   inputError: {
-    borderColor: 'rgba(239, 68, 68, 0.5)',
+    borderColor: 'rgba(239, 68, 68, 0.55)',
     backgroundColor: 'rgba(239, 68, 68, 0.08)',
   },
   helperText: {
     marginTop: 8,
     fontSize: 12,
-    color: '#94a3b8',
+    color: prism.muted,
   },
   checkingText: {
     marginTop: 6,
     fontSize: 12,
-    color: '#60a5fa',
+    color: prism.accent,
   },
   successText: {
     marginTop: 6,
     fontSize: 12,
-    color: '#10b981',
+    color: prism.success,
   },
   errorText: {
     marginTop: 6,
     fontSize: 12,
-    color: '#fca5a5',
+    color: '#FCA5A5',
   },
   formError: {
     marginTop: 20,
-    color: '#fca5a5',
+    color: '#FCA5A5',
     fontSize: 13,
     lineHeight: 18,
     textAlign: 'center',
@@ -193,23 +195,23 @@ export const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
+    borderColor: prism.border,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
+    backgroundColor: 'rgba(8, 13, 16, 0.78)',
   },
   genderPillActive: {
-    borderColor: 'rgba(96, 165, 250, 0.7)',
-    backgroundColor: 'rgba(30, 64, 175, 0.35)',
+    borderColor: prism.borderStrong,
+    backgroundColor: 'rgba(37, 99, 235, 0.28)',
   },
   genderLabel: {
     fontSize: 14,
-    color: '#cbd5f5',
+    color: prism.textSoft,
     fontWeight: '600',
   },
   genderLabelActive: {
-    color: '#ffffff',
+    color: prism.text,
   },
   primaryButton: {
     width: '100%',
@@ -228,7 +230,7 @@ export const styles = StyleSheet.create({
   primaryLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#ffffff',
+    color: prism.text,
   },
   buttonLoadingRow: {
     flexDirection: 'row',
@@ -243,7 +245,7 @@ export const styles = StyleSheet.create({
   },
   iosPickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(8, 13, 16, 0.70)',
     justifyContent: 'flex-end',
   },
   iosBackdrop: {
@@ -251,12 +253,12 @@ export const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   iosPickerSheet: {
-    backgroundColor: '#0f172a',
+    backgroundColor: prism.surface,
     paddingBottom: 24,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderTopWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
+    borderColor: prism.border,
   },
   iosPickerToolbar: {
     flexDirection: 'row',
@@ -264,15 +266,15 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(148, 163, 184, 0.1)',
+    borderBottomColor: 'rgba(148, 163, 184, 0.12)',
   },
   iosPickerAction: {
-    color: '#60a5fa',
+    color: prism.accent,
     fontSize: 16,
     fontWeight: '600',
   },
   iosPicker: {
     height: 200,
-    backgroundColor: '#0f172a',
+    backgroundColor: prism.surface,
   },
 });

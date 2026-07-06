@@ -8,6 +8,7 @@ import ImageUploadDialog from '../../../src/components/ImageUploadDialog';
 import GradientTitle from '../../../src/components/GradientTitle';
 import { SocialLinksEditor } from '../../../src/components/onboarding/SocialLinksEditor';
 import { styles } from '../../../src/styles/completeProfile.styles';
+import { prismGradientColors, theme } from '../../../src/styles/theme';
 import { useCompleteProfileOnboarding } from '../../../src/hooks/useCompleteProfileOnboarding';
 
 const CompleteProfileScreen: React.FC = () => {
@@ -16,7 +17,7 @@ const CompleteProfileScreen: React.FC = () => {
   if (profile.isCheckingSetup) {
     return (
       <View style={[styles.root, styles.loadingContainer]}>
-        <ActivityIndicator color="#60a5fa" size="large" />
+        <ActivityIndicator color={theme.prism.colors.accent} size="large" />
         <Text style={styles.loadingText}>Checking setup...</Text>
       </View>
     );
@@ -24,7 +25,7 @@ const CompleteProfileScreen: React.FC = () => {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar barStyle="light-content" backgroundColor={theme.prism.colors.background} />
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <View style={styles.header}>
           <Pressable
@@ -33,13 +34,13 @@ const CompleteProfileScreen: React.FC = () => {
             onPress={profile.handleBack}
             style={styles.headerButton}
           >
-            <Feather name="arrow-left" size={22} color="#ffffff" />
+            <Feather name="arrow-left" size={22} color={theme.prism.colors.text} />
           </Pressable>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.stepIndicator}>Step 2 of 2</Text>
-            <GradientTitle text="Complete your profile" style={styles.headerTitle} />
+            <GradientTitle text="Complete your profile" style={styles.headerTitle} variant="prism" />
             <Text style={styles.headerHelper}>
-              Add the details that make your browser profile feel alive - or skip for now.
+              Add a photo, bio, and socials so nearby people recognize you. You can skip for now.
             </Text>
           </View>
           <View style={{ width: 44 }} />
@@ -48,7 +49,7 @@ const CompleteProfileScreen: React.FC = () => {
 
       {profile.showSuccess ? (
         <View style={styles.successBar}>
-          <Feather name="check" size={18} color="#ffffff" />
+          <Feather name="check" size={18} color={theme.prism.colors.text} />
           <Text style={styles.successText}>{profile.successMessage}</Text>
         </View>
       ) : null}
@@ -64,7 +65,7 @@ const CompleteProfileScreen: React.FC = () => {
           )}
           <Pressable style={styles.bannerOverlay} onPress={profile.openBannerMenu}>
             <View style={styles.overlayCircle}>
-              <Feather name="camera" size={18} color="#ffffff" />
+              <Feather name="camera" size={18} color={theme.prism.colors.text} />
             </View>
           </Pressable>
           <View style={styles.avatarWrapper}>
@@ -75,12 +76,12 @@ const CompleteProfileScreen: React.FC = () => {
                 <Image source={{ uri: profile.profileImageUrl }} style={styles.avatar} />
               ) : (
                 <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                  <Feather name="user" size={44} color="#64748b" />
+                  <Feather name="user" size={44} color={theme.prism.colors.mutedDeep} />
                 </View>
               )}
               <View style={styles.avatarCamera}>
                 <View style={styles.overlayCircle}>
-                  <Feather name="camera" size={16} color="#ffffff" />
+                  <Feather name="camera" size={16} color={theme.prism.colors.text} />
                 </View>
               </View>
             </Pressable>
@@ -93,7 +94,7 @@ const CompleteProfileScreen: React.FC = () => {
             value={profile.bio}
             onChangeText={(text) => profile.setBio(text.slice(0, 500))}
             placeholder="Tell about yourself..."
-            placeholderTextColor="#475569"
+            placeholderTextColor={theme.prism.colors.mutedDeep}
             style={[styles.input, styles.textarea]}
             multiline
             maxLength={500}
@@ -131,14 +132,14 @@ const CompleteProfileScreen: React.FC = () => {
             accessibilityRole="button"
           >
             <LinearGradient
-              colors={['#2563eb', '#7e22ce']}
+              colors={prismGradientColors}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.saveGradient}
             >
               {profile.isSaving ? (
                 <View style={styles.savingRow}>
-                  <ActivityIndicator color="#ffffff" size="small" />
+                  <ActivityIndicator color={theme.prism.colors.text} size="small" />
                   <Text style={[styles.actionLabel, styles.savingLabel]}>Saving...</Text>
                 </View>
               ) : (

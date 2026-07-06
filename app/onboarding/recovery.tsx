@@ -8,9 +8,7 @@ import GradientTitle from '../../src/components/GradientTitle';
 import { signOut } from '../../src/services/authService';
 import { resolveOnboardingState } from '../../src/services/onboardingService';
 import { getRouteForOnboardingState, ROUTES } from '../../src/utils/onboardingState';
-import { theme } from '../../src/styles/theme';
-
-const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
+import { prismGradientColors, theme } from '../../src/styles/theme';
 
 const OnboardingRecoveryScreen: React.FC = () => {
   const router = useRouter();
@@ -59,13 +57,13 @@ const OnboardingRecoveryScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar barStyle="light-content" backgroundColor={theme.prism.colors.background} />
       <View style={styles.content}>
         <View style={styles.card}>
-          <GradientTitle text="Zenlit" style={styles.brandTitle} />
-          <Text style={styles.title}>Finish setting up your profile</Text>
+          <GradientTitle text="Zenlit" style={styles.brandTitle} variant="prism" />
+          <Text style={styles.title}>We could not confirm your setup</Text>
           <Text style={styles.body}>
-            We found an unfinished setup. Complete your profile basics to continue to Radar.
+            Continue to check your account and fix anything missing, or sign out and try again.
           </Text>
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -81,14 +79,14 @@ const OnboardingRecoveryScreen: React.FC = () => {
             ]}
           >
             <LinearGradient
-              colors={PRIMARY_GRADIENT}
+              colors={prismGradientColors}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.primaryGradient}
             >
               {isContinuing ? (
                 <View style={styles.loadingRow}>
-                  <ActivityIndicator color="#ffffff" size="small" />
+                  <ActivityIndicator color={theme.prism.colors.text} size="small" />
                   <Text style={[styles.primaryLabel, styles.loadingLabel]}>Checking...</Text>
                 </View>
               ) : (
@@ -109,7 +107,7 @@ const OnboardingRecoveryScreen: React.FC = () => {
           >
             {isSigningOut ? (
               <View style={styles.loadingRow}>
-                <ActivityIndicator color="#cbd5e1" size="small" />
+                <ActivityIndicator color={theme.prism.colors.textSoft} size="small" />
                 <Text style={[styles.secondaryLabel, styles.loadingLabel]}>Signing out...</Text>
               </View>
             ) : (
@@ -125,7 +123,7 @@ const OnboardingRecoveryScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: theme.prism.colors.background,
   },
   content: {
     flex: 1,
@@ -138,8 +136,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.25)',
-    backgroundColor: 'rgba(15, 23, 42, 0.72)',
+    borderColor: theme.prism.colors.border,
+    backgroundColor: 'rgba(20, 24, 32, 0.82)',
     paddingHorizontal: 24,
     paddingVertical: 30,
   },
@@ -147,12 +145,12 @@ const styles = StyleSheet.create({
     ...theme.typography.title,
     fontSize: 36,
     lineHeight: 40,
-    letterSpacing: -0.7,
+    letterSpacing: 0,
     textAlign: 'center',
     marginBottom: 24,
   },
   title: {
-    color: '#ffffff',
+    color: theme.prism.colors.text,
     fontSize: 24,
     fontWeight: '700',
     textAlign: 'center',
@@ -160,14 +158,14 @@ const styles = StyleSheet.create({
   },
   body: {
     marginTop: 12,
-    color: '#94a3b8',
+    color: theme.prism.colors.muted,
     fontSize: 15,
     lineHeight: 22,
     textAlign: 'center',
   },
   errorText: {
     marginTop: 18,
-    color: '#fca5a5',
+    color: '#FCA5A5',
     fontSize: 13,
     lineHeight: 18,
     textAlign: 'center',
@@ -184,7 +182,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryLabel: {
-    color: '#ffffff',
+    color: theme.prism.colors.text,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -193,12 +191,12 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.4)',
+    borderColor: theme.prism.colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryLabel: {
-    color: '#cbd5e1',
+    color: theme.prism.colors.textSoft,
     fontSize: 15,
     fontWeight: '700',
   },

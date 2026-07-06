@@ -8,7 +8,8 @@ Read-only Supabase connector checks during this setup showed the remote public s
 
 | Table | Notes |
 | --- | --- |
-| `profiles` | Public identity, email, required onboarding fields, and push settings columns |
+| `profiles` | Public identity, email, required onboarding fields, optional completion marker, and push settings columns |
+| `profile_basics_drafts` | Reinstall-safe draft storage for unfinished Profile Basics |
 | `social_links` | Optional profile enrichment: bio, avatar/banner URLs, and socials |
 | `posts` | Feed post content and optional image URL |
 | `feedback` | User feedback and optional image URL |
@@ -58,21 +59,19 @@ The local file `supabase/migrations/20260520090000_create_profile_basics_drafts.
 - `updated_at`
 - RLS policies that allow authenticated users to read, create, update, and delete only their own draft
 
-`profile_basics_drafts` is required for reinstall-safe onboarding drafts and must be applied before relying on that behavior remotely.
+`profile_basics_drafts` is required for reinstall-safe onboarding drafts. Read-only checks confirmed it exists in the active remote project.
 
 ## Known Local-vs-Remote Drift
 
-The connected remote migration list currently ends before the local onboarding draft migration and does not show `20260520090000_create_profile_basics_drafts`.
+No known onboarding schema drift in the active remote project as of July 6, 2026.
 
-Local files currently include `profile_basics_drafts` in:
+Read-only checks confirmed these remote migrations are applied:
 
-- `supabase/migrations/20260520090000_create_profile_basics_drafts.sql`
-- `supabase/types.ts`
-- `supabase/schema_public.json`
+- `20260520090000_create_profile_basics_drafts`
+- `20260603175834_harden_profile_basics_drafts`
+- `20260705161204_add_optional_profile_completion`
 
-Remote generated types from the connector did not include `profile_basics_drafts`.
-
-Do not hide this drift in app documentation. Until the migration is applied remotely, draft-backed reinstall recovery can work only against environments where that table exists.
+The remote schema includes `profile_basics_drafts` and `profiles.optional_profile_completed_at`.
 
 ## RLS Notes
 
@@ -83,7 +82,7 @@ Current table policies are designed around user-owned rows:
 - Feedback is user-owned.
 - Locations are user-owned for writes and scoped for nearby discovery.
 - Messages are limited to sender/receiver visibility and updates.
-- Draft onboarding basics are user-owned only in the local migration.
+- Draft onboarding basics are user-owned in both the active remote project and local migration.
 
 When editing policies, keep test accounts and onboarding recovery in mind. A user must be able to read their own partial draft and own profile during auth handoff.
 

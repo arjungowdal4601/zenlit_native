@@ -14,8 +14,8 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { createShadowStyle } from '../src/utils/shadow';
 import GradientTitle from '../src/components/GradientTitle';
 import { persistHasSeenGetStarted } from '../src/utils/getStartedPreference';
+import { prismGradientColors, theme } from '../src/styles/theme';
 
-const BUTTON_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const BUTTON_ELEVATION = createShadowStyle({
   native: {
     shadowColor: '#000000',
@@ -95,7 +95,7 @@ const GetStartedScreen: React.FC = () => {
         ]}
       >
         <View style={styles.titleWrapper}>
-          <GradientTitle text="Zenlit" style={styles.title} numberOfLines={1} />
+          <GradientTitle text="Zenlit" style={styles.title} numberOfLines={1} variant="prism" />
           <Text style={styles.subtitle}>Connect with people around you.</Text>
         </View>
 
@@ -106,14 +106,14 @@ const GetStartedScreen: React.FC = () => {
           style={({ pressed }) => [styles.buttonWrapper, pressed ? styles.buttonPressed : null]}
         >
           <LinearGradient
-            colors={BUTTON_GRADIENT}
+            colors={prismGradientColors}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.button}
           >
             {isNavigating ? (
               <View style={styles.loadingRow}>
-                <ActivityIndicator color="#ffffff" size="small" />
+                <ActivityIndicator color={theme.prism.colors.text} size="small" />
                 <Text style={[styles.buttonLabel, styles.loadingText]}>Loading...</Text>
               </View>
             ) : (
@@ -139,7 +139,7 @@ const GetStartedScreen: React.FC = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: theme.prism.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
@@ -156,16 +156,16 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 72,
     fontWeight: '700',
-    letterSpacing: -2,
+    letterSpacing: 0,
     textAlign: 'center',
-    color: '#ffffff',
+    color: theme.prism.colors.text,
     marginBottom: 16,
   },
   subtitle: {
     fontSize: 18,
-    color: '#94a3b8',
+    color: theme.prism.colors.muted,
     textAlign: 'center',
-    letterSpacing: -0.5,
+    letterSpacing: 0,
   },
   buttonWrapper: {
     width: '70%',
@@ -186,10 +186,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonLabel: {
-    color: '#ffffff',
+    color: theme.prism.colors.text,
     fontSize: 16,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   loadingRow: {
     flexDirection: 'row',
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   footerLink: {
-    color: '#60a5fa',
+    color: theme.prism.colors.accent,
     fontSize: 13,
     fontWeight: '600',
   },

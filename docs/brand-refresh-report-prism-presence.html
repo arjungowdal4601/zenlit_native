@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zenlit Prism Presence Brand Report</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Satoshi:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #080d10;
+      --surface: #141820;
+      --surface-2: #1c2430;
+      --border: rgba(148, 163, 184, 0.24);
+      --border-active: rgba(56, 189, 248, 0.58);
+      --text: #f8fafc;
+      --text-soft: #cbd5e1;
+      --muted: #94a3b8;
+      --blue: #2563eb;
+      --violet: #7e22ce;
+      --cyan: #38bdf8;
+      --steel: #94a3b8;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --gradient: linear-gradient(90deg, var(--blue), var(--violet));
+      --prism: linear-gradient(90deg, var(--blue), var(--violet), var(--cyan));
+      --shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 52% 0%, rgba(56, 189, 248, 0.12), transparent 30%),
+        radial-gradient(circle at 20% 6%, rgba(126, 34, 206, 0.10), transparent 28%),
+        var(--bg);
+      color: var(--text);
+      font-family: Geist, Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1180px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 56px 0 72px;
+    }
+
+    h1, h2, h3 {
+      margin: 0;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      max-width: 860px;
+      font-family: Satoshi, Geist, system-ui, sans-serif;
+      font-size: clamp(46px, 8vw, 92px);
+      line-height: 0.96;
+      background: var(--prism);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    h2 {
+      margin-top: 56px;
+      margin-bottom: 16px;
+      font-family: Satoshi, Geist, system-ui, sans-serif;
+      font-size: clamp(26px, 4vw, 36px);
+      line-height: 1.1;
+    }
+
+    h3 {
+      font-size: 19px;
+      line-height: 1.25;
+    }
+
+    p {
+      color: var(--muted);
+      line-height: 1.68;
+    }
+
+    a { color: var(--cyan); }
+
+    .hero {
+      padding-bottom: 34px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .eyebrow {
+      margin: 0 0 18px;
+      color: var(--cyan);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .tagline {
+      max-width: 760px;
+      margin: 22px 0 0;
+      color: var(--text-soft);
+      font-size: clamp(18px, 2.4vw, 24px);
+      line-height: 1.45;
+    }
+
+    .grid,
+    .token-grid,
+    .component-grid,
+    .decision-grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .grid { grid-template-columns: repeat(3, 1fr); margin-top: 26px; }
+    .token-grid { grid-template-columns: repeat(7, 1fr); }
+    .component-grid { grid-template-columns: 1.1fr 0.9fr; }
+    .decision-grid { grid-template-columns: repeat(3, 1fr); }
+
+    .card {
+      background: linear-gradient(180deg, rgba(20, 24, 32, 0.82), rgba(8, 13, 16, 0.92));
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+
+    .card.recommended {
+      border-color: var(--border-active);
+      box-shadow: 0 24px 80px rgba(56, 189, 248, 0.08), var(--shadow);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--cyan);
+      color: #061018;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .small { font-size: 13px; line-height: 1.55; }
+    .soft { color: var(--text-soft); }
+
+    .concept-img {
+      display: block;
+      width: 100%;
+      margin-top: 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #000;
+    }
+
+    .large-preview .concept-img { margin-top: 0; }
+
+    .swatch { min-width: 0; }
+
+    .color {
+      height: 62px;
+      margin-bottom: 9px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .swatch strong,
+    .swatch small {
+      display: block;
+      overflow-wrap: anywhere;
+    }
+
+    .swatch small {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.75;
+    }
+
+    .list strong { color: var(--text); }
+
+    .sample-panel {
+      padding: 24px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background:
+        linear-gradient(180deg, rgba(20, 24, 32, 0.62), rgba(8, 13, 16, 0.82)),
+        repeating-radial-gradient(circle at 55% 25%, rgba(56, 189, 248, 0.18) 0 1px, transparent 1px 52px);
+    }
+
+    .brand-word {
+      display: block;
+      margin-bottom: 12px;
+      font-family: Satoshi, Geist, sans-serif;
+      font-size: clamp(48px, 8vw, 72px);
+      font-weight: 900;
+      line-height: 0.95;
+      background: var(--prism);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .button {
+      display: inline-flex;
+      min-height: 48px;
+      align-items: center;
+      justify-content: center;
+      padding: 0 22px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      background: var(--prism);
+      color: #fff;
+      font-weight: 800;
+    }
+
+    .button.secondary {
+      background: rgba(20, 24, 32, 0.72);
+      border-color: var(--border-active);
+      color: #bae6fd;
+    }
+
+    .input-sample {
+      width: 100%;
+      min-height: 48px;
+      margin-top: 14px;
+      padding: 0 14px;
+      border: 1px solid rgba(148, 163, 184, 0.38);
+      border-radius: 12px;
+      background: rgba(8, 13, 16, 0.86);
+      color: var(--text);
+      font: inherit;
+    }
+
+    .state {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(8, 13, 16, 0.72);
+      color: var(--text-soft);
+      font-size: 14px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      flex: 0 0 auto;
+      border-radius: 999px;
+      background: var(--cyan);
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.72);
+    }
+
+    .dot.green {
+      background: var(--success);
+      box-shadow: 0 0 18px rgba(34, 197, 94, 0.65);
+    }
+
+    .decision-card label {
+      display: block;
+      margin-top: 12px;
+      color: var(--text-soft);
+      line-height: 1.45;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(8, 13, 16, 0.9);
+      color: var(--text);
+      font: inherit;
+      resize: vertical;
+    }
+
+    .source-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.85;
+    }
+
+    .footer-note {
+      margin-top: 42px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      color: #64748b;
+      font-size: 13px;
+    }
+
+    @media (max-width: 980px) {
+      .grid,
+      .component-grid,
+      .decision-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .token-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero">
+      <p class="eyebrow">Prism Presence brand direction</p>
+      <h1>Zenlit as a premium presence system.</h1>
+      <p class="tagline">
+        Prism Presence keeps Zenlit dark and social, but makes it feel sharper, cleaner, and more premium.
+        It uses blue and violet as the brand core, with cyan as a precise signal highlight for radar,
+        visibility, focus, and active system feedback.
+      </p>
+
+      <div class="grid">
+        <article class="card">
+          <h3>Best For</h3>
+          <p class="small">A premium social discovery app that should feel calm, private, accurate, and high-trust.</p>
+        </article>
+        <article class="card">
+          <h3>Main Risk</h3>
+          <p class="small">If overused, cyan can make the app feel cold or technical instead of human.</p>
+        </article>
+        <article class="card recommended">
+          <span class="badge">Recommendation</span>
+          <h3>Use Carefully</h3>
+          <p class="small">Use Prism Presence only if you want Zenlit to feel more premium and precise than warm and social.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Executive Recommendation</h2>
+      <div class="card">
+        <ul class="list">
+          <li><strong>Brand direction:</strong> Prism Presence is the strongest premium option, but not the safest default.</li>
+          <li><strong>Use case:</strong> best if Zenlit should feel like a refined radar/presence product, not a casual social app.</li>
+          <li><strong>Typography:</strong> Satoshi for brand/display, Geist for UI text. This feels sharper than Sora + Inter.</li>
+          <li><strong>Color:</strong> blue and violet stay primary; cyan becomes the signal/focus accent.</li>
+          <li><strong>Implementation:</strong> still start with tokens and core flow only. Do not repaint every screen at once.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>Visual Direction Board</h2>
+      <div class="card large-preview">
+        <img class="concept-img" src="./brand-refresh-assets/prism-presence.png" alt="Prism Presence Zenlit brand direction board">
+      </div>
+    </section>
+
+    <section>
+      <h2>How Prism Presence Differs</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>Compared To Signal Noir</h3>
+          <p class="small">Signal Noir is more familiar and slightly warmer. Prism Presence is cleaner, sharper, and more premium.</p>
+        </article>
+        <article class="card">
+          <h3>Compared To Nearlight</h3>
+          <p class="small">Nearlight feels more human and inviting. Prism Presence feels more composed, controlled, and product-led.</p>
+        </article>
+        <article class="card">
+          <h3>Best Product Message</h3>
+          <p class="small">“Presence, nearby.” Short, direct, and aligned with the radar/visibility concept.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Prism Token Set</h2>
+      <p>
+        The main implementation principle remains the same: put the brand in one token source,
+        then import tokens everywhere instead of using raw hex colors per screen.
+      </p>
+      <div class="token-grid">
+        <div class="swatch">
+          <div class="color" style="background:#080d10"></div>
+          <strong>Prism Black</strong>
+          <small>#080D10</small>
+        </div>
+        <div class="swatch">
+          <div class="color" style="background:#141820"></div>
+          <strong>Surface</strong>
+          <small>#141820</small>
+        </div>
+        <div class="swatch">
+          <div class="color" style="background:#1c2430"></div>
+          <strong>Card</strong>
+          <small>#1C2430</small>
+        </div>
+        <div class="swatch">
+          <div class="color" style="background:#f8fafc"></div>
+          <strong>Text</strong>
+          <small>#F8FAFC</small>
+        </div>
+        <div class="swatch">
+          <div class="color" style="background:#2563eb"></div>
+          <strong>Signal Blue</strong>
+          <small>#2563EB</small>
+        </div>
+        <div class="swatch">
+          <div class="color" style="background:#7e22ce"></div>
+          <strong>Violet</strong>
+          <small>#7E22CE</small>
+        </div>
+        <div class="swatch">
+          <div class="color" style="background:#38bdf8"></div>
+          <strong>Prism Cyan</strong>
+          <small>#38BDF8</small>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Typography Recommendation</h2>
+      <div class="component-grid">
+        <div class="sample-panel">
+          <span class="brand-word">Zenlit</span>
+          <h3 style="font-size:30px">Satoshi for brand moments</h3>
+          <p>
+            Satoshi gives Prism Presence a premium, editorial feel. Use it for the wordmark,
+            hero-scale text, onboarding titles, and brand-led section titles.
+          </p>
+          <p style="font-family: Geist, system-ui, sans-serif;">
+            Geist is cleaner for UI forms, helper text, buttons, and dense screens. It feels precise without becoming decorative.
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>Type Rules</h3>
+          <ul class="list">
+            <li>Use Satoshi only for brand/display moments.</li>
+            <li>Use Geist for all product UI and forms.</li>
+            <li>Keep letter spacing at 0 except tiny eyebrow labels.</li>
+            <li>Use fewer weights: regular, medium, semibold, bold.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>UI System Changes</h2>
+      <div class="component-grid">
+        <div class="card">
+          <h3>Prism Components</h3>
+          <ul class="list">
+            <li><strong>ScreenShell:</strong> black/prism background, status bar, and safe-area consistency.</li>
+            <li><strong>ZenlitButton:</strong> primary blue-violet-cyan gradient, secondary cyan outline.</li>
+            <li><strong>ZenlitCard:</strong> darker glass-like card, thin steel border, radius 12.</li>
+            <li><strong>ZenlitInput:</strong> quiet dark input, cyan focus, green success, red error.</li>
+            <li><strong>RadarMark:</strong> thin radar rings and prism beam, not decorative blobs.</li>
+          </ul>
+        </div>
+
+        <div class="sample-panel">
+          <h3>Component Preview</h3>
+          <input class="input-sample" value="arjun_gowda" aria-label="Username sample" readonly>
+          <div class="state"><span>Focused field</span><span class="dot"></span></div>
+          <div class="state"><span>Username is available</span><span class="dot green"></span></div>
+          <div class="button-row">
+            <span class="button">Continue</span>
+            <span class="button secondary">Skip for now</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Where I Would Apply It First</h2>
+      <div class="card">
+        <ul class="list">
+          <li><strong>Get Started:</strong> central prism/radar motif, brand wordmark, one clean CTA.</li>
+          <li><strong>Auth and OTP:</strong> refined card, consistent input, cyan focus state, same CTA treatment.</li>
+          <li><strong>Profile Basics and Complete Profile:</strong> same onboarding shell and step progress style.</li>
+          <li><strong>Recovery:</strong> use the same shell so error handling does not feel like a different product.</li>
+          <li><strong>Radar:</strong> make cyan represent active radar focus, not every button or label.</li>
+          <li><strong>Edit Profile shell:</strong> reuse the Complete Profile media/header treatment.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>What To Be Careful About</h2>
+      <div class="card">
+        <ul class="list">
+          <li>Do not overuse cyan. It should mean signal, focus, radar, or active state.</li>
+          <li>Do not make every surface glossy. Keep the UI fast, readable, and simple.</li>
+          <li>Do not introduce huge gradients in backgrounds. Keep gradients for text, CTAs, and controlled highlights.</li>
+          <li>Do not implement Prism across every screen until the core flow feels right.</li>
+          <li>Do not let the brand become cold. Keep copy human and direct.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>Decision Form</h2>
+      <div class="decision-grid">
+        <article class="card decision-card">
+          <h3>Use Prism Presence?</h3>
+          <label><input type="radio" name="use-prism" checked> Yes, use Prism Presence</label>
+          <label><input type="radio" name="use-prism"> No, keep Signal Noir</label>
+          <label><input type="radio" name="use-prism"> Mix Prism with Signal Noir</label>
+        </article>
+
+        <article class="card decision-card">
+          <h3>Font Direction</h3>
+          <label><input type="radio" name="font" checked> Satoshi + Geist</label>
+          <label><input type="radio" name="font"> Sora + Inter</label>
+          <label><input type="radio" name="font"> System only</label>
+        </article>
+
+        <article class="card decision-card">
+          <h3>Rollout Scope</h3>
+          <label><input type="radio" name="scope" checked> Core flow first</label>
+          <label><input type="radio" name="scope"> All screens</label>
+          <label><input type="radio" name="scope"> Design board only</label>
+        </article>
+      </div>
+
+      <div class="card" style="margin-top:18px">
+        <h3>Your Notes</h3>
+        <textarea placeholder="Write what you like, dislike, or want changed before implementation..."></textarea>
+      </div>
+    </section>
+
+    <section>
+      <h2>References Used</h2>
+      <ul class="source-list">
+        <li><a href="https://m3.material.io/foundations/design-tokens">Material Design 3: Design Tokens</a></li>
+        <li><a href="https://developer.apple.com/design/human-interface-guidelines/typography">Apple Human Interface Guidelines: Typography</a></li>
+        <li><a href="https://developer.apple.com/design/human-interface-guidelines/color">Apple Human Interface Guidelines: Color</a></li>
+        <li><a href="https://www.nngroup.com/articles/consistency-and-standards/">Nielsen Norman Group: Consistency and Standards</a></li>
+      </ul>
+    </section>
+
+    <p class="footer-note">
+      This Prism Presence report is a decision artifact only. It does not change app code.
+      Recommended implementation path: brand tokens first, shared UI primitives second, core auth/onboarding/radar screens third.
+    </p>
+  </main>
+</body>
+</html>

@@ -9,13 +9,21 @@ import GradientTitle from '../../src/components/GradientTitle';
 import { isAuthReady, signInWithEmailOtp, verifyEmailOtp } from '../../src/services/authService';
 import { logger } from '../../src/utils/logger';
 import { styles } from '../../src/styles/verifyOtp.styles';
+import { prismGradientColors, theme } from '../../src/styles/theme';
 
-const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const COOLDOWN_SECONDS = 60;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const normalizeRouteEmail = (value?: string | string[]) => {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return EMAIL_PATTERN.test(trimmed) ? trimmed : null;
+};
 
 export default function VerifyOTPScreen() {
   const router = useRouter();
-  const { email } = useLocalSearchParams<{ email: string }>();
+  const { email: routeEmail } = useLocalSearchParams<{ email?: string | string[] }>();
+  const email = useMemo(() => normalizeRouteEmail(routeEmail), [routeEmail]);
 
   const [code, setCode] = useState('');
   const [verifying, setVerifying] = useState(false);
@@ -51,9 +59,14 @@ export default function VerifyOTPScreen() {
   };
 
   useEffect(() => {
-    startCooldown(COOLDOWN_SECONDS); // Start with initial cooldown
+    if (!email) {
+      router.replace('/auth');
+      return undefined;
+    }
+
+    startCooldown(COOLDOWN_SECONDS);
     return clearCooldown;
-  }, []);
+  }, [email, router]);
 
   const handleChange = (text: string) => {
     const numericText = text.replace(/[^0-9]/g, '');
@@ -63,7 +76,7 @@ export default function VerifyOTPScreen() {
   };
 
   const handleVerify = async () => {
-    if (!isComplete || verifying) {
+    if (!email || !isComplete || verifying) {
       return;
     }
 
@@ -73,14 +86,14 @@ export default function VerifyOTPScreen() {
       return;
     }
 
-    const maskedEmail = (email || '').replace(/(.{2})(.*)(@.*)/, '$1***$3');
+    const maskedEmail = email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
 
     setVerifying(true);
     setError('');
     setStatus('');
 
     try {
-      const { user, error } = await verifyEmailOtp(email || '', code);
+      const { user, error } = await verifyEmailOtp(email, code);
 
       if (error) {
         logger.error('Auth', 'OTP verification failed', {
@@ -120,18 +133,18 @@ export default function VerifyOTPScreen() {
   };
 
   const handleResend = async () => {
-    if (cooldown > 0 || resending) {
+    if (!email || cooldown > 0 || resending) {
       return;
     }
 
-    const maskedEmail = (email || '').replace(/(.{2})(.*)(@.*)/, '$1***$3');
+    const maskedEmail = email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
 
     setResending(true);
     setError('');
     setStatus('');
 
     try {
-      const { error } = await signInWithEmailOtp(email || '');
+      const { error } = await signInWithEmailOtp(email);
 
       if (error) {
         logger.error('Auth', 'OTP resend failed', {
@@ -163,9 +176,11 @@ export default function VerifyOTPScreen() {
     }
   };
 
+  if (!email) return null;
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar barStyle="light-content" backgroundColor={theme.prism.colors.background} />
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: 'padding', android: undefined })}
         style={styles.root}
@@ -181,20 +196,20 @@ export default function VerifyOTPScreen() {
               onPress={() => router.replace('/auth')}
               style={styles.backButton}
             >
-              <Feather name="arrow-left" size={24} color="#ffffff" />
+              <Feather name="arrow-left" size={24} color={theme.prism.colors.text} />
             </Pressable>
           </View>
 
           <View style={styles.brandSection}>
-            <GradientTitle text="Zenlit" style={styles.brandTitle} />
+            <GradientTitle text="Zenlit" style={styles.brandTitle} variant="prism" />
             <Text style={styles.brandSubtitle}>Verify your identity</Text>
           </View>
 
           <View style={styles.card}>
             <View style={styles.infoBanner}>
-              <Feather name="mail" size={18} color="#60a5fa" />
+              <Feather name="mail" size={18} color={theme.prism.colors.accent} />
               <Text style={styles.infoText}>
-                Code sent to <Text style={styles.infoTextStrong}>{email || 'your email'}</Text>
+                Code sent to <Text style={styles.infoTextStrong}>{email}</Text>
               </Text>
             </View>
 
@@ -234,7 +249,7 @@ export default function VerifyOTPScreen() {
               ]}
             >
               <LinearGradient
-                colors={PRIMARY_GRADIENT}
+                colors={prismGradientColors}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.primaryGradient}

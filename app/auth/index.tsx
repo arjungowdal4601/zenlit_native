@@ -9,8 +9,8 @@ import GradientTitle from '../../src/components/GradientTitle';
 import { styles } from '../../src/styles/auth.styles';
 import { isAuthReady, signInWithEmailOtp } from '../../src/services/authService';
 import { logger } from '../../src/utils/logger';
+import { prismGradientColors, theme } from '../../src/styles/theme';
 
-const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const EMAIL_PLACEHOLDER = 'Enter your email';
 
 const AuthScreen: React.FC = () => {
@@ -113,7 +113,7 @@ const AuthScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor="#000000" />
+      <StatusBar barStyle="light-content" backgroundColor={theme.prism.colors.background} />
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: 'padding', android: undefined })}
         style={styles.root}
@@ -124,7 +124,7 @@ const AuthScreen: React.FC = () => {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brandSection}>
-            <GradientTitle text="Zenlit" style={styles.brandTitle} />
+            <GradientTitle text="Zenlit" style={styles.brandTitle} variant="prism" />
             <Text style={styles.brandSubtitle}>Connect with people around you</Text>
           </View>
 
@@ -146,7 +146,7 @@ const AuthScreen: React.FC = () => {
                 value={email}
                 onChangeText={setEmail}
                 placeholder={EMAIL_PLACEHOLDER}
-                placeholderTextColor="rgba(148, 163, 184, 0.7)"
+                placeholderTextColor={theme.prism.colors.muted}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -165,7 +165,7 @@ const AuthScreen: React.FC = () => {
               ]}
             >
               <LinearGradient
-                colors={PRIMARY_GRADIENT}
+                colors={prismGradientColors}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.primaryGradient}

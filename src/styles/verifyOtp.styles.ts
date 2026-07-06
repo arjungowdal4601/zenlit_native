@@ -2,14 +2,16 @@ import { StyleSheet } from 'react-native';
 
 import { theme } from './theme';
 
+const prism = theme.prism.colors;
+
 export const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: prism.background,
   },
   root: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: prism.background,
   },
   scroll: {
     flexGrow: 1,
@@ -40,23 +42,23 @@ export const styles = StyleSheet.create({
     ...theme.typography.title,
     fontSize: 40,
     lineHeight: 44,
-    letterSpacing: -0.8,
+    letterSpacing: 0,
     textAlign: 'center',
   },
   brandSubtitle: {
     marginTop: 6,
     fontSize: 16,
-    color: '#94a3b8',
+    color: prism.textSoft,
   },
   card: {
     width: '100%',
     maxWidth: 400,
     paddingHorizontal: 24,
     paddingVertical: 32,
-    borderRadius: 24,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderRadius: 18,
+    backgroundColor: 'rgba(20, 24, 32, 0.82)',
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
+    borderColor: prism.border,
     shadowColor: '#000000',
     shadowOpacity: 0.5,
     shadowRadius: 24,
@@ -69,32 +71,32 @@ export const styles = StyleSheet.create({
     gap: 10,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.3)',
-    backgroundColor: 'rgba(30, 58, 138, 0.2)',
+    borderColor: prism.borderStrong,
+    backgroundColor: 'rgba(56, 189, 248, 0.10)',
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: '#cbd5f5',
+    color: prism.textSoft,
     lineHeight: 20,
   },
   infoTextStrong: {
-    color: '#ffffff',
+    color: prism.text,
     fontWeight: '600',
   },
   statusText: {
     marginTop: 16,
     fontSize: 13,
     textAlign: 'center',
-    color: '#60a5fa',
+    color: prism.accent,
   },
   errorText: {
     marginTop: 16,
     fontSize: 13,
     textAlign: 'center',
-    color: '#fca5a5',
+    color: '#FCA5A5',
   },
   errorWithStatus: {
     marginTop: 8,
@@ -105,7 +107,7 @@ export const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#cbd5f5',
+    color: prism.textSoft,
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -120,9 +122,9 @@ export const styles = StyleSheet.create({
   otpInput: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.3)',
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
-    color: '#ffffff',
+    borderColor: prism.border,
+    backgroundColor: 'rgba(8, 13, 16, 0.86)',
+    color: prism.text,
     fontSize: 28,
     fontWeight: '600',
     letterSpacing: 14,
@@ -142,7 +144,7 @@ export const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '600',
     letterSpacing: 14,
-    color: 'rgba(148, 163, 184, 0.15)',
+    color: 'rgba(148, 163, 184, 0.16)',
     textTransform: 'none',
     textAlignVertical: 'center',
     lineHeight: 60,
@@ -165,10 +167,10 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   primaryLabel: {
-    color: '#ffffff',
+    color: prism.text,
     fontSize: 16,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   disabled: {
     opacity: 0.5,
@@ -179,15 +181,15 @@ export const styles = StyleSheet.create({
   },
   cooldownText: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: prism.muted,
   },
   cooldownStrong: {
-    color: '#ffffff',
+    color: prism.text,
     fontWeight: '600',
   },
   resendLink: {
     fontSize: 13,
-    color: '#60a5fa',
+    color: prism.accent,
     fontWeight: '600',
   },
 });

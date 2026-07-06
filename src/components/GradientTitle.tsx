@@ -10,6 +10,7 @@ type GradientTitleProps = {
   style?: TextProps['style'];
   numberOfLines?: number;
   ellipsizeMode?: TextProps['ellipsizeMode'];
+  variant?: 'default' | 'prism';
 };
 
 export const GradientTitle: React.FC<GradientTitleProps> = ({
@@ -17,6 +18,7 @@ export const GradientTitle: React.FC<GradientTitleProps> = ({
   style,
   numberOfLines = 1,
   ellipsizeMode = 'tail',
+  variant = 'default',
 }) => {
   const effectiveStyle = useMemo<TextStyle>(() => {
     const overrides = StyleSheet.flatten(style) as TextStyle | undefined;
@@ -36,7 +38,10 @@ export const GradientTitle: React.FC<GradientTitleProps> = ({
 
   if (Platform.OS === 'web') {
     const webGradientStyle: any = {
-      backgroundImage: 'linear-gradient(90deg, #2563eb, #7e22ce)',
+      backgroundImage:
+        variant === 'prism'
+          ? `linear-gradient(90deg, ${theme.prism.gradients.brand.join(', ')})`
+          : 'linear-gradient(90deg, #2563eb, #7e22ce)',
       WebkitBackgroundClip: 'text',
       backgroundClip: 'text',
       color: 'transparent',
@@ -75,7 +80,7 @@ export const GradientTitle: React.FC<GradientTitleProps> = ({
       }
     >
       <LinearGradient
-        colors={["#2563eb", "#7e22ce"]}
+        colors={variant === 'prism' ? theme.prism.gradients.brand : ["#2563eb", "#7e22ce"]}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
         style={styles.gradientFill}

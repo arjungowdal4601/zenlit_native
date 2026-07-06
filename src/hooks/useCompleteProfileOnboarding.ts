@@ -8,25 +8,10 @@ import {
   saveOptionalProfileDetails,
   skipOptionalProfileDetails,
 } from '../services/onboardingService';
-import { uploadProfileImage } from '../services/storageService';
 import type { CompressedImage } from '../utils/imageCompression';
 import { getFriendlyOnboardingError } from '../utils/onboardingErrors';
 import { getRouteForOnboardingState, ROUTES } from '../utils/onboardingState';
-
-const uploadImageIfNeeded = async (
-  image: CompressedImage | null,
-  filePrefix: 'avatar' | 'banner',
-): Promise<string | undefined> => {
-  if (!image) return undefined;
-
-  const { url, error } = await uploadProfileImage(image, filePrefix);
-  if (error || !url) {
-    console.error('Upload error:', error);
-    return undefined;
-  }
-
-  return url;
-};
+import { uploadProfileImagesWithCleanup } from '../utils/profileImageUploads';
 
 export const useCompleteProfileOnboarding = () => {
   const router = useRouter();
@@ -105,38 +90,40 @@ export const useCompleteProfileOnboarding = () => {
     setErrorMessage('');
 
     try {
-      const uploadedAvatarUrl = await uploadImageIfNeeded(draft.profileImage, 'avatar');
-      const uploadedBannerUrl = await uploadImageIfNeeded(draft.bannerImage, 'banner');
-
-      if (draft.profileImage && !uploadedAvatarUrl) {
-        throw new Error('Failed to upload the new profile picture. Please try again.');
-      }
-
-      if (draft.bannerImage && !uploadedBannerUrl) {
-        throw new Error('Failed to upload the new banner image. Please try again.');
-      }
-
-      const { data: state, error } = await saveOptionalProfileDetails({
-        bio: draft.bio?.trim() || null,
-        instagram: draft.instagram?.trim() || null,
-        x_twitter: draft.twitter?.trim() || null,
-        linkedin: draft.linkedin?.trim() || null,
-        profile_pic_url: uploadedAvatarUrl ?? draft.profileImageUrl ?? null,
-        banner_url: uploadedBannerUrl ?? draft.bannerImageUrl ?? null,
+      const uploadedImages = await uploadProfileImagesWithCleanup({
+        avatarImage: draft.profileImage,
+        bannerImage: draft.bannerImage,
+        previousAvatarUrl: draft.profileImageUrl,
+        previousBannerUrl: draft.bannerImageUrl,
       });
 
-      if (error || !state) {
-        throw error ?? new Error('Failed to save optional profile details');
+      let state: NonNullable<Awaited<ReturnType<typeof saveOptionalProfileDetails>>['data']>;
+      try {
+        const result = await saveOptionalProfileDetails({
+          bio: draft.bio?.trim() || null,
+          instagram: draft.instagram?.trim() || null,
+          x_twitter: draft.twitter?.trim() || null,
+          linkedin: draft.linkedin?.trim() || null,
+          profile_pic_url: uploadedImages.avatarUrl ?? draft.profileImageUrl ?? null,
+          banner_url: uploadedImages.bannerUrl ?? draft.bannerImageUrl ?? null,
+        });
+        if (result.error || !result.data) {
+          throw result.error ?? new Error('Failed to save optional profile details');
+        }
+        state = result.data;
+      } catch (error) {
+        await uploadedImages.cleanupUploadedImages();
+        throw error;
       }
 
-      if (uploadedAvatarUrl) {
+      if (uploadedImages.avatarUrl) {
         draft.setProfileImage(null);
-        draft.setProfileImageUrl(uploadedAvatarUrl);
+        draft.setProfileImageUrl(uploadedImages.avatarUrl);
       }
 
-      if (uploadedBannerUrl) {
+      if (uploadedImages.bannerUrl) {
         draft.setBannerImage(null);
-        draft.setBannerImageUrl(uploadedBannerUrl);
+        draft.setBannerImageUrl(uploadedImages.bannerUrl);
       }
 
       clearSuccessTimeout();

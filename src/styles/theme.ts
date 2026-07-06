@@ -3,13 +3,21 @@ import { Platform } from 'react-native';
 const PRIMARY = '#2563EB';
 const PRIMARY_MID = '#4F46E5';
 const SECONDARY = '#7E22CE';
+const PRISM_CYAN = '#38BDF8';
 const BACKGROUND_DARK = '#0A0A0A';
 const SURFACE_DARK = '#101225';
+const PRISM_BACKGROUND = '#080D10';
+const PRISM_SURFACE = '#141820';
+const PRISM_CARD = '#1C2430';
 const SYSTEM_FONT_WEB =
-  '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+  '"Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+const DISPLAY_FONT_WEB =
+  '"Satoshi", "Geist", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
 const SYSTEM_FONT = Platform.OS === 'web' ? SYSTEM_FONT_WEB : undefined;
+const DISPLAY_FONT = Platform.OS === 'web' ? DISPLAY_FONT_WEB : undefined;
 
 export const gradientColors = [PRIMARY, PRIMARY_MID, SECONDARY] as const;
+export const prismGradientColors = [PRIMARY, SECONDARY, PRISM_CYAN] as const;
 
 export const theme = {
   colors: {
@@ -25,6 +33,30 @@ export const theme = {
     primary: PRIMARY,
     secondary: SECONDARY,
     headerBackground: 'rgba(10, 10, 10, 0.92)',
+  },
+  prism: {
+    colors: {
+      background: PRISM_BACKGROUND,
+      surface: PRISM_SURFACE,
+      card: PRISM_CARD,
+      cardDeep: '#0B1118',
+      border: 'rgba(148, 163, 184, 0.26)',
+      borderStrong: 'rgba(56, 189, 248, 0.55)',
+      text: '#F8FAFC',
+      textSoft: '#CBD5E1',
+      muted: '#94A3B8',
+      mutedDeep: '#64748B',
+      primary: PRIMARY,
+      secondary: SECONDARY,
+      accent: PRISM_CYAN,
+      success: '#22C55E',
+      danger: '#EF4444',
+      warning: '#F59E0B',
+    },
+    gradients: {
+      brand: prismGradientColors,
+      surface: ['rgba(37, 99, 235, 0.18)', 'rgba(126, 34, 206, 0.12)', 'rgba(56, 189, 248, 0.10)'] as const,
+    },
   },
   gradients: {
     header: {
@@ -58,7 +90,9 @@ export const theme = {
   typography: {
     fontFamily: {
       web: SYSTEM_FONT_WEB,
+      displayWeb: DISPLAY_FONT_WEB,
       system: SYSTEM_FONT,
+      display: DISPLAY_FONT,
     },
     weight: {
       regular: '400' as const,
@@ -67,38 +101,38 @@ export const theme = {
       bold: '700' as const,
     },
     display: {
-      fontFamily: SYSTEM_FONT,
+      fontFamily: DISPLAY_FONT,
       fontSize: 48,
       lineHeight: 52,
-      letterSpacing: -1.2,
+      letterSpacing: 0,
       fontWeight: '700' as const,
     },
     title: {
-      fontFamily: SYSTEM_FONT,
+      fontFamily: DISPLAY_FONT,
       fontSize: 28,
       lineHeight: 32,
-      letterSpacing: -0.5,
+      letterSpacing: 0,
       fontWeight: '700' as const,
     },
     body: {
       fontFamily: SYSTEM_FONT,
       fontSize: 15,
       lineHeight: 22,
-      letterSpacing: -0.1,
+      letterSpacing: 0,
       fontWeight: '400' as const,
     },
     label: {
       fontFamily: SYSTEM_FONT,
       fontSize: 14,
       lineHeight: 18,
-      letterSpacing: -0.1,
+      letterSpacing: 0,
       fontWeight: '600' as const,
     },
     nav: {
       fontFamily: SYSTEM_FONT,
       fontSize: 11,
       lineHeight: 14,
-      letterSpacing: 0.1,
+      letterSpacing: 0,
       fontWeight: '700' as const,
     },
   },
@@ -111,9 +145,9 @@ export const theme = {
     title: {
       fontSize: 28,
       lineHeight: 32,
-      letterSpacing: -0.4,
+      letterSpacing: 0,
       fontWeight: '700' as const,
-      fontFamily: SYSTEM_FONT,
+      fontFamily: DISPLAY_FONT,
     },
   },
 };

@@ -8,10 +8,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import GradientTitle from '../GradientTitle';
 import UsernameSuggestions from '../UsernameSuggestions';
 import { styles } from '../../styles/profileBasics.styles';
+import { prismGradientColors, theme } from '../../styles/theme';
 import { GENDERS, type useProfileBasicsOnboarding } from '../../hooks/useProfileBasicsOnboarding';
 import { USERNAME_HELPER_TEXT } from '../../utils/profileValidation';
 
-const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const WEB_DATE_INPUT_OVERLAY_STYLE: CSSProperties = {
   position: 'absolute',
   top: 0,
@@ -32,9 +32,9 @@ type ProfileBasicsFormProps = ReturnType<typeof useProfileBasicsOnboarding>;
 
 export const ProfileBasicsLoading = () => (
   <SafeAreaView style={styles.safeArea} edges={['top']}>
-    <StatusBar barStyle="light-content" backgroundColor="#000000" />
+    <StatusBar barStyle="light-content" backgroundColor={theme.prism.colors.background} />
     <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color="#60a5fa" />
+      <ActivityIndicator size="large" color={theme.prism.colors.accent} />
       <Text style={styles.loadingText}>Checking setup...</Text>
     </View>
   </SafeAreaView>
@@ -42,7 +42,7 @@ export const ProfileBasicsLoading = () => (
 
 export const ProfileBasicsForm = (form: ProfileBasicsFormProps) => (
   <SafeAreaView style={styles.safeArea} edges={['top']}>
-    <StatusBar barStyle="light-content" backgroundColor="#000000" />
+    <StatusBar barStyle="light-content" backgroundColor={theme.prism.colors.background} />
     <KeyboardAvoidingView
       behavior={Platform.select({ ios: 'padding', android: undefined })}
       style={styles.root}
@@ -54,7 +54,7 @@ export const ProfileBasicsForm = (form: ProfileBasicsFormProps) => (
       >
         <View style={styles.brandSection}>
           <Text style={styles.brandSubtitle}>Step 1 of 2</Text>
-          <GradientTitle text="Set up your presence" style={styles.brandTitle} />
+          <GradientTitle text="Set up your presence" style={styles.brandTitle} variant="prism" />
           <Text style={styles.onboardingSubtitle}>
             These basics unlock Radar and help nearby people recognize the real you.
           </Text>
@@ -72,7 +72,7 @@ export const ProfileBasicsForm = (form: ProfileBasicsFormProps) => (
                 }
               }}
               placeholder="How should we call you?"
-              placeholderTextColor="rgba(148, 163, 184, 0.7)"
+              placeholderTextColor={theme.prism.colors.muted}
               style={styles.input}
             />
             {form.errors.displayName ? <Text style={styles.errorText}>{form.errors.displayName}</Text> : null}
@@ -85,7 +85,7 @@ export const ProfileBasicsForm = (form: ProfileBasicsFormProps) => (
                 value={form.username}
                 onChangeText={form.handleUsernameChange}
                 placeholder="username"
-                placeholderTextColor="rgba(148, 163, 184, 0.7)"
+                placeholderTextColor={theme.prism.colors.muted}
                 autoCapitalize="none"
                 autoCorrect={false}
                 style={[
@@ -96,17 +96,17 @@ export const ProfileBasicsForm = (form: ProfileBasicsFormProps) => (
               />
               {form.isCheckingUsername ? (
                 <View style={styles.usernameStatusIcon}>
-                  <Feather name="loader" size={18} color="#60a5fa" />
+                  <Feather name="loader" size={18} color={theme.prism.colors.accent} />
                 </View>
               ) : null}
               {!form.isCheckingUsername && form.usernameAvailable === true && !form.saveError ? (
                 <View style={styles.usernameStatusIcon}>
-                  <Feather name="check-circle" size={18} color="#10b981" />
+                  <Feather name="check-circle" size={18} color={theme.prism.colors.success} />
                 </View>
               ) : null}
               {!form.isCheckingUsername && form.usernameAvailable === false ? (
                 <View style={styles.usernameStatusIcon}>
-                  <Feather name="x-circle" size={18} color="#ef4444" />
+                  <Feather name="x-circle" size={18} color={theme.prism.colors.danger} />
                 </View>
               ) : null}
             </View>
@@ -158,7 +158,7 @@ export const ProfileBasicsForm = (form: ProfileBasicsFormProps) => (
                   <Text style={form.dob ? styles.dobValue : styles.dobPlaceholder}>
                     {form.dob || 'YYYY-MM-DD'}
                   </Text>
-                  <Feather name="calendar" size={24} color="#ffffff" style={styles.pickerIcon} />
+                  <Feather name="calendar" size={24} color={theme.prism.colors.text} style={styles.pickerIcon} />
                 </View>
                 <input
                   ref={form.webDateInputRef}
@@ -186,7 +186,7 @@ export const ProfileBasicsForm = (form: ProfileBasicsFormProps) => (
                   <Text style={form.dob ? styles.dobValue : styles.dobPlaceholder}>
                     {form.dob || 'YYYY-MM-DD'}
                   </Text>
-                  <Feather name="calendar" size={24} color="#ffffff" style={styles.pickerIcon} />
+                  <Feather name="calendar" size={24} color={theme.prism.colors.text} style={styles.pickerIcon} />
                 </View>
               </Pressable>
             )}
@@ -231,14 +231,14 @@ export const ProfileBasicsForm = (form: ProfileBasicsFormProps) => (
             ]}
           >
             <LinearGradient
-              colors={PRIMARY_GRADIENT}
+              colors={prismGradientColors}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.primaryGradient}
             >
               {form.isSubmitting ? (
                 <View style={styles.buttonLoadingRow}>
-                  <ActivityIndicator color="#ffffff" size="small" />
+                  <ActivityIndicator color={theme.prism.colors.text} size="small" />
                   <Text style={[styles.primaryLabel, styles.buttonLoadingText]}>Saving...</Text>
                 </View>
               ) : (

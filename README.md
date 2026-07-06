@@ -115,23 +115,19 @@ The required journey is:
 Get Started -> Email OTP -> Profile Basics -> Optional Profile Details -> Radar
 ```
 
-Required profile basics are display name, username, date of birth, and gender. Optional details are avatar, banner, bio, Instagram, X, and LinkedIn. Optional details never block Radar once required basics are valid.
+Required profile basics are display name, username, date of birth, and gender. Optional details are avatar, banner, bio, Instagram, X, and LinkedIn. Complete Profile is shown once after basics; Save or Skip unlocks Radar.
 
 ## Supabase Summary
 
 The connected remote public schema currently exposes:
 
-- Tables: `profiles`, `social_links`, `posts`, `feedback`, `locations`, `messages`
+- Tables: `profiles`, `profile_basics_drafts`, `social_links`, `posts`, `feedback`, `locations`, `messages`
 - View: `locations_current`
 - RPCs: chat authorization, email/username availability, username suggestions, location expiry, unread counts, and message delivery/read markers
 - Storage buckets from local migrations and app usage: `profile-images`, `post-images`, `feedback-images`
 - Edge functions in source: `send-push-notification`, `update-conversation-anonymity`
 
-Local files include the onboarding draft migration `supabase/migrations/20260520090000_create_profile_basics_drafts.sql`. The connected remote migration list does not currently show that migration.
-
-`profile_basics_drafts` is required for reinstall-safe onboarding drafts and must be applied before relying on that behavior remotely.
-
-Do not apply Supabase migrations as part of documentation or test-only work. Treat remote state and local migration files as separate facts until a backend migration task is approved.
+Read-only checks on the active remote project confirmed `profile_basics_drafts`, profile draft RLS policies, and `profiles.optional_profile_completed_at` are present.
 
 ## Testing
 

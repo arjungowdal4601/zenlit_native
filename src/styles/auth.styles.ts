@@ -3,6 +3,8 @@ import { StyleSheet } from 'react-native';
 import { createShadowStyle } from '../utils/shadow';
 import { theme } from './theme';
 
+const prism = theme.prism.colors;
+
 const CARD_ELEVATION = createShadowStyle({
   native: {
     shadowColor: '#000000',
@@ -17,11 +19,11 @@ const CARD_ELEVATION = createShadowStyle({
 export const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: prism.background,
   },
   root: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: prism.background,
   },
   scroll: {
     flexGrow: 1,
@@ -41,31 +43,31 @@ export const styles = StyleSheet.create({
   brandSubtitle: {
     marginTop: 8,
     fontSize: 16,
-    color: '#94a3b8',
-    letterSpacing: -0.2,
+    color: prism.textSoft,
+    letterSpacing: 0,
   },
   card: {
     width: '100%',
     maxWidth: 400,
     paddingHorizontal: 24,
     paddingVertical: 32,
-    borderRadius: 24,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderRadius: 18,
+    backgroundColor: 'rgba(20, 24, 32, 0.82)',
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.2)',
+    borderColor: prism.border,
     ...CARD_ELEVATION,
     alignItems: 'center',
   },
   cardTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#ffffff',
+    color: prism.text,
     marginBottom: 8,
-    letterSpacing: -0.5,
+    letterSpacing: 0,
   },
   cardSubtitle: {
     fontSize: 15,
-    color: '#94a3b8',
+    color: prism.muted,
     textAlign: 'center',
     marginBottom: 32,
   },
@@ -76,7 +78,7 @@ export const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#cbd5f5',
+    color: prism.textSoft,
     marginBottom: 8,
     marginLeft: 4,
   },
@@ -84,9 +86,9 @@ export const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.3)',
-    backgroundColor: 'rgba(15, 23, 42, 0.4)',
-    color: '#ffffff',
+    borderColor: prism.border,
+    backgroundColor: 'rgba(8, 13, 16, 0.86)',
+    color: prism.text,
     paddingHorizontal: 16,
     paddingVertical: 16,
     fontSize: 16,
@@ -107,10 +109,10 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   primaryLabel: {
-    color: '#ffffff',
+    color: prism.text,
     fontSize: 16,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: 0,
   },
   disabled: {
     opacity: 0.5,
@@ -118,13 +120,13 @@ export const styles = StyleSheet.create({
   legalText: {
     marginTop: 32,
     fontSize: 12,
-    color: '#64748b',
+    color: prism.mutedDeep,
     textAlign: 'center',
     lineHeight: 18,
     maxWidth: 300,
   },
   legalLink: {
-    color: '#60a5fa',
+    color: prism.accent,
     textDecorationLine: 'underline',
   },
 });

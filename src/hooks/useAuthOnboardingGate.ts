@@ -30,6 +30,8 @@ const useWebShellEffects = (pathname: string) => {
       const style = document.createElement('style');
       style.id = styleId;
       style.textContent = `
+        @import url('https://api.fontshare.com/v2/css?f[]=satoshi@500,700,900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap');
         html, body, #root, #expo-root {
           font-family: ${theme.typography.fontFamily.web};
           text-rendering: optimizeLegibility;

@@ -1,11 +1,10 @@
 import { getCurrentUser } from '../services/authService';
 import { updateProfileDisplayName, updateSocialLinks } from '../services/profileService';
-import { deleteImageFromStorage, uploadProfileImage } from '../services/storageService';
-import type { CompressedImage } from '../utils/imageCompression';
+import { deleteImageFromStorage } from '../services/storageService';
+import { uploadProfileImagesWithCleanup } from '../utils/profileImageUploads';
 import type {
   EditProfileDraft,
   EditProfilePendingImages,
-  EditProfileUploadType,
 } from './useEditProfile';
 
 type SaveEditProfileChangesInput = {
@@ -22,29 +21,6 @@ type SaveEditProfileChangesResult = {
   warnings: string[];
 };
 
-const uploadImageIfNeeded = async (
-  image: CompressedImage | null,
-  filePrefix: EditProfileUploadType,
-): Promise<string | undefined> => {
-  try {
-    if (!image) {
-      return undefined;
-    }
-
-    const { url, error } = await uploadProfileImage(image, filePrefix);
-    if (error || !url) {
-      throw error ?? new Error('Upload failed');
-    }
-    if (typeof __DEV__ !== 'undefined' && __DEV__) {
-      console.log(`[profile-upload/${filePrefix}]`, image.metadata);
-    }
-    return url;
-  } catch (error) {
-    console.error('Failed to upload image:', error);
-    return undefined;
-  }
-};
-
 export const saveEditProfileChanges = async ({
   draft,
   originalDisplayName,
@@ -53,6 +29,7 @@ export const saveEditProfileChanges = async ({
 }: SaveEditProfileChangesInput): Promise<SaveEditProfileChangesResult> => {
   let uploadedAvatarUrl: string | undefined;
   let uploadedBannerUrl: string | undefined;
+  let cleanupUploadedImages: () => Promise<void> = async () => undefined;
   let socialLinksUpdated = false;
   const previousAvatarUrl = pending.oldProfileUrl;
   const previousBannerUrl = pending.oldBannerUrl;
@@ -68,18 +45,23 @@ export const saveEditProfileChanges = async ({
     const trimmedInstagram = draft.instagram.trim();
     const trimmedTwitter = draft.twitter.trim();
     const trimmedLinkedin = draft.linkedin.trim();
-    if (pending.avatarUpload) {
-      uploadedAvatarUrl = await uploadImageIfNeeded(pending.avatarUpload, 'avatar');
-      if (!uploadedAvatarUrl) {
-        throw new Error('Failed to upload the new profile picture. Please try again.');
+
+    if (trimmedDisplayName !== originalDisplayName) {
+      const { error: nameError } = await updateProfileDisplayName(trimmedDisplayName);
+      if (nameError) {
+        throw nameError;
       }
     }
-    if (pending.bannerUpload) {
-      uploadedBannerUrl = await uploadImageIfNeeded(pending.bannerUpload, 'banner');
-      if (!uploadedBannerUrl) {
-        throw new Error('Failed to upload the new banner image. Please try again.');
-      }
-    }
+
+    const uploadedImages = await uploadProfileImagesWithCleanup({
+      avatarImage: pending.avatarUpload,
+      bannerImage: pending.bannerUpload,
+      previousAvatarUrl,
+      previousBannerUrl,
+    });
+    uploadedAvatarUrl = uploadedImages.avatarUrl;
+    uploadedBannerUrl = uploadedImages.bannerUrl;
+    cleanupUploadedImages = uploadedImages.cleanupUploadedImages;
 
     const payload: Record<string, any> = {
       bio: trimmedBio || null,
@@ -141,28 +123,12 @@ export const saveEditProfileChanges = async ({
     if (pending.bannerRemoval || (uploadedBannerUrl && previousBannerUrl && previousBannerUrl !== uploadedBannerUrl)) {
       await deleteWithRetry(previousBannerUrl, 'banner image');
     }
-    if (trimmedDisplayName !== originalDisplayName) {
-      const { error: nameError } = await updateProfileDisplayName(trimmedDisplayName);
-      if (nameError) {
-        throw nameError;
-      }
-    }
 
     await refresh(true);
     return { nextDraft, oldProfileUrl: nextProfileUrl, oldBannerUrl: nextBannerUrl, warnings };
   } catch (error) {
     if (!socialLinksUpdated) {
-      for (const target of [
-        { url: uploadedAvatarUrl, previous: previousAvatarUrl, label: 'profile picture' },
-        { url: uploadedBannerUrl, previous: previousBannerUrl, label: 'banner image' },
-      ] as const) {
-        if (target.url && target.url !== target.previous) {
-          const { success, error: cleanupError } = await deleteImageFromStorage(target.url, 'profile-images');
-          if (!success && cleanupError) {
-            console.warn(`Cleanup failed for pending ${target.label}:`, cleanupError);
-          }
-        }
-      }
+      await cleanupUploadedImages();
     }
     throw error;
   }
