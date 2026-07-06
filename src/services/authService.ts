@@ -8,6 +8,24 @@ export type AppUser = {
 
 export type AuthChangeEvent = 'SIGNED_IN' | 'SIGNED_OUT' | 'TOKEN_REFRESHED' | string;
 
+const AUTH_REQUEST_TIMEOUT_MS = 8000;
+
+type SupabaseAuthResponse = { data: any; error: any };
+
+const withAuthTimeout = async <T>(request: PromiseLike<T>, label: string): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      Promise.resolve(request),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} timed out`)), AUTH_REQUEST_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+
 const toAppUser = (user: { id: string; email?: string | null } | null | undefined): AppUser | null => {
   if (!user) return null;
   return {
@@ -23,7 +41,10 @@ export const getAuthConfigStatus = (): SupabaseConfigStatus => supabaseConfigSta
 export const getCurrentUser = async (): Promise<AppUser | null> => {
   if (!supabaseReady) return null;
 
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error } = await withAuthTimeout<SupabaseAuthResponse>(
+    supabase.auth.getUser(),
+    'Auth user check',
+  );
   if (error || !data.user) return null;
   return toAppUser(data.user);
 };
@@ -31,7 +52,10 @@ export const getCurrentUser = async (): Promise<AppUser | null> => {
 export const getCurrentSessionUser = async (): Promise<AppUser | null> => {
   if (!supabaseReady) return null;
 
-  const { data, error } = await supabase.auth.getSession();
+  const { data, error } = await withAuthTimeout<SupabaseAuthResponse>(
+    supabase.auth.getSession(),
+    'Auth session check',
+  );
   if (error || !data.session?.user) return null;
   return toAppUser(data.session.user);
 };
@@ -41,12 +65,12 @@ export const signInWithEmailOtp = async (email: string) => {
     return { data: null, error: new Error('Authentication service is not configured') };
   }
 
-  return supabase.auth.signInWithOtp({
+  return withAuthTimeout<SupabaseAuthResponse>(supabase.auth.signInWithOtp({
     email,
     options: {
       shouldCreateUser: true,
     },
-  });
+  }), 'Email OTP request');
 };
 
 export const verifyEmailOtp = async (email: string, token: string) => {
@@ -54,11 +78,11 @@ export const verifyEmailOtp = async (email: string, token: string) => {
     return { user: null, error: new Error('Authentication service is not configured') };
   }
 
-  const { data, error } = await supabase.auth.verifyOtp({
+  const { data, error } = await withAuthTimeout<SupabaseAuthResponse>(supabase.auth.verifyOtp({
     email,
     token,
     type: 'email',
-  });
+  }), 'Email OTP verification');
 
   return {
     user: toAppUser(data?.user),
@@ -68,7 +92,7 @@ export const verifyEmailOtp = async (email: string, token: string) => {
 
 export const signOut = async (scope: 'local' | 'global' = 'global') => {
   if (!supabaseReady) return { error: null };
-  return supabase.auth.signOut({ scope });
+  return withAuthTimeout(supabase.auth.signOut({ scope }), 'Sign out');
 };
 
 export const onAuthChange = (

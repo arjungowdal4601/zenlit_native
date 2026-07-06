@@ -4,6 +4,7 @@ import type {
   ProfileBasicsDraftRecord,
   RequiredProfileField,
 } from './onboardingState';
+import { USERNAME_PATTERN } from './profileValidation';
 
 export const EMPTY_PREFILL: BasicProfileValues = {
   display_name: null,
@@ -19,7 +20,6 @@ const REQUIRED_FIELDS: RequiredProfileField[] = [
   'gender',
 ];
 
-const USERNAME_PATTERN = /^[a-z0-9._!@#$%^&*()+=\-[\]{}|;:,<>?/~`]+$/;
 const VALID_GENDERS = new Set(['male', 'female', 'other']);
 
 const cleanString = (value: string | null | undefined): string | null => {

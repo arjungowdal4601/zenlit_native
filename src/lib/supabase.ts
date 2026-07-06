@@ -166,31 +166,3 @@ if (supabaseConfigStatus.ready) {
 }
 
 export { supabase, supabaseReady, getSupabaseConfig }
-
-// Handle auth state changes only when real client exists
-if (supabaseReady) {
-  supabase.auth.onAuthStateChange(async (event: string, session: any) => {
-    if (event === 'TOKEN_REFRESHED') {
-      logger.info('Supabase', 'Token refreshed successfully')
-    } else if (event === 'SIGNED_OUT') {
-      logger.info('Supabase', 'User signed out, session cleared')
-    }
-  })
-}
-
-// Function to clear invalid session data
-export const clearInvalidSession = async () => {
-  try {
-    if (supabaseReady) {
-      const { data } = await supabase.auth.getSession()
-      if (data?.session) {
-        try {
-          await supabase.auth.signOut({ scope: 'global' })
-        } catch {}
-      }
-    }
-    logger.info('Supabase', 'Invalid session cleared')
-  } catch (error) {
-    logger.error('Supabase', 'Error clearing session:', error)
-  }
-}

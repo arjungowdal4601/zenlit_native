@@ -189,6 +189,5 @@ jest.mock('../../src/lib/supabase', () => {
       error: null,
       source: 'jest',
     })),
-    clearInvalidSession: jest.fn(async () => undefined),
   };
 });

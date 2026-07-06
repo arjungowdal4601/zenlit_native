@@ -5,6 +5,7 @@ import {
   validateDateOfBirth,
   validateDisplayName,
   validateProfileData,
+  sanitizeUsernameInput,
   validateUsername,
 } from '../../src/utils/profileValidation';
 
@@ -24,6 +25,12 @@ describe('profile validation', () => {
     expect(validateDisplayName('').error).toBe('Display name is required');
     expect(validateUsername('ab').error).toBe('Username must be at least 3 characters long');
     expect(validateDateOfBirth('not-a-date').error).toBe('Please enter a valid date');
+  });
+
+  it('keeps username rules aligned with onboarding copy', () => {
+    expect(validateUsername('alex.g_2026').isValid).toBe(true);
+    expect(validateUsername('alex-g').isValid).toBe(false);
+    expect(sanitizeUsernameInput('Alex-G!')).toBe('alexg');
   });
 
   it('normalizes gender labels and date strings consistently', () => {

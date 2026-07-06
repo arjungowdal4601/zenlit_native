@@ -7,11 +7,12 @@
     "columns": [
       { "name": "id", "data_type": "uuid", "format": "uuid", "options": ["updatable"], "default_value": "gen_random_uuid()" },
       { "name": "display_name", "data_type": "text", "format": "text", "options": ["updatable"] },
-      { "name": "user_name", "data_type": "text", "format": "text", "options": ["updatable", "unique"], "check": "user_name ~ '^[a-z0-9._!@#$%^&*()+=\\-\\[\\]{}|;:,<>?/~`]+$'::text" },
+      { "name": "user_name", "data_type": "text", "format": "text", "options": ["updatable", "unique"], "check": "user_name ~ '^[a-z0-9._]+$'::text" },
       { "name": "date_of_birth", "data_type": "date", "format": "date", "options": ["nullable", "updatable"] },
       { "name": "gender", "data_type": "text", "format": "text", "options": ["nullable", "updatable"], "check": "gender = ANY (ARRAY['male'::text, 'female'::text, 'other'::text])" },
       { "name": "email", "data_type": "text", "format": "text", "options": ["updatable", "unique"] },
-      { "name": "account_created_at", "data_type": "timestamp with time zone", "format": "timestamptz", "options": ["updatable"], "default_value": "now()" }
+      { "name": "account_created_at", "data_type": "timestamp with time zone", "format": "timestamptz", "options": ["updatable"], "default_value": "now()" },
+      { "name": "optional_profile_completed_at", "data_type": "timestamp with time zone", "format": "timestamptz", "options": ["nullable", "updatable"] }
     ],
     "primary_keys": ["id"],
     "foreign_key_constraints": [
@@ -31,7 +32,7 @@
     "columns": [
       { "name": "id", "data_type": "uuid", "format": "uuid", "options": ["updatable"] },
       { "name": "display_name", "data_type": "text", "format": "text", "options": ["nullable", "updatable"] },
-      { "name": "user_name", "data_type": "text", "format": "text", "options": ["nullable", "updatable"], "check": "user_name IS NULL OR user_name ~ '^[a-z0-9._!@#$%^&*()+=\\-\\[\\]{}|;:,<>?/~`]+$'::text" },
+      { "name": "user_name", "data_type": "text", "format": "text", "options": ["nullable", "updatable"], "check": "user_name IS NULL OR user_name ~ '^[a-z0-9._]+$'::text" },
       { "name": "date_of_birth", "data_type": "date", "format": "date", "options": ["nullable", "updatable"] },
       { "name": "gender", "data_type": "text", "format": "text", "options": ["nullable", "updatable"], "check": "gender IS NULL OR gender = ANY (ARRAY['male'::text, 'female'::text, 'other'::text])" },
       { "name": "updated_at", "data_type": "timestamp with time zone", "format": "timestamptz", "options": ["updatable"], "default_value": "now()" }

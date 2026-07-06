@@ -1,9 +1,9 @@
 import * as React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, BackHandler, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, Text, TextInput, View, Alert } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, Text, TextInput, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 import GradientTitle from '../../src/components/GradientTitle';
 import { styles } from '../../src/styles/auth.styles';
@@ -11,15 +11,6 @@ import { isAuthReady, signInWithEmailOtp } from '../../src/services/authService'
 import { logger } from '../../src/utils/logger';
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
-const DIVIDER_LINE_COLORS = [
-  'rgba(37, 99, 235, 0)',
-  'rgba(37, 99, 235, 0.45)',
-  'rgba(37, 99, 235, 0)',
-] as const;
-const DIVIDER_BADGE_COLORS = [
-  'rgba(37, 99, 235, 0.35)',
-  'rgba(126, 34, 206, 0.45)',
-] as const;
 const EMAIL_PLACEHOLDER = 'Enter your email';
 
 const AuthScreen: React.FC = () => {

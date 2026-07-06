@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  BackHandler,
   Platform,
   Pressable,
   StyleSheet,
@@ -98,14 +97,6 @@ const GetStartedScreen: React.FC = () => {
         <View style={styles.titleWrapper}>
           <GradientTitle text="Zenlit" style={styles.title} numberOfLines={1} />
           <Text style={styles.subtitle}>Connect with people around you.</Text>
-          <Text style={styles.heroText}>
-            A browser-first social radar for discovering nearby people, sharing posts, and starting conversations.
-          </Text>
-          <View style={styles.trustRow}>
-            <Text style={styles.trustPill}>No app store</Text>
-            <Text style={styles.trustPill}>Email OTP</Text>
-            <Text style={styles.trustPill}>You control visibility</Text>
-          </View>
         </View>
 
         <Pressable
@@ -175,32 +166,6 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     textAlign: 'center',
     letterSpacing: -0.5,
-  },
-  heroText: {
-    marginTop: 16,
-    color: '#cbd5e1',
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-    maxWidth: 340,
-  },
-  trustRow: {
-    marginTop: 18,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  trustPill: {
-    color: '#93c5fd',
-    fontSize: 12,
-    fontWeight: '600',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(96, 165, 250, 0.28)',
-    backgroundColor: 'rgba(37, 99, 235, 0.12)',
   },
   buttonWrapper: {
     width: '70%',

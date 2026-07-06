@@ -15,7 +15,7 @@ import { VisibilityProvider } from '../src/contexts/VisibilityContext';
 import Navigation from '../src/components/Navigation';
 import { theme } from '../src/styles/theme';
 import { styles } from '../src/styles/rootLayout.styles';
-import { useRootLayoutController } from '../src/hooks/useRootLayoutController';
+import { useAuthOnboardingGate } from '../src/hooks/useAuthOnboardingGate';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -28,7 +28,7 @@ Notifications.setNotificationHandler({
 });
 
 const RootLayout: React.FC = () => {
-  const shell = useRootLayoutController();
+  const shell = useAuthOnboardingGate();
 
   if (!shell.authReady) {
     return (

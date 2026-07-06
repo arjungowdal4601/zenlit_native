@@ -170,6 +170,7 @@ export type Database = {
           email: string
           gender: string | null
           id: string
+          optional_profile_completed_at: string | null
           user_name: string
         }
         Insert: {
@@ -179,6 +180,7 @@ export type Database = {
           email: string
           gender?: string | null
           id?: string
+          optional_profile_completed_at?: string | null
           user_name: string
         }
         Update: {
@@ -188,6 +190,7 @@ export type Database = {
           email?: string
           gender?: string | null
           id?: string
+          optional_profile_completed_at?: string | null
           user_name?: string
         }
         Relationships: []

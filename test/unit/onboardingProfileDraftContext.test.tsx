@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Pressable, Text, TextInput } from 'react-native';
 import { fireEvent, render, screen } from '../utils/render';
 

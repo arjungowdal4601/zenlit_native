@@ -1,4 +1,3 @@
-import React from 'react';
 import type { CSSProperties } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -10,6 +9,7 @@ import GradientTitle from '../GradientTitle';
 import UsernameSuggestions from '../UsernameSuggestions';
 import { styles } from '../../styles/profileBasics.styles';
 import { GENDERS, type useProfileBasicsOnboarding } from '../../hooks/useProfileBasicsOnboarding';
+import { USERNAME_HELPER_TEXT } from '../../utils/profileValidation';
 
 const PRIMARY_GRADIENT = ['#2563eb', '#7e22ce'] as const;
 const WEB_DATE_INPUT_OVERLAY_STYLE: CSSProperties = {
@@ -90,7 +90,7 @@ export const ProfileBasicsForm = (form: ProfileBasicsFormProps) => (
                 autoCorrect={false}
                 style={[
                   styles.input,
-                  form.usernameAvailable === true && styles.inputSuccess,
+                  form.usernameAvailable === true && !form.saveError && styles.inputSuccess,
                   form.usernameAvailable === false && styles.inputError,
                 ]}
               />
@@ -99,7 +99,7 @@ export const ProfileBasicsForm = (form: ProfileBasicsFormProps) => (
                   <Feather name="loader" size={18} color="#60a5fa" />
                 </View>
               ) : null}
-              {!form.isCheckingUsername && form.usernameAvailable === true ? (
+              {!form.isCheckingUsername && form.usernameAvailable === true && !form.saveError ? (
                 <View style={styles.usernameStatusIcon}>
                   <Feather name="check-circle" size={18} color="#10b981" />
                 </View>
@@ -111,10 +111,10 @@ export const ProfileBasicsForm = (form: ProfileBasicsFormProps) => (
               ) : null}
             </View>
             {!form.isCheckingUsername && form.usernameAvailable !== false ? (
-              <Text style={styles.helperText}>Only lowercase letters, numbers, dots, and underscores.</Text>
+              <Text style={styles.helperText}>{USERNAME_HELPER_TEXT}</Text>
             ) : null}
             {form.isCheckingUsername ? <Text style={styles.checkingText}>Checking availability...</Text> : null}
-            {!form.isCheckingUsername && form.usernameAvailable === true ? (
+            {!form.isCheckingUsername && form.usernameAvailable === true && !form.saveError ? (
               <Text style={styles.successText}>Username is available!</Text>
             ) : null}
             {!form.isCheckingUsername && form.usernameAvailable === false ? (

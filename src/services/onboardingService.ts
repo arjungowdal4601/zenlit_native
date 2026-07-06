@@ -24,20 +24,45 @@ import {
 } from '../utils/profileValidation';
 import { logger } from '../utils/logger';
 
+type OnboardingStateListener = (state: OnboardingState) => void;
+type SupabaseReadResponse = { data: any; error: any };
+
+const onboardingStateListeners = new Set<OnboardingStateListener>();
+const ONBOARDING_REQUEST_TIMEOUT_MS = 8000;
+
+export const subscribeToOnboardingState = (listener: OnboardingStateListener) => {
+  onboardingStateListeners.add(listener);
+  return () => void onboardingStateListeners.delete(listener);
+};
+
+const publishOnboardingState = (state: OnboardingState) => onboardingStateListeners.forEach((listener) => listener(state));
+
+const withOnboardingTimeout = async <T>(request: PromiseLike<T>, label: string): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out`)), ONBOARDING_REQUEST_TIMEOUT_MS);
+  });
+  return Promise.race([Promise.resolve(request), timeout]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+};
+
 const asError = (value: unknown, fallback: string): Error => {
-  if (value instanceof Error) {
-    return value;
-  }
+  if (value instanceof Error) return value;
 
   if (typeof value === 'object' && value && 'message' in value) {
-    return new Error(String((value as { message?: unknown }).message ?? fallback));
+    const details = ['message', 'code', 'details', 'hint']
+      .map((key) => String((value as Record<string, unknown>)[key] ?? ''))
+      .filter(Boolean)
+      .join(' ');
+    return new Error(details || fallback);
   }
 
   return new Error(fallback);
 };
 
 const getAuthenticatedUser = async (userId?: string | null) => {
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error } = await withOnboardingTimeout<SupabaseReadResponse>(supabase.auth.getUser(), 'Authenticated user check');
   if (error || !data.user) {
     throw new Error('Not authenticated');
   }
@@ -46,10 +71,7 @@ const getAuthenticatedUser = async (userId?: string | null) => {
     throw new Error('Authenticated user mismatch');
   }
 
-  return {
-    id: data.user.id,
-    email: data.user.email ?? null,
-  };
+  return { id: data.user.id, email: data.user.email ?? null };
 };
 
 const normalizeDraftPayload = (values: Partial<ProfileBasicsInput>) => {
@@ -73,7 +95,7 @@ export const resolveOnboardingState = async (
   options: ResolveOnboardingOptions = {},
 ): Promise<OnboardingState> => {
   try {
-    const { data, error } = await supabase.auth.getUser();
+    const { data, error } = await withOnboardingTimeout<SupabaseReadResponse>(supabase.auth.getUser(), 'Onboarding auth check');
     if (error || !data.user) {
       return evaluateOnboardingState({ userId: null });
     }
@@ -87,35 +109,28 @@ export const resolveOnboardingState = async (
     const [
       { data: profile, error: profileError },
       { data: draft, error: draftError },
-      { data: socialLinks, error: socialLinksError },
-    ] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id, display_name, user_name, date_of_birth, gender, email')
-        .eq('id', userId)
-        .maybeSingle(),
-      supabase
-        .from('profile_basics_drafts')
-        .select('id, display_name, user_name, date_of_birth, gender')
-        .eq('id', userId)
-        .maybeSingle(),
-      supabase
-        .from('social_links')
-        .select('id')
-        .eq('id', userId)
-        .maybeSingle(),
-    ]);
+    ] = await withOnboardingTimeout<[SupabaseReadResponse, SupabaseReadResponse]>(
+      Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, display_name, user_name, date_of_birth, gender, email, optional_profile_completed_at')
+          .eq('id', userId)
+          .maybeSingle(),
+        supabase
+          .from('profile_basics_drafts')
+          .select('id, display_name, user_name, date_of_birth, gender')
+          .eq('id', userId)
+          .maybeSingle(),
+      ]),
+      'Onboarding profile check',
+    );
 
     return evaluateOnboardingState({
       userId,
       profile: profile as OnboardingProfileRecord | null,
       draft: draft as ProfileBasicsDraftRecord | null,
-      socialLinks: socialLinks ? { id: socialLinks.id } : null,
       profileError: profileError ? asError(profileError, 'Failed to load profile') : null,
       draftError: draftError ? asError(draftError, 'Failed to load setup draft') : null,
-      socialLinksError: socialLinksError
-        ? asError(socialLinksError, 'Failed to load optional profile')
-        : null,
     });
   } catch (error) {
     logger.error('Onboarding', 'Failed to resolve onboarding state', error);
@@ -124,6 +139,15 @@ export const resolveOnboardingState = async (
       profileError: asError(error, 'Failed to resolve onboarding'),
     });
   }
+};
+
+const markOptionalProfileComplete = async (userId: string) => {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ optional_profile_completed_at: new Date().toISOString() })
+    .eq('id', userId);
+
+  if (error) throw error;
 };
 
 export const saveProfileBasicsDraft = async (
@@ -167,42 +191,40 @@ export const saveRequiredProfileBasics = async (
 ): Promise<ServiceResult<OnboardingState>> => {
   try {
     const user = await getAuthenticatedUser(userId);
-    const normalizedGender = normalizeGender(values.gender);
     const parsedDob = parseDobString(values.date_of_birth);
-    const dateOfBirth = parsedDob ? formatDate(parsedDob) : values.date_of_birth.trim();
     const profileData: ProfileData = {
       display_name: values.display_name.trim(),
       user_name: values.user_name.trim().toLowerCase(),
-      date_of_birth: dateOfBirth,
-      gender: normalizedGender,
+      date_of_birth: parsedDob ? formatDate(parsedDob) : values.date_of_birth.trim(),
+      gender: normalizeGender(values.gender),
     };
 
     const validation = validateProfileData(profileData);
-    if (!validation.isValid) {
-      throw new Error(validation.error ?? 'Profile basics are invalid');
-    }
+    if (!validation.isValid) throw new Error(validation.error ?? 'Profile basics are invalid');
 
     const { error } = await supabase
       .from('profiles')
-      .upsert(
-        {
-          id: user.id,
-          display_name: profileData.display_name,
-          user_name: profileData.user_name,
-          date_of_birth: profileData.date_of_birth,
-          gender: profileData.gender,
-          email: user.email,
-        },
-        { onConflict: 'id' },
-      );
+      .upsert({ id: user.id, email: user.email, ...profileData }, { onConflict: 'id' });
 
     if (error) {
       throw error;
     }
 
-    await supabase.from('profile_basics_drafts').delete().eq('id', user.id);
+    void supabase
+      .from('profile_basics_drafts')
+      .delete()
+      .eq('id', user.id)
+      .then(({ error: draftError }: { error: unknown }) => {
+        if (draftError) logger.warn('Onboarding', 'Failed to delete profile basics draft', draftError);
+      }, (draftError: unknown) => {
+        logger.warn('Onboarding', 'Failed to delete profile basics draft', draftError);
+      });
 
-    const state = await resolveOnboardingState({ userId: user.id });
+    const state = evaluateOnboardingState({
+      userId: user.id,
+      profile: { id: user.id, email: user.email, ...profileData, optional_profile_completed_at: null },
+    });
+    publishOnboardingState(state);
     return { data: state, error: null };
   } catch (error) {
     logger.error('Onboarding', 'Failed to save required profile basics', error);
@@ -226,15 +248,20 @@ export const saveOptionalProfileDetails = async (
       banner_url: values.banner_url ?? null,
     };
 
-    const { error } = await supabase
-      .from('social_links')
-      .upsert(payload, { onConflict: 'id' });
+    const hasOptionalData = Object.entries(payload)
+      .some(([key, value]) => key !== 'id' && value !== null);
 
-    if (error) {
-      throw error;
+    if (hasOptionalData) {
+      const { error } = await supabase
+        .from('social_links')
+        .upsert(payload, { onConflict: 'id' });
+
+      if (error) throw error;
     }
 
+    await markOptionalProfileComplete(user.id);
     const state = await resolveOnboardingState({ userId: user.id });
+    publishOnboardingState(state);
     return { data: state, error: null };
   } catch (error) {
     logger.error('Onboarding', 'Failed to save optional profile details', error);
@@ -247,26 +274,9 @@ export const skipOptionalProfileDetails = async (
 ): Promise<ServiceResult<OnboardingState>> => {
   try {
     const user = await getAuthenticatedUser(userId);
-    const { error } = await supabase
-      .from('social_links')
-      .upsert(
-        {
-          id: user.id,
-          bio: null,
-          instagram: null,
-          x_twitter: null,
-          linkedin: null,
-          profile_pic_url: null,
-          banner_url: null,
-        },
-        { onConflict: 'id' },
-      );
-
-    if (error) {
-      throw error;
-    }
-
+    await markOptionalProfileComplete(user.id);
     const state = await resolveOnboardingState({ userId: user.id });
+    publishOnboardingState(state);
     return { data: state, error: null };
   } catch (error) {
     logger.error('Onboarding', 'Failed to skip optional profile details', error);

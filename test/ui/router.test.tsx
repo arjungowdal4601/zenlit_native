@@ -1,4 +1,3 @@
-import React from 'react';
 import { Text } from 'react-native';
 import { renderRouter, screen } from 'expo-router/testing-library';
 

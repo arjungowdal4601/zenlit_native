@@ -16,6 +16,13 @@ export interface UsernameCheckResult {
 }
 
 export const VALID_GENDERS = ['male', 'female', 'other'] as const;
+export const USERNAME_PATTERN = /^[a-z0-9._]+$/;
+export const USERNAME_HELPER_TEXT = 'Only lowercase letters, numbers, dots, and underscores.';
+export const USERNAME_ALLOWED_CHARACTERS_MESSAGE =
+  'Username can only contain lowercase letters, numbers, dots, and underscores';
+
+export const sanitizeUsernameInput = (value: string) =>
+  value.replace(/[^a-z0-9._]/gi, '').toLowerCase();
 
 export const normalizeGender = (value: string): 'male' | 'female' | 'other' => {
   const v = value.trim().toLowerCase();
@@ -43,9 +50,6 @@ export const parseDobString = (value: string): Date | null => {
   return dt;
 };
 
-/**
- * Validates username format - only lowercase letters, numbers, dots, underscores, and special characters
- */
 export const validateUsername = (username: string): ValidationResult => {
   if (!username) {
     return { isValid: false, error: 'Username is required' };
@@ -59,13 +63,10 @@ export const validateUsername = (username: string): ValidationResult => {
     return { isValid: false, error: 'Username must be less than 30 characters' };
   }
 
-  // Check if username contains only allowed characters (lowercase letters, numbers, dots, underscores, special chars)
-  const validUsernameRegex = /^[a-z0-9._!@#$%^&*()+=\-\[\]{}|;:,<>?/~`]+$/;
-  
-  if (!validUsernameRegex.test(username)) {
+  if (!USERNAME_PATTERN.test(username)) {
     return { 
       isValid: false, 
-      error: 'Username can only contain lowercase letters, numbers, dots, underscores, and special characters' 
+      error: USERNAME_ALLOWED_CHARACTERS_MESSAGE,
     };
   }
 

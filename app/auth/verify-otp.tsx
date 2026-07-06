@@ -1,5 +1,4 @@
-import * as React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,17 +23,26 @@ export default function VerifyOTPScreen() {
   const [cooldown, setCooldown] = useState(0);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
+  const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isComplete = useMemo(() => {
     return code.length === 6;
   }, [code]);
 
+  const clearCooldown = () => {
+    if (cooldownIntervalRef.current) {
+      clearInterval(cooldownIntervalRef.current);
+      cooldownIntervalRef.current = null;
+    }
+  };
+
   const startCooldown = (seconds: number) => {
+    clearCooldown();
     setCooldown(seconds);
-    const interval = setInterval(() => {
+    cooldownIntervalRef.current = setInterval(() => {
       setCooldown((prev) => {
         if (prev <= 1) {
-          clearInterval(interval);
+          clearCooldown();
           return 0;
         }
         return prev - 1;
@@ -44,6 +52,7 @@ export default function VerifyOTPScreen() {
 
   useEffect(() => {
     startCooldown(COOLDOWN_SECONDS); // Start with initial cooldown
+    return clearCooldown;
   }, []);
 
   const handleChange = (text: string) => {

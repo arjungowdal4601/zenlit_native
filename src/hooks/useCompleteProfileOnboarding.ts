@@ -3,11 +3,15 @@ import { useRouter } from 'expo-router';
 
 import { useOnboardingProfileDraft } from '../contexts/OnboardingProfileDraftContext';
 import { isAuthReady } from '../services/authService';
-import { saveOptionalProfileDetails, skipOptionalProfileDetails } from '../services/onboardingService';
+import {
+  resolveOnboardingState,
+  saveOptionalProfileDetails,
+  skipOptionalProfileDetails,
+} from '../services/onboardingService';
 import { uploadProfileImage } from '../services/storageService';
 import type { CompressedImage } from '../utils/imageCompression';
 import { getFriendlyOnboardingError } from '../utils/onboardingErrors';
-import { getRouteForOnboardingState } from '../utils/onboardingState';
+import { getRouteForOnboardingState, ROUTES } from '../utils/onboardingState';
 
 const uploadImageIfNeeded = async (
   image: CompressedImage | null,
@@ -31,6 +35,7 @@ export const useCompleteProfileOnboarding = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('Profile updated successfully.');
+  const [isCheckingSetup, setIsCheckingSetup] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showImageUploadDialog, setShowImageUploadDialog] = useState(false);
   const [uploadType, setUploadType] = useState<'avatar' | 'banner'>('avatar');
@@ -51,6 +56,37 @@ export const useCompleteProfileOnboarding = () => {
       clearSuccessTimeout();
     };
   }, []);
+
+  useEffect(() => {
+    if (!authReady) {
+      setIsCheckingSetup(false);
+      return;
+    }
+
+    let active = true;
+    const checkSetup = async () => {
+      try {
+        const state = await resolveOnboardingState();
+        if (!active || !mountedRef.current) return;
+
+        if (state.status !== 'optional-profile-details') {
+          router.replace(getRouteForOnboardingState(state));
+          return;
+        }
+
+        setIsCheckingSetup(false);
+      } catch {
+        if (active && mountedRef.current) {
+          router.replace(ROUTES.onboardingRecovery);
+        }
+      }
+    };
+
+    void checkSetup();
+    return () => {
+      active = false;
+    };
+  }, [authReady, router]);
 
   const finishAfter = (state: NonNullable<Awaited<ReturnType<typeof saveOptionalProfileDetails>>['data']>, delay: number) => {
     successTimeoutRef.current = setTimeout(() => {
@@ -179,11 +215,12 @@ export const useCompleteProfileOnboarding = () => {
     ...draft,
     authReady,
     errorMessage,
-    handleBack: () => router.replace('/onboarding/profile/basic'),
+    handleBack: () => router.replace(ROUTES.onboardingBasic),
     handleImageSelected,
     handleRemoveImage,
     handleSave,
     handleSkip,
+    isCheckingSetup,
     isSaving,
     openBannerMenu: () => openImageDialog('banner'),
     openProfileMenu: () => openImageDialog('avatar'),

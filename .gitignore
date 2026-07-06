@@ -71,3 +71,6 @@ GoogleService-Info.plist
 # provider local state
 .vercel/
 supabase/.temp/
+
+# local user-data backups
+backups/user-data-backups/

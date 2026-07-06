@@ -6,6 +6,7 @@ export interface Profile {
   gender: 'male' | 'female' | 'other' | null;
   email: string;
   account_created_at: string;
+  optional_profile_completed_at?: string | null;
 }
 
 export interface SocialLinks {

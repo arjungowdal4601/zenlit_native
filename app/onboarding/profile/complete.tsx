@@ -13,6 +13,15 @@ import { useCompleteProfileOnboarding } from '../../../src/hooks/useCompleteProf
 const CompleteProfileScreen: React.FC = () => {
   const profile = useCompleteProfileOnboarding();
 
+  if (profile.isCheckingSetup) {
+    return (
+      <View style={[styles.root, styles.loadingContainer]}>
+        <ActivityIndicator color="#60a5fa" size="large" />
+        <Text style={styles.loadingText}>Checking setup...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />

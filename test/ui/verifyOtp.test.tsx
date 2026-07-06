@@ -1,4 +1,3 @@
-import React from 'react';
 import { act, fireEvent, render, screen } from '../utils/render';
 
 const mockReplace = jest.fn();

@@ -4,14 +4,9 @@ import { usePathname, useRouter, useSegments } from 'expo-router';
 
 import { theme } from '../styles/theme';
 import { logger } from '../utils/logger';
-import {
-  canAccessMainApp,
-  getRouteForOnboardingState,
-  ROUTES,
-  shouldRefreshBeforeOnboardingRedirect,
-  type OnboardingState,
-} from '../utils/onboardingState';
-import { resolveOnboardingState } from '../services/onboardingService';
+import { canAccessMainApp, evaluateOnboardingState, getRouteForOnboardingState, ROUTES, type OnboardingState } from '../utils/onboardingState';
+import { getAuthOnboardingRedirect, isPublicRoute } from '../utils/authOnboardingGate';
+import { resolveOnboardingState, subscribeToOnboardingState } from '../services/onboardingService';
 import {
   getAuthConfigStatus,
   getCurrentSessionUser,
@@ -23,7 +18,8 @@ import {
 import { useNotifications } from './useNotifications';
 import { persistHasSeenGetStarted, readHasSeenGetStarted } from '../utils/getStartedPreference';
 
-const PUBLIC_ROUTES = new Set(['/terms', '/privacy']);
+const asError = (error: unknown, fallback: string) =>
+  error instanceof Error ? error : new Error(fallback);
 
 const useWebShellEffects = (pathname: string) => {
   useEffect(() => {
@@ -47,39 +43,50 @@ const useWebShellEffects = (pathname: string) => {
   }, []);
 
   useEffect(() => {
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      window.requestAnimationFrame(() => {
-        const activeElement = document.activeElement as HTMLElement | null;
-        activeElement?.blur();
-      });
-    }
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    window.requestAnimationFrame(() => {
+      const activeElement = document.activeElement as HTMLElement | null;
+      activeElement?.blur();
+    });
   }, [pathname]);
 };
 
-const useNotificationRouting = (router: ReturnType<typeof useRouter>) => {
+const useNotificationRouting = (
+  router: ReturnType<typeof useRouter>,
+  enabled: boolean,
+) => {
   const { notification } = useNotifications();
 
   useEffect(() => {
-    if (!notification?.request.content.data) return;
+    if (!enabled || !notification?.request.content.data) return;
     const data = notification.request.content.data;
     logger.info('Notification', 'Received notification in foreground:', data);
     if (data.type === 'message' && data.senderId) {
       router.push(`/messages/${data.senderId}`);
     }
-  }, [notification, router]);
+  }, [enabled, notification, router]);
 };
 
-export const useRootLayoutController = () => {
+export const useAuthOnboardingGate = () => {
   const pathname = usePathname();
   const router = useRouter();
   const segments = useSegments();
-  const isPublicRoute = PUBLIC_ROUTES.has(pathname);
+  const firstSegment = segments[0];
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
   const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
   const [hasSeenGetStarted, setHasSeenGetStarted] = useState<boolean | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const authConfigStatus = getAuthConfigStatus();
+
+  const finishSignedOut = useCallback(() => {
+    setCurrentUserId(null);
+    setIsAuthenticated(false);
+    setOnboardingState(null);
+    setIsCheckingAuth(false);
+    setIsCheckingOnboarding(false);
+  }, []);
 
   const clearStaleAuthSession = useCallback(async () => {
     try {
@@ -87,28 +94,40 @@ export const useRootLayoutController = () => {
     } catch (error) {
       logger.warn('Auth', 'Failed to clear stale local session', error);
     }
+    finishSignedOut();
+  }, [finishSignedOut]);
 
-    setIsAuthenticated(false);
-    setOnboardingState(null);
-    setIsCheckingAuth(false);
-    setIsCheckingOnboarding(false);
-  }, []);
-
-  const refreshOnboardingState = useCallback(async (userId?: string | null) => {
-    setIsCheckingOnboarding(true);
-    const state = await resolveOnboardingState({ userId });
-    if (state.status === 'guest') {
-      await clearStaleAuthSession();
-      return state;
+  const refreshOnboardingState = useCallback(async (userId: string | null) => {
+    if (!userId) {
+      finishSignedOut();
+      return evaluateOnboardingState({ userId: null });
     }
 
-    setOnboardingState(state);
-    setIsCheckingOnboarding(false);
-    return state;
-  }, [clearStaleAuthSession]);
+    setIsCheckingOnboarding(true);
+    try {
+      const state = await resolveOnboardingState({ userId });
+      if (state.status === 'guest') {
+        await clearStaleAuthSession();
+        return state;
+      }
+      setCurrentUserId(state.userId);
+      setOnboardingState(state);
+      setIsCheckingOnboarding(false);
+      return state;
+    } catch (error) {
+      logger.error('Onboarding', 'Gate failed to refresh onboarding state', error);
+      const state = evaluateOnboardingState({
+        userId,
+        profileError: asError(error, 'Failed to check onboarding state'),
+      });
+      setOnboardingState(state);
+      setIsCheckingOnboarding(false);
+      return state;
+    }
+  }, [clearStaleAuthSession, finishSignedOut]);
 
   useWebShellEffects(pathname);
-  useNotificationRouting(router);
+  useNotificationRouting(router, canAccessMainApp(onboardingState));
 
   useEffect(() => {
     let isMounted = true;
@@ -124,128 +143,113 @@ export const useRootLayoutController = () => {
   }, []);
 
   useEffect(() => {
+    let active = true;
+
     const checkInitialAuth = async () => {
       try {
         if (!isAuthReady()) {
           logger.warn('App', 'Supabase not ready, skipping session check');
-          setIsCheckingAuth(false);
-          setIsAuthenticated(false);
+          finishSignedOut();
           return;
         }
 
         const sessionUser = await getCurrentSessionUser();
+        if (!active) return;
         if (!sessionUser) {
-          setIsAuthenticated(false);
-          setIsCheckingAuth(false);
-          setOnboardingState(null);
+          finishSignedOut();
           return;
         }
 
         const user = await getCurrentUser();
+        if (!active) return;
         if (!user) {
           logger.warn('Auth', 'Stored session user is no longer valid');
           await clearStaleAuthSession();
           return;
         }
 
+        setCurrentUserId(user.id);
         setIsAuthenticated(true);
         setIsCheckingAuth(false);
         await refreshOnboardingState(user.id);
       } catch (error) {
         logger.error('Auth', 'Error checking session:', error);
-        setIsAuthenticated(false);
-        setOnboardingState(null);
-        setIsCheckingAuth(false);
-        setIsCheckingOnboarding(false);
+        finishSignedOut();
       }
     };
 
     void checkInitialAuth();
-  }, [clearStaleAuthSession, refreshOnboardingState]);
+    return () => {
+      active = false;
+    };
+  }, [clearStaleAuthSession, finishSignedOut, refreshOnboardingState]);
 
   useEffect(() => {
     if (!isAuthReady()) return;
     return onAuthChange(async (event, user) => {
-      const hasSession = !!user;
-      setIsAuthenticated(hasSession);
+      if (event === 'SIGNED_OUT' || !user) {
+        finishSignedOut();
+        router.replace(ROUTES.auth);
+        return;
+      }
 
-      if (event === 'SIGNED_IN' && hasSession) {
+      if (event === 'SIGNED_IN') {
+        setCurrentUserId(user.id);
+        setIsAuthenticated(true);
         setHasSeenGetStarted(true);
         void persistHasSeenGetStarted();
         const state = await refreshOnboardingState(user.id);
         if (state.status !== 'guest') router.replace(getRouteForOnboardingState(state));
-      } else if (event === 'SIGNED_OUT') {
-        setOnboardingState(null);
-        setIsCheckingOnboarding(false);
-        router.replace(ROUTES.auth);
       }
     });
-  }, [refreshOnboardingState, router]);
+  }, [finishSignedOut, refreshOnboardingState, router]);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      setHasSeenGetStarted(true);
-      void persistHasSeenGetStarted();
-    }
+    if (!isAuthenticated) return;
+    setHasSeenGetStarted(true);
+    void persistHasSeenGetStarted();
   }, [isAuthenticated]);
+
+  useEffect(() => subscribeToOnboardingState((state) => {
+    setOnboardingState(state);
+    setCurrentUserId(state.userId);
+  }), []);
 
   useEffect(() => {
     if (isCheckingAuth || isCheckingOnboarding || isAuthenticated === null || hasSeenGetStarted === null) {
       return;
     }
 
-    const currentSegment = segments[0];
-    const inAuthGroup = currentSegment === 'auth' || currentSegment === 'onboarding';
-    const onGetStarted = !currentSegment || currentSegment === 'index';
-    const skipLanding = hasSeenGetStarted === true;
-    if (isPublicRoute) return;
-
-    if (!isAuthenticated) {
-      if (skipLanding && onGetStarted) router.replace(ROUTES.auth);
-      else if (skipLanding && !inAuthGroup && !onGetStarted) router.replace(ROUTES.auth);
-      else if (!skipLanding && !inAuthGroup && !onGetStarted) router.replace(ROUTES.landing);
+    if (isAuthenticated && !onboardingState) {
+      void refreshOnboardingState(currentUserId);
       return;
     }
 
-    if (!onboardingState) {
-      void refreshOnboardingState();
-      return;
-    }
+    const redirect = getAuthOnboardingRedirect({
+      firstSegment,
+      hasSeenGetStarted,
+      isAuthenticated,
+      onboardingState,
+      pathname,
+    });
 
-    const targetRoute = getRouteForOnboardingState(onboardingState);
-    const hasMainAccess = canAccessMainApp(onboardingState);
-    const onOptionalDetails =
-      pathname === ROUTES.onboardingComplete && onboardingState.status === 'optional-profile-details';
-
-    if (shouldRefreshBeforeOnboardingRedirect(onboardingState, pathname)) {
-      void refreshOnboardingState(onboardingState.userId).then((refreshedState) => {
-        if (refreshedState.status === 'optional-profile-details' && pathname === ROUTES.onboardingComplete) {
-          return;
-        }
-
-        const refreshedRoute = getRouteForOnboardingState(refreshedState);
-        if (pathname !== refreshedRoute) router.replace(refreshedRoute);
-      });
-      return;
-    }
-
-    if (!hasMainAccess && pathname !== targetRoute) router.replace(targetRoute);
-    if (hasMainAccess && (onGetStarted || (inAuthGroup && !onOptionalDetails))) {
-      router.replace(targetRoute);
-    }
+    if (redirect && pathname !== redirect) router.replace(redirect);
   }, [
-    hasSeenGetStarted, isAuthenticated, isCheckingAuth, isCheckingOnboarding, onboardingState,
-    pathname, isPublicRoute, refreshOnboardingState, router, segments,
+    currentUserId, firstSegment, hasSeenGetStarted, isAuthenticated, isCheckingAuth,
+    isCheckingOnboarding, onboardingState, pathname, refreshOnboardingState, router,
   ]);
 
-  const inAuthGroup = segments[0] === 'auth' || segments[0] === 'onboarding';
-  const onGetStarted = !segments[0] || segments[0] === 'index';
+  const inAuthRoute = firstSegment === 'auth';
+  const inOnboardingRoute = firstSegment === 'onboarding';
+  const onGetStarted = !firstSegment || firstSegment === 'index';
+
   return {
     authConfigStatus,
     authReady: isAuthReady(),
     isLoading: isCheckingAuth || isCheckingOnboarding || isAuthenticated === null ||
       hasSeenGetStarted === null || (isAuthenticated && !onboardingState),
     pathname,
-    shouldShowNav: isAuthenticated === true && canAccessMainApp(onboardingState) && !inAuthGroup && !onGetStarted,
+    shouldShowNav: isAuthenticated === true && canAccessMainApp(onboardingState) &&
+      !inAuthRoute && !inOnboardingRoute && !onGetStarted && !isPublicRoute(pathname),
   };
 };

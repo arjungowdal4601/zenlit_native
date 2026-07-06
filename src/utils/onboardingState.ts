@@ -32,15 +32,12 @@ export type BasicProfileValues = {
 export type OnboardingProfileRecord = Partial<BasicProfileValues> & {
   id?: string | null;
   email?: string | null;
+  optional_profile_completed_at?: string | null;
 };
 
 export type ProfileBasicsDraftRecord = Partial<BasicProfileValues> & {
   id?: string | null;
 };
-
-export type OptionalProfileRecord = {
-  id?: string | null;
-} | null;
 
 export type OnboardingStatus =
   | 'guest'
@@ -62,20 +59,16 @@ export type EvaluateOnboardingInput = {
   userId?: string | null;
   profile?: OnboardingProfileRecord | null;
   draft?: ProfileBasicsDraftRecord | null;
-  socialLinks?: OptionalProfileRecord;
   profileError?: Error | null;
   draftError?: Error | null;
-  socialLinksError?: Error | null;
 };
 
 export const evaluateOnboardingState = ({
   userId = null,
   profile = null,
   draft = null,
-  socialLinks = null,
   profileError = null,
   draftError = null,
-  socialLinksError = null,
 }: EvaluateOnboardingInput): OnboardingState => {
   if (!userId) {
     return {
@@ -111,17 +104,6 @@ export const evaluateOnboardingState = ({
     };
   }
 
-  if (socialLinksError) {
-    return {
-      status: 'recovery',
-      userId,
-      canAccessMainApp: false,
-      prefill,
-      missingFields: getMissingFields(prefill),
-      reason: 'optional-profile-read-failed',
-    };
-  }
-
   if (hasInvalidSavedProfileValue(profile)) {
     return {
       status: 'recovery',
@@ -144,11 +126,11 @@ export const evaluateOnboardingState = ({
     };
   }
 
-  if (!socialLinks) {
+  if (!profile.optional_profile_completed_at) {
     return {
       status: 'optional-profile-details',
       userId,
-      canAccessMainApp: true,
+      canAccessMainApp: false,
       prefill,
       missingFields: [],
     };
@@ -166,10 +148,7 @@ export const evaluateOnboardingState = ({
 export const canAccessMainApp = (state: OnboardingState | null | undefined) =>
   state?.canAccessMainApp === true;
 
-export const getRouteForOnboardingState = (
-  state: OnboardingState | null | undefined,
-  options: { preferOptionalDetails?: boolean } = {},
-): AppRoute => {
+export const getRouteForOnboardingState = (state: OnboardingState | null | undefined): AppRoute => {
   if (!state) {
     return ROUTES.auth;
   }
@@ -182,17 +161,10 @@ export const getRouteForOnboardingState = (
     case 'recovery':
       return ROUTES.onboardingRecovery;
     case 'optional-profile-details':
-      return options.preferOptionalDetails ? ROUTES.onboardingComplete : ROUTES.home;
+      return ROUTES.onboardingComplete;
     case 'fully-onboarded':
       return ROUTES.home;
     default:
       return ROUTES.auth;
   }
 };
-
-export const shouldRefreshBeforeOnboardingRedirect = (
-  state: OnboardingState | null | undefined,
-  pathname: string | null | undefined,
-) =>
-  state?.status === 'profile-basics-required' &&
-  pathname === ROUTES.onboardingComplete;

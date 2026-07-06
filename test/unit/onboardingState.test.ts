@@ -3,7 +3,6 @@ import {
   canAccessMainApp,
   evaluateOnboardingState,
   getRouteForOnboardingState,
-  shouldRefreshBeforeOnboardingRedirect,
 } from '../../src/utils/onboardingState';
 import { evaluateUsernameAvailability } from '../../src/utils/usernameAvailability';
 
@@ -18,13 +17,17 @@ const completeProfile = {
   email: 'alex@example.com',
 };
 
+const profileWithOptionalComplete = {
+  ...completeProfile,
+  optional_profile_completed_at: '2026-07-05T12:00:00.000Z',
+};
+
 describe('onboarding state evaluation', () => {
   it('routes guests to the auth flow', () => {
     const state = evaluateOnboardingState({
       userId: null,
       profile: null,
       draft: null,
-      socialLinks: null,
     });
 
     expect(state.status).toBe('guest');
@@ -37,7 +40,6 @@ describe('onboarding state evaluation', () => {
       userId: USER_ID,
       profile: null,
       draft: null,
-      socialLinks: null,
     });
 
     expect(state.status).toBe('profile-basics-required');
@@ -56,7 +58,6 @@ describe('onboarding state evaluation', () => {
         date_of_birth: null,
         gender: null,
       },
-      socialLinks: null,
     });
 
     expect(state.status).toBe('profile-basics-required');
@@ -69,44 +70,28 @@ describe('onboarding state evaluation', () => {
     expect(state.missingFields).toEqual(['date_of_birth', 'gender']);
   });
 
-  it('allows Radar when required profile basics are complete even without optional details', () => {
+  it('keeps users on Complete Profile until optional details are saved or skipped', () => {
     const state = evaluateOnboardingState({
       userId: USER_ID,
       profile: completeProfile,
       draft: null,
-      socialLinks: null,
     });
 
     expect(state.status).toBe('optional-profile-details');
+    expect(canAccessMainApp(state)).toBe(false);
+    expect(getRouteForOnboardingState(state)).toBe(ROUTES.onboardingComplete);
+  });
+
+  it('allows Radar after Complete Profile is saved or skipped', () => {
+    const state = evaluateOnboardingState({
+      userId: USER_ID,
+      profile: profileWithOptionalComplete,
+      draft: null,
+    });
+
+    expect(state.status).toBe('fully-onboarded');
     expect(canAccessMainApp(state)).toBe(true);
     expect(getRouteForOnboardingState(state)).toBe(ROUTES.home);
-    expect(getRouteForOnboardingState(state, { preferOptionalDetails: true })).toBe(
-      ROUTES.onboardingComplete,
-    );
-  });
-
-  it('refreshes before redirecting away from optional details during stale basics handoff', () => {
-    const state = evaluateOnboardingState({
-      userId: USER_ID,
-      profile: null,
-      draft: null,
-      socialLinks: null,
-    });
-
-    expect(shouldRefreshBeforeOnboardingRedirect(state, ROUTES.onboardingComplete)).toBe(true);
-    expect(shouldRefreshBeforeOnboardingRedirect(state, ROUTES.onboardingBasic)).toBe(false);
-    expect(shouldRefreshBeforeOnboardingRedirect(state, ROUTES.home)).toBe(false);
-  });
-
-  it('does not refresh before redirect for users already in optional details state', () => {
-    const state = evaluateOnboardingState({
-      userId: USER_ID,
-      profile: completeProfile,
-      draft: null,
-      socialLinks: null,
-    });
-
-    expect(shouldRefreshBeforeOnboardingRedirect(state, ROUTES.onboardingComplete)).toBe(false);
   });
 
   it('routes ambiguous backend failures to recovery instead of Radar', () => {
@@ -114,7 +99,6 @@ describe('onboarding state evaluation', () => {
       userId: USER_ID,
       profile: null,
       draft: null,
-      socialLinks: null,
       profileError: new Error('network failed'),
     });
 
@@ -128,27 +112,11 @@ describe('onboarding state evaluation', () => {
       userId: USER_ID,
       profile: null,
       draft: null,
-      socialLinks: null,
       draftError: new Error('relation "profile_basics_drafts" does not exist'),
     });
 
     expect(state.status).toBe('recovery');
     expect(state.reason).toBe('draft-read-failed');
-    expect(getRouteForOnboardingState(state)).toBe(ROUTES.onboardingRecovery);
-    expect(canAccessMainApp(state)).toBe(false);
-  });
-
-  it('routes optional profile read failures to recovery instead of treating optional details as missing', () => {
-    const state = evaluateOnboardingState({
-      userId: USER_ID,
-      profile: completeProfile,
-      draft: null,
-      socialLinks: null,
-      socialLinksError: new Error('permission denied for table social_links'),
-    });
-
-    expect(state.status).toBe('recovery');
-    expect(state.reason).toBe('optional-profile-read-failed');
     expect(getRouteForOnboardingState(state)).toBe(ROUTES.onboardingRecovery);
     expect(canAccessMainApp(state)).toBe(false);
   });
@@ -161,7 +129,6 @@ describe('onboarding state evaluation', () => {
         date_of_birth: 'not-a-date',
       },
       draft: null,
-      socialLinks: null,
     });
 
     expect(state.status).toBe('recovery');

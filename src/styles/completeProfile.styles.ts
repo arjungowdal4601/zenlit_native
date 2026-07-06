@@ -4,6 +4,8 @@ import { theme } from './theme';
 
 export const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000000' },
+  loadingContainer: { alignItems: 'center', justifyContent: 'center' },
+  loadingText: { color: '#94a3b8', fontSize: 14, marginTop: 12 },
   safeArea: { backgroundColor: '#000000' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12,
