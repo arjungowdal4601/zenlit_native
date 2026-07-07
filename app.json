@@ -3,80 +3,19 @@
     "name": "zenlit",
     "slug": "zenlit",
     "version": "1.0.0",
-    "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "scheme": "zenlit",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "ios": {
-      "supportsTablet": true,
-      "infoPlist": {
-        "CFBundleURLTypes": [
-          {
-            "CFBundleURLSchemes": [
-              "zenlit"
-            ]
-          }
-        ]
-      },
-      "bundleIdentifier": "com.arjungowdal4601.zenlit"
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
-      "package": "com.arjungowdal4601.zenlit",
-      "permissions": [
-        "android.permission.POST_NOTIFICATIONS"
-      ]
-    },
-    "notification": {
-      "icon": "./assets/icon.png",
-      "color": "#60a5fa",
-      "androidMode": "default",
-      "androidCollapsedTitle": "{{unread_count}} new notifications"
-    },
     "web": {
       "favicon": "./assets/favicon.png",
       "output": "single"
     },
-    "runtimeVersion": {
-      "policy": "sdkVersion"
-    },
     "plugins": [
       "expo-font",
-      "expo-router",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "compileSdkVersion": 35,
-            "targetSdkVersion": 35,
-            "buildToolsVersion": "35.0.0"
-          }
-        }
-      ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/icon.png",
-          "color": "#60a5fa"
-        }
-      ]
+      "expo-router"
     ],
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "0a650645-9cc0-410e-a147-f5409c7c8432"
-      }
+      "router": {}
     },
     "owner": "arjungowdal4601"
   }
