@@ -82,7 +82,21 @@ describe('onboarding state evaluation', () => {
     expect(getRouteForOnboardingState(state)).toBe(ROUTES.onboardingComplete);
   });
 
-  it('allows Radar after Complete Profile is saved or skipped', () => {
+  it('treats a null optional completion marker as Complete Profile pending', () => {
+    const state = evaluateOnboardingState({
+      userId: USER_ID,
+      profile: {
+        ...completeProfile,
+        optional_profile_completed_at: null,
+      },
+      draft: null,
+    });
+
+    expect(state.status).toBe('optional-profile-details');
+    expect(getRouteForOnboardingState(state)).toBe(ROUTES.onboardingComplete);
+  });
+
+  it('allows Radar after optional marker is set without requiring optional fields', () => {
     const state = evaluateOnboardingState({
       userId: USER_ID,
       profile: profileWithOptionalComplete,

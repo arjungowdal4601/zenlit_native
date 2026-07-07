@@ -51,6 +51,16 @@ describe('auth onboarding route gate', () => {
     })).toBe(ROUTES.onboardingComplete);
   });
 
+  it('redirects authenticated users without main app access away from Radar', () => {
+    expect(getAuthOnboardingRedirect({
+      firstSegment: 'radar',
+      hasSeenGetStarted: true,
+      isAuthenticated: true,
+      onboardingState: optionalPendingState,
+      pathname: ROUTES.home,
+    })).not.toBe(ROUTES.home);
+  });
+
   it('routes onboarded users away from auth/onboarding to Radar', () => {
     expect(getAuthOnboardingRedirect({
       firstSegment: 'auth',
@@ -59,5 +69,25 @@ describe('auth onboarding route gate', () => {
       onboardingState: onboardedState,
       pathname: ROUTES.auth,
     })).toBe(ROUTES.home);
+  });
+
+  it('routes onboarded users away from onboarding routes to Radar', () => {
+    expect(getAuthOnboardingRedirect({
+      firstSegment: 'onboarding',
+      hasSeenGetStarted: true,
+      isAuthenticated: true,
+      onboardingState: onboardedState,
+      pathname: ROUTES.onboardingComplete,
+    })).toBe(ROUTES.home);
+  });
+
+  it('leaves public routes alone', () => {
+    expect(getAuthOnboardingRedirect({
+      firstSegment: 'terms',
+      hasSeenGetStarted: true,
+      isAuthenticated: false,
+      onboardingState: null,
+      pathname: '/terms',
+    })).toBeNull();
   });
 });

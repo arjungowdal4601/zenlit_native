@@ -58,6 +58,9 @@ describe('Verify OTP screen', () => {
     expect(mockVerifyEmailOtp).toHaveBeenCalledWith('alex@example.com', '123456');
     expect(screen.getByText('Code verified. Checking setup...')).toBeTruthy();
     expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalledWith('/onboarding/profile/basic');
+    expect(mockReplace).not.toHaveBeenCalledWith('/onboarding/profile/complete');
+    expect(mockReplace).not.toHaveBeenCalledWith('/radar');
   });
 
   it('redirects to auth instead of rendering without an email', () => {

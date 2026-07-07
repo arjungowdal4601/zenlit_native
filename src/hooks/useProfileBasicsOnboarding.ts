@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { DateTimePickerAndroid, type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 import { getCurrentUser } from '../services/authService';
 import { resolveOnboardingState, saveProfileBasicsDraft, saveRequiredProfileBasics } from '../services/onboardingService';
-import { checkUsernameAvailability } from '../services/profileService';
 import { getFriendlyOnboardingError, isDuplicateUsernameError } from '../utils/onboardingErrors';
 import { canSubmitProfileBasics, EMPTY_PROFILE_BASICS_FORM_ERRORS, getProfileBasicsFormErrors } from '../utils/profileBasicsForm';
 import {
@@ -14,10 +13,10 @@ import {
   parseDobString,
   sanitizeUsernameInput,
   validateProfileData,
-  validateUsername,
   type ProfileData,
 } from '../utils/profileValidation';
 import { getRouteForOnboardingState, ROUTES } from '../utils/onboardingState';
+import { useUsernameAvailability } from './useUsernameAvailability';
 
 export const GENDERS = ['Male', 'Female', 'Others'] as const;
 export type GenderOption = typeof GENDERS[number];
@@ -42,11 +41,6 @@ export const useProfileBasicsOnboarding = () => {
   const [isWebDateFocused, setIsWebDateFocused] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState(EMPTY_PROFILE_BASICS_FORM_ERRORS);
-  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
-  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
-  const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
-  const usernameCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const usernameCheckIdRef = useRef(0);
   const maxDobDate = useMemo(() => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
@@ -62,6 +56,14 @@ export const useProfileBasicsOnboarding = () => {
     fallback.setHours(0, 0, 0, 0);
     return fallback;
   }, [dob, dobDate]);
+  const {
+    isCheckingUsername,
+    markUsernameAvailable,
+    markUsernameUnavailable,
+    resetUsernameAvailability,
+    usernameAvailable,
+    usernameSuggestions,
+  } = useUsernameAvailability({ currentUserId, username });
 
   useEffect(() => {
     let mounted = true;
@@ -170,44 +172,6 @@ export const useProfileBasicsOnboarding = () => {
     return !nextErrors.displayName && !nextErrors.username && !nextErrors.dob && !nextErrors.gender;
   };
 
-  const checkUsername = useCallback(async (usernameToCheck: string) => {
-    if (!usernameToCheck || usernameToCheck.length < 3 || !validateUsername(usernameToCheck).isValid) {
-      setUsernameAvailable(null);
-      setUsernameSuggestions([]);
-      return;
-    }
-
-    const checkId = ++usernameCheckIdRef.current;
-    setIsCheckingUsername(true);
-    try {
-      const result = await checkUsernameAvailability(usernameToCheck, currentUserId);
-      if (checkId !== usernameCheckIdRef.current) return;
-      setUsernameAvailable(result.isAvailable);
-      setUsernameSuggestions(result.suggestions || []);
-    } catch {
-      if (checkId !== usernameCheckIdRef.current) return;
-      setUsernameAvailable(null);
-      setUsernameSuggestions([]);
-    } finally {
-      if (checkId === usernameCheckIdRef.current) setIsCheckingUsername(false);
-    }
-  }, [currentUserId]);
-
-  useEffect(() => {
-    if (usernameCheckTimeoutRef.current) clearTimeout(usernameCheckTimeoutRef.current);
-
-    if (username.trim().length >= 3) {
-      usernameCheckTimeoutRef.current = setTimeout(() => checkUsername(username.trim()), 500);
-    } else {
-      setUsernameAvailable(null);
-      setUsernameSuggestions([]);
-    }
-
-    return () => {
-      if (usernameCheckTimeoutRef.current) clearTimeout(usernameCheckTimeoutRef.current);
-    };
-  }, [username, checkUsername]);
-
   useEffect(() => {
     if (!hasLoadedProfile || !currentUserId || isSubmitting) return;
 
@@ -224,19 +188,15 @@ export const useProfileBasicsOnboarding = () => {
   }, [currentUserId, displayName, dob, dobDate, gender, hasLoadedProfile, isSubmitting, username]);
 
   const handleUsernameChange = (value: string) => {
-    usernameCheckIdRef.current += 1;
+    resetUsernameAvailability();
     setUsername(sanitizeUsernameInput(value));
-    setUsernameAvailable(null);
-    setUsernameSuggestions([]);
     setSaveError('');
     if (errors.username) setErrors((next) => ({ ...next, username: '' }));
   };
 
   const handleSuggestionSelect = (suggestion: string) => {
-    usernameCheckIdRef.current += 1;
     setUsername(suggestion);
-    setUsernameSuggestions([]);
-    setUsernameAvailable(true);
+    markUsernameAvailable();
     setSaveError('');
     if (errors.username) setErrors((next) => ({ ...next, username: '' }));
   };
@@ -269,8 +229,7 @@ export const useProfileBasicsOnboarding = () => {
       router.replace(ROUTES.onboardingComplete);
     } catch (error) {
       if (isDuplicateUsernameError(error)) {
-        setUsernameAvailable(false);
-        setUsernameSuggestions([]);
+        markUsernameUnavailable();
       }
       setSaveError(getFriendlyOnboardingError(error));
     } finally {

@@ -25,7 +25,7 @@ Bottom navigation is rendered by `src/components/Navigation.tsx`, but only after
 | `/auth/verify-otp` | `app/auth/verify-otp.tsx` | OTP verification handoff |
 | `/onboarding/profile/basic` | `app/onboarding/profile/basic.tsx` | Mandatory Profile Basics, Step 1 of 2 |
 | `/onboarding/profile/complete` | `app/onboarding/profile/complete.tsx` | Optional Profile Details, Step 2 of 2 |
-| `/onboarding/recovery` | `app/onboarding/recovery.tsx` | Recovery for incomplete or ambiguous setup |
+| `/onboarding/recovery` | `app/onboarding/recovery.tsx` | Permanent, boring recovery for incomplete or ambiguous setup |
 | `/radar` | `app/radar.tsx` | Home screen and first proximity entry |
 | `/feed` | `app/feed.tsx` | Feed |
 | `/create` | `app/create.tsx` | Post creation |
@@ -45,10 +45,10 @@ The onboarding decision is centralized:
 
 - `src/services/onboardingService.ts` reads Supabase state and writes onboarding profile data.
 - `src/utils/onboardingState.ts` evaluates raw profile, draft, and optional detail records.
-- `src/utils/authNavigation.ts` exposes app route helpers for layout and screen handoffs.
+- `src/utils/authOnboardingGate.ts` exposes app route helpers for layout and screen handoffs.
 - `app/_layout.tsx` gates startup, auth changes, main app access, and bottom navigation.
 
-Do not add separate final route decisions inside onboarding screens. Screens should save or skip data, call the shared resolver, and route using the shared route helper.
+See `docs/state-ownership.md` for the state ownership contract. Do not add separate final route decisions inside onboarding screens. Screens should save or skip data, call the shared resolver, and route using the shared route helper.
 
 Current onboarding states:
 
@@ -86,7 +86,7 @@ Current launch work should optimize the browser app:
 
 | Area | Change Here |
 | --- | --- |
-| Auth and root route gating | `app/_layout.tsx`, `src/utils/authNavigation.ts` |
+| Auth and root route gating | `app/_layout.tsx`, `src/utils/authOnboardingGate.ts` |
 | Onboarding state rules | `src/utils/onboardingState.ts` |
 | Profile basics save/skip/resolve calls | `src/services/onboardingService.ts` |
 | Field validation | `src/utils/profileValidation.ts` |
@@ -104,8 +104,6 @@ These files are functional but large enough that future feature work should cons
 
 - `app/messages/[id].tsx`
 - `app/edit-profile.tsx`
-- `app/onboarding/profile/basic.tsx`
-- `app/onboarding/profile/complete.tsx`
 - `app/radar.tsx`
 
 Keep future splits behavior-preserving and covered by tests. Avoid moving runtime code only for cosmetic organization.

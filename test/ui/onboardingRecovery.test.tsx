@@ -1,17 +1,19 @@
-import { render, screen } from '../utils/render';
+import { act, fireEvent, render, screen } from '../utils/render';
 
 const mockReplace = jest.fn();
+const mockResolveOnboardingState = jest.fn();
+const mockSignOut = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace }),
 }));
 
 jest.mock('../../src/services/authService', () => ({
-  signOut: jest.fn(async () => ({ error: null })),
+  signOut: (...args: unknown[]) => mockSignOut(...args),
 }));
 
 jest.mock('../../src/services/onboardingService', () => ({
-  resolveOnboardingState: jest.fn(),
+  resolveOnboardingState: (...args: unknown[]) => mockResolveOnboardingState(...args),
 }));
 
 import OnboardingRecoveryScreen from '../../app/onboarding/recovery';
@@ -19,6 +21,9 @@ import OnboardingRecoveryScreen from '../../app/onboarding/recovery';
 describe('Onboarding recovery screen', () => {
   beforeEach(() => {
     mockReplace.mockClear();
+    mockResolveOnboardingState.mockReset();
+    mockSignOut.mockReset();
+    mockSignOut.mockResolvedValue({ error: null });
   });
 
   it('uses generic setup recovery copy', () => {
@@ -27,5 +32,68 @@ describe('Onboarding recovery screen', () => {
     expect(screen.getByText('We could not confirm your setup')).toBeTruthy();
     expect(screen.getByText('Continue to check your account and fix anything missing, or sign out and try again.')).toBeTruthy();
     expect(screen.queryByText(/unfinished setup/i)).toBeNull();
+  });
+
+  it('continues by resolving onboarding state and routing from the shared result', async () => {
+    mockResolveOnboardingState.mockResolvedValueOnce({
+      status: 'fully-onboarded',
+      userId: 'user-1',
+      canAccessMainApp: true,
+      prefill: {
+        display_name: 'Alex',
+        user_name: 'alex',
+        date_of_birth: '1998-04-12',
+        gender: 'other',
+      },
+      missingFields: [],
+    });
+
+    render(<OnboardingRecoveryScreen />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Continue setup' }));
+      await Promise.resolve();
+    });
+
+    expect(mockResolveOnboardingState).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith('/radar');
+  });
+
+  it('sends recovery users with missing fields back to Profile Basics', async () => {
+    mockResolveOnboardingState.mockResolvedValueOnce({
+      status: 'recovery',
+      userId: 'user-1',
+      canAccessMainApp: false,
+      prefill: {
+        display_name: null,
+        user_name: 'alex',
+        date_of_birth: '1998-04-12',
+        gender: 'other',
+      },
+      missingFields: ['display_name'],
+      reason: 'backend-read-failed',
+    });
+
+    render(<OnboardingRecoveryScreen />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Continue setup' }));
+      await Promise.resolve();
+    });
+
+    expect(mockResolveOnboardingState).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith('/onboarding/profile/basic');
+  });
+
+  it('signs out globally and returns to Auth', async () => {
+    render(<OnboardingRecoveryScreen />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Sign out' }));
+      await Promise.resolve();
+    });
+
+    expect(mockSignOut).toHaveBeenCalledWith('global');
+    expect(mockReplace).toHaveBeenCalledWith('/auth');
   });
 });

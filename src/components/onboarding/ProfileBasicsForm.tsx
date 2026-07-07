@@ -1,32 +1,14 @@
-import type { CSSProperties } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { Feather } from '@expo/vector-icons';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import GradientTitle from '../GradientTitle';
-import UsernameSuggestions from '../UsernameSuggestions';
 import { styles } from '../../styles/profileBasics.styles';
 import { prismGradientColors, theme } from '../../styles/theme';
-import { GENDERS, type useProfileBasicsOnboarding } from '../../hooks/useProfileBasicsOnboarding';
-import { USERNAME_HELPER_TEXT } from '../../utils/profileValidation';
-
-const WEB_DATE_INPUT_OVERLAY_STYLE: CSSProperties = {
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  width: '100%',
-  height: '100%',
-  opacity: 0,
-  cursor: 'pointer',
-  borderRadius: 16,
-  border: 'none',
-  outline: 'none',
-  backgroundColor: 'transparent',
-};
+import type { useProfileBasicsOnboarding } from '../../hooks/useProfileBasicsOnboarding';
+import { ProfileBasicsDobField } from './ProfileBasicsDobField';
+import { ProfileBasicsGenderField } from './ProfileBasicsGenderField';
+import { ProfileBasicsUsernameField } from './ProfileBasicsUsernameField';
 
 type ProfileBasicsFormProps = ReturnType<typeof useProfileBasicsOnboarding>;
 
@@ -78,145 +60,39 @@ export const ProfileBasicsForm = (form: ProfileBasicsFormProps) => (
             {form.errors.displayName ? <Text style={styles.errorText}>{form.errors.displayName}</Text> : null}
           </View>
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Username</Text>
-            <View style={styles.usernameInputWrapper}>
-              <TextInput
-                value={form.username}
-                onChangeText={form.handleUsernameChange}
-                placeholder="username"
-                placeholderTextColor={theme.prism.colors.muted}
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={[
-                  styles.input,
-                  form.usernameAvailable === true && !form.saveError && styles.inputSuccess,
-                  form.usernameAvailable === false && styles.inputError,
-                ]}
-              />
-              {form.isCheckingUsername ? (
-                <View style={styles.usernameStatusIcon}>
-                  <Feather name="loader" size={18} color={theme.prism.colors.accent} />
-                </View>
-              ) : null}
-              {!form.isCheckingUsername && form.usernameAvailable === true && !form.saveError ? (
-                <View style={styles.usernameStatusIcon}>
-                  <Feather name="check-circle" size={18} color={theme.prism.colors.success} />
-                </View>
-              ) : null}
-              {!form.isCheckingUsername && form.usernameAvailable === false ? (
-                <View style={styles.usernameStatusIcon}>
-                  <Feather name="x-circle" size={18} color={theme.prism.colors.danger} />
-                </View>
-              ) : null}
-            </View>
-            {!form.isCheckingUsername && form.usernameAvailable !== false ? (
-              <Text style={styles.helperText}>{USERNAME_HELPER_TEXT}</Text>
-            ) : null}
-            {form.isCheckingUsername ? <Text style={styles.checkingText}>Checking availability...</Text> : null}
-            {!form.isCheckingUsername && form.usernameAvailable === true && !form.saveError ? (
-              <Text style={styles.successText}>Username is available!</Text>
-            ) : null}
-            {!form.isCheckingUsername && form.usernameAvailable === false ? (
-              <Text style={styles.errorText}>That username is already taken. Try one of these:</Text>
-            ) : null}
-            {form.errors.username && !form.isCheckingUsername && form.usernameAvailable !== false ? (
-              <Text style={styles.errorText}>{form.errors.username}</Text>
-            ) : null}
-            {!form.isCheckingUsername && form.usernameAvailable === false && form.usernameSuggestions.length > 0 ? (
-              <UsernameSuggestions
-                suggestions={form.usernameSuggestions}
-                onSelectSuggestion={form.handleSuggestionSelect}
-              />
-            ) : null}
-          </View>
+          <ProfileBasicsUsernameField
+            error={form.errors.username}
+            handleSuggestionSelect={form.handleSuggestionSelect}
+            handleUsernameChange={form.handleUsernameChange}
+            isCheckingUsername={form.isCheckingUsername}
+            saveError={form.saveError}
+            username={form.username}
+            usernameAvailable={form.usernameAvailable}
+            usernameSuggestions={form.usernameSuggestions}
+          />
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Date of Birth</Text>
-            {Platform.OS === 'web' ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Select date of birth"
-                onPress={() => {
-                  const element = form.webDateInputRef.current;
-                  if (!element) return;
-                  const anyElement = element as unknown as { showPicker?: () => void; focus: () => void };
-                  try {
-                    if (typeof anyElement.showPicker === 'function') anyElement.showPicker();
-                    else element.focus();
-                  } catch {
-                    element.focus();
-                  }
-                }}
-                style={({ pressed }) => [
-                  styles.pickerField,
-                  form.isWebDateFocused ? styles.pickerFieldFocused : null,
-                  pressed ? styles.pickerFieldPressed : null,
-                ]}
-              >
-                <View style={styles.pickerRow}>
-                  <Text style={form.dob ? styles.dobValue : styles.dobPlaceholder}>
-                    {form.dob || 'YYYY-MM-DD'}
-                  </Text>
-                  <Feather name="calendar" size={24} color={theme.prism.colors.text} style={styles.pickerIcon} />
-                </View>
-                <input
-                  ref={form.webDateInputRef}
-                  type="date"
-                  value={form.dob}
-                  onChange={(event) => form.handleDobWebChange(event.target.value)}
-                  max={form.maxDobInputValue}
-                  style={WEB_DATE_INPUT_OVERLAY_STYLE}
-                  onFocus={() => form.setIsWebDateFocused(true)}
-                  onBlur={() => form.setIsWebDateFocused(false)}
-                  aria-label="Date of Birth"
-                />
-              </Pressable>
-            ) : (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Select date of birth"
-                onPress={form.openDobPicker}
-                style={({ pressed }) => [
-                  styles.pickerField,
-                  pressed ? styles.pickerFieldPressed : null,
-                ]}
-              >
-                <View style={styles.pickerRow}>
-                  <Text style={form.dob ? styles.dobValue : styles.dobPlaceholder}>
-                    {form.dob || 'YYYY-MM-DD'}
-                  </Text>
-                  <Feather name="calendar" size={24} color={theme.prism.colors.text} style={styles.pickerIcon} />
-                </View>
-              </Pressable>
-            )}
-            {form.errors.dob ? <Text style={styles.errorText}>{form.errors.dob}</Text> : null}
-          </View>
+          <ProfileBasicsDobField
+            closeIosPicker={form.closeIosPicker}
+            dob={form.dob}
+            error={form.errors.dob}
+            handleDobWebChange={form.handleDobWebChange}
+            handleIosDobChange={form.handleIosDobChange}
+            isWebDateFocused={form.isWebDateFocused}
+            maxDobDate={form.maxDobDate}
+            maxDobInputValue={form.maxDobInputValue}
+            openDobPicker={form.openDobPicker}
+            resolvedDobDate={form.resolvedDobDate}
+            setIsWebDateFocused={form.setIsWebDateFocused}
+            showIosPicker={form.showIosPicker}
+            webDateInputRef={form.webDateInputRef}
+          />
 
-          <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>Gender</Text>
-            <View style={styles.genderRow}>
-              {GENDERS.map((option) => {
-                const isSelected = option === form.gender;
-                return (
-                  <Pressable
-                    key={option}
-                    accessibilityRole="button"
-                    onPress={() => {
-                      form.setGender(option);
-                      if (form.errors.gender) form.setErrors((next) => ({ ...next, gender: '' }));
-                    }}
-                    style={[styles.genderPill, isSelected ? styles.genderPillActive : null]}
-                  >
-                    <Text style={[styles.genderLabel, isSelected ? styles.genderLabelActive : null]}>
-                      {option}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            {form.errors.gender ? <Text style={styles.errorText}>{form.errors.gender}</Text> : null}
-          </View>
+          <ProfileBasicsGenderField
+            error={form.errors.gender}
+            gender={form.gender}
+            setErrors={form.setErrors}
+            setGender={form.setGender}
+          />
 
           {form.saveError ? <Text style={styles.formError}>{form.saveError}</Text> : null}
 
@@ -248,30 +124,6 @@ export const ProfileBasicsForm = (form: ProfileBasicsFormProps) => (
           </Pressable>
         </View>
       </ScrollView>
-
-      {Platform.OS === 'ios' ? (
-        <Modal animationType="fade" transparent visible={form.showIosPicker} onRequestClose={form.closeIosPicker}>
-          <View style={styles.iosPickerOverlay}>
-            <Pressable style={styles.iosBackdrop} onPress={form.closeIosPicker} />
-            <View style={styles.iosPickerSheet}>
-              <View style={styles.iosPickerToolbar}>
-                <Pressable accessibilityRole="button" onPress={form.closeIosPicker}>
-                  <Text style={styles.iosPickerAction}>Done</Text>
-                </Pressable>
-              </View>
-              <DateTimePicker
-                mode="date"
-                display="spinner"
-                value={form.resolvedDobDate}
-                onChange={form.handleIosDobChange}
-                maximumDate={form.maxDobDate}
-                themeVariant="dark"
-                style={styles.iosPicker}
-              />
-            </View>
-          </View>
-        </Modal>
-      ) : null}
     </KeyboardAvoidingView>
   </SafeAreaView>
 );

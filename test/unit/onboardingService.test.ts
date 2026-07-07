@@ -1,13 +1,43 @@
 import { supabase } from '../../src/lib/supabase';
 import {
   resolveOnboardingState,
+  saveOptionalProfileDetails,
   saveProfileBasicsDraft,
   saveRequiredProfileBasics,
+  skipOptionalProfileDetails,
 } from '../../src/services/onboardingService';
 
 const mockSupabase = supabase as unknown as {
   auth: { getUser: jest.Mock };
   from: jest.Mock;
+};
+
+type MockSupabaseResult = { data: unknown; error: unknown };
+
+const makeBuilder = (maybeSingleResult: MockSupabaseResult = { data: null, error: null }) => {
+  const builder: Record<string, jest.Mock> = {};
+  Object.assign(builder, {
+    delete: jest.fn(() => builder),
+    eq: jest.fn(() => builder),
+    maybeSingle: jest.fn(async () => maybeSingleResult),
+    select: jest.fn(() => builder),
+    then: jest.fn((resolve: (value: unknown) => unknown) =>
+      Promise.resolve({ data: null, error: null }).then(resolve),
+    ),
+    update: jest.fn(() => builder),
+    upsert: jest.fn(() => builder),
+  });
+  return builder;
+};
+
+const onboardedProfile = {
+  id: 'user-1',
+  email: 'alex@example.com',
+  display_name: 'Alex Johnson',
+  user_name: 'alex',
+  date_of_birth: '1998-04-12',
+  gender: 'other',
+  optional_profile_completed_at: '2026-07-05T12:00:00.000Z',
 };
 
 describe('onboarding service auth guard', () => {
@@ -92,5 +122,79 @@ describe('onboarding service auth guard', () => {
       'profiles',
       'profile_basics_drafts',
     ]);
+  });
+
+  it('marks optional profile complete when skipped', async () => {
+    mockSupabase.auth.getUser
+      .mockResolvedValueOnce({
+        data: { user: { id: 'user-1', email: 'alex@example.com' } },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { user: { id: 'user-1', email: 'alex@example.com' } },
+        error: null,
+      });
+
+    const updateBuilder = makeBuilder();
+    const profileBuilder = makeBuilder({ data: onboardedProfile, error: null });
+    const draftBuilder = makeBuilder({ data: null, error: null });
+    mockSupabase.from
+      .mockReturnValueOnce(updateBuilder)
+      .mockReturnValueOnce(profileBuilder)
+      .mockReturnValueOnce(draftBuilder);
+
+    const result = await skipOptionalProfileDetails('user-1');
+
+    expect(result.error).toBeNull();
+    expect(result.data?.status).toBe('fully-onboarded');
+    expect(updateBuilder.update).toHaveBeenCalledWith({
+      optional_profile_completed_at: expect.any(String),
+    });
+    expect(mockSupabase.from.mock.calls.map(([table]) => table)).toEqual([
+      'profiles',
+      'profiles',
+      'profile_basics_drafts',
+    ]);
+  });
+
+  it('saves optional social details before marking optional profile complete', async () => {
+    mockSupabase.auth.getUser
+      .mockResolvedValueOnce({
+        data: { user: { id: 'user-1', email: 'alex@example.com' } },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: { user: { id: 'user-1', email: 'alex@example.com' } },
+        error: null,
+      });
+
+    const socialBuilder = makeBuilder();
+    const updateBuilder = makeBuilder();
+    const profileBuilder = makeBuilder({ data: onboardedProfile, error: null });
+    const draftBuilder = makeBuilder({ data: null, error: null });
+    mockSupabase.from
+      .mockReturnValueOnce(socialBuilder)
+      .mockReturnValueOnce(updateBuilder)
+      .mockReturnValueOnce(profileBuilder)
+      .mockReturnValueOnce(draftBuilder);
+
+    const result = await saveOptionalProfileDetails({
+      bio: 'Hello Radar',
+      instagram: 'alex',
+    }, 'user-1');
+
+    expect(result.error).toBeNull();
+    expect(result.data?.status).toBe('fully-onboarded');
+    expect(socialBuilder.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'user-1',
+        bio: 'Hello Radar',
+        instagram: 'alex',
+      }),
+      { onConflict: 'id' },
+    );
+    expect(updateBuilder.update).toHaveBeenCalledWith({
+      optional_profile_completed_at: expect.any(String),
+    });
   });
 });
