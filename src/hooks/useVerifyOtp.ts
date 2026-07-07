@@ -3,16 +3,11 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { isAuthReady, signInWithEmailOtp, verifyEmailOtp } from '../services/authService';
 import { logger } from '../utils/logger';
+import { getEmailOtpErrorMessage, getVerifyOtpErrorMessage, maskEmail, normalizeEmail } from '../utils/authEmail';
 import { ROUTES } from '../utils/onboardingState';
 
 const COOLDOWN_SECONDS = 60;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-export const normalizeRouteEmail = (value?: string | string[]) => {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return EMAIL_PATTERN.test(trimmed) ? trimmed : null;
-};
+export const normalizeRouteEmail = normalizeEmail;
 
 export const useVerifyOtp = () => {
   const router = useRouter();
@@ -49,14 +44,11 @@ export const useVerifyOtp = () => {
   };
 
   useEffect(() => {
-    if (!email) {
-      router.replace(ROUTES.auth);
-      return undefined;
-    }
+    if (!email) return undefined;
 
     startCooldown(COOLDOWN_SECONDS);
     return clearCooldown;
-  }, [email, router]);
+  }, [email]);
 
   const handleCodeChange = (text: string) => {
     setCode(text.replace(/[^0-9]/g, ''));
@@ -73,7 +65,7 @@ export const useVerifyOtp = () => {
       return;
     }
 
-    const maskedEmail = email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
+    const maskedEmail = maskEmail(email);
     setVerifying(true);
     setError('');
     setStatus('');
@@ -87,14 +79,7 @@ export const useVerifyOtp = () => {
           errorMessage: verifyError.message,
         });
 
-        let userMessage = 'We could not verify that code. Please try again.';
-        if (verifyError.message.includes('expired') || verifyError.message.includes('invalid')) {
-          userMessage = 'This code has expired or is invalid. Please request a new code.';
-        } else if (verifyError.message.includes('not found')) {
-          userMessage = 'Invalid verification code. Please check and try again.';
-        }
-
-        setError(userMessage);
+        setError(getVerifyOtpErrorMessage(verifyError));
         setVerifying(false);
         return;
       }
@@ -119,7 +104,7 @@ export const useVerifyOtp = () => {
   const handleResend = async () => {
     if (!email || cooldown > 0 || resending) return;
 
-    const maskedEmail = email.replace(/(.{2})(.*)(@.*)/, '$1***$3');
+    const maskedEmail = maskEmail(email);
     setResending(true);
     setError('');
     setStatus('');
@@ -132,12 +117,7 @@ export const useVerifyOtp = () => {
           errorMessage: resendError.message,
         });
 
-        let userMessage = 'We could not resend the code. Please try again.';
-        if (resendError.message.includes('rate limit') || resendError.message.includes('too many')) {
-          userMessage = 'Too many attempts. Please wait a few minutes before requesting a new code.';
-        }
-
-        setError(userMessage);
+        setError(getEmailOtpErrorMessage(resendError));
         setResending(false);
         return;
       }

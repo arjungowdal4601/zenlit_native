@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,8 +7,14 @@ import { useRouter } from 'expo-router';
 
 import GradientTitle from '../GradientTitle';
 import { styles } from '../../styles/auth.styles';
-import { isAuthReady, signInWithEmailOtp } from '../../services/authService';
+import { signInWithEmailOtp } from '../../services/authService';
 import { logger } from '../../utils/logger';
+import {
+  getEmailOtpErrorMessage,
+  getEmailOtpExceptionMessage,
+  maskEmail,
+  normalizeEmail,
+} from '../../utils/authEmail';
 import { prismGradientColors, theme } from '../../styles/theme';
 
 const EMAIL_PLACEHOLDER = 'Enter your email';
@@ -42,24 +48,17 @@ const AuthEmailScreen: React.FC = () => {
     ]).start();
   }, [cardOpacity, cardScale, cardTranslate]);
 
-  const isValidEmail = useMemo(() => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  }, [email]);
+  const normalizedEmail = normalizeEmail(email);
+  const isValidEmail = Boolean(normalizedEmail);
 
   const handleEmail = async () => {
-    if (!isValidEmail || emailLoading) return;
+    if (!normalizedEmail || emailLoading) return;
 
-    if (!isAuthReady()) {
-      logger.error('Auth', 'Supabase not configured', { authReady: false });
-      Alert.alert('Configuration Error', 'Authentication service is not properly configured. Please contact support.');
-      return;
-    }
-
-    const maskedEmail = email.trim().replace(/(.{2})(.*)(@.*)/, '$1***$3');
+    const maskedEmail = maskEmail(normalizedEmail);
     setEmailLoading(true);
 
     try {
-      const { error } = await signInWithEmailOtp(email.trim());
+      const { error } = await signInWithEmailOtp(normalizedEmail);
 
       if (error) {
         logger.error('Auth', 'OTP signin failed', {
@@ -69,23 +68,15 @@ const AuthEmailScreen: React.FC = () => {
           errorStatus: (error as any).status,
         });
 
-        let userMessage = 'Unable to send verification code. Please try again.';
-        if (error.message.includes('Signups not allowed')) {
-          userMessage = 'New account creation is currently disabled. Please contact support if you need access.';
-        } else if (error.message.includes('Invalid email')) {
-          userMessage = 'Please enter a valid email address.';
-        } else if (error.message.includes('rate limit') || error.message.includes('too many requests')) {
-          userMessage = 'Too many attempts. Please wait a few minutes before trying again.';
-        } else if (error.message.includes('network') || error.message.includes('fetch')) {
-          userMessage = 'Unable to connect to authentication service. Please check your internet connection.';
-        }
-
-        Alert.alert('Authentication Error', userMessage);
+        Alert.alert('Authentication Error', getEmailOtpErrorMessage(error));
         setEmailLoading(false);
         return;
       }
 
-      router.replace(`/auth/verify-otp?email=${encodeURIComponent(email.trim())}`);
+      router.replace({
+        pathname: '/auth/verify-otp',
+        params: { email: normalizedEmail },
+      });
     } catch (error: any) {
       logger.error('Auth', 'OTP signin exception', {
         email: maskedEmail,
@@ -93,15 +84,7 @@ const AuthEmailScreen: React.FC = () => {
         stack: error?.stack,
       });
 
-      const errorMessage = error?.message || 'Something went wrong';
-      let userMessage = 'Unable to send verification code. Please try again.';
-      if (errorMessage.includes('Not configured')) {
-        userMessage = 'Authentication service is not properly configured. Please contact support.';
-      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
-        userMessage = 'Unable to connect. Please check your internet connection and try again.';
-      }
-
-      Alert.alert('Error', userMessage);
+      Alert.alert('Error', getEmailOtpExceptionMessage(error));
       setEmailLoading(false);
     }
   };

@@ -72,18 +72,13 @@ export const ProfileBasicsForm = (form: ProfileBasicsFormProps) => (
           />
 
           <ProfileBasicsDobField
-            closeIosPicker={form.closeIosPicker}
             dob={form.dob}
             error={form.errors.dob}
             handleDobWebChange={form.handleDobWebChange}
-            handleIosDobChange={form.handleIosDobChange}
             isWebDateFocused={form.isWebDateFocused}
-            maxDobDate={form.maxDobDate}
             maxDobInputValue={form.maxDobInputValue}
             openDobPicker={form.openDobPicker}
-            resolvedDobDate={form.resolvedDobDate}
             setIsWebDateFocused={form.setIsWebDateFocused}
-            showIosPicker={form.showIosPicker}
             webDateInputRef={form.webDateInputRef}
           />
 

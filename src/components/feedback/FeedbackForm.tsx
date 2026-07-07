@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from '../icons';
 import { submitFeedback } from '../../services/feedbackService';
 import type { CompressedImage } from '../../utils/imageCompression';
 import ImageUploadDialog from '../ImageUploadDialog';

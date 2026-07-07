@@ -29,8 +29,7 @@ import {
 import type { Post as PostType } from '../../src/lib/types';
 import { deletePost as deletePostDb, getUserPosts } from '../../src/services/postService';
 import { useProfile } from '../../src/contexts/ProfileContext';
-import { getCurrentSessionUser, signOut } from '../../src/services/authService';
-import { ROUTES } from '../../src/utils/onboardingState';
+import { signOut } from '../../src/services/authService';
 
 const SOCIAL_ORDER: Array<'instagram' | 'linkedin' | 'twitter'> = [
   'instagram',
@@ -142,14 +141,10 @@ const ProfileScreen: React.FC = () => {
 
   const handleConfirmLogout = useCallback(async () => {
     setLogoutOpen(false);
-    const sessionUser = await getCurrentSessionUser();
-    if (sessionUser) {
-      try {
-        await signOut('global');
-      } catch {}
-    }
-    router.replace(ROUTES.auth);
-  }, [router]);
+    try {
+      await signOut('global');
+    } catch {}
+  }, []);
 
   const handleDeletePost = useCallback(async (id: string) => {
     const { success } = await deletePostDb(id);
@@ -387,7 +382,7 @@ const styles = StyleSheet.create({
     height: 212,
   },
   bannerGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(15, 23, 42, 0.28)',
   },
   bannerOverlayRow: {

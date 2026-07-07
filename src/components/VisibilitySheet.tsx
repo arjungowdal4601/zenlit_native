@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from './icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { SOCIAL_PLATFORM_IDS, SOCIAL_PLATFORMS } from '../constants/socialPlatforms';

@@ -14,7 +14,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from '../../src/components/icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { MessageSquare } from 'lucide-react-native';
 
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     height: 212,
   },
   bannerGradient: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(15, 23, 42, 0.28)',
   },
   backButton: {

@@ -1,25 +1,42 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform } from 'react-native';
-import { usePathname, useRouter, useSegments } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 
 import { theme } from '../styles/theme';
 import { logger } from '../utils/logger';
-import { canAccessMainApp, evaluateOnboardingState, getRouteForOnboardingState, ROUTES, type OnboardingState } from '../utils/onboardingState';
-import { getAuthOnboardingRedirect, isPublicRoute } from '../utils/authOnboardingGate';
+import { evaluateOnboardingState, type OnboardingState } from '../utils/onboardingState';
+import { getRouteAccessDecision, getSafeAppReturnTo } from '../utils/authOnboardingGate';
 import { resolveOnboardingState, subscribeToOnboardingState } from '../services/onboardingService';
 import {
   getAuthConfigStatus,
-  getCurrentSessionUser,
   getCurrentUser,
   isAuthReady,
   onAuthChange,
   signOut,
 } from '../services/authService';
-import { useNotifications } from './useNotifications';
 import { persistHasSeenGetStarted, readHasSeenGetStarted } from '../utils/getStartedPreference';
+
+const RETURN_TO_STORAGE_KEY = 'zenlit.returnTo';
 
 const asError = (error: unknown, fallback: string) =>
   error instanceof Error ? error : new Error(fallback);
+
+const readStoredReturnTo = () => {
+  if (Platform.OS !== 'web' || typeof sessionStorage === 'undefined') return null;
+  try {
+    return getSafeAppReturnTo(sessionStorage.getItem(RETURN_TO_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredReturnTo = (returnTo: string | null) => {
+  if (Platform.OS !== 'web' || typeof sessionStorage === 'undefined') return;
+  try {
+    if (returnTo) sessionStorage.setItem(RETURN_TO_STORAGE_KEY, returnTo);
+    else sessionStorage.removeItem(RETURN_TO_STORAGE_KEY);
+  } catch {}
+};
 
 const useWebShellEffects = (pathname: string) => {
   useEffect(() => {
@@ -53,33 +70,16 @@ const useWebShellEffects = (pathname: string) => {
   }, [pathname]);
 };
 
-const useNotificationRouting = (
-  router: ReturnType<typeof useRouter>,
-  enabled: boolean,
-) => {
-  const { notification } = useNotifications();
-
-  useEffect(() => {
-    if (!enabled || !notification?.request.content.data) return;
-    const data = notification.request.content.data;
-    logger.info('Notification', 'Received notification in foreground:', data);
-    if (data.type === 'message' && data.senderId) {
-      router.push(`/messages/${data.senderId}`);
-    }
-  }, [enabled, notification, router]);
-};
-
 export const useAuthOnboardingGate = () => {
   const pathname = usePathname();
   const router = useRouter();
-  const segments = useSegments();
-  const firstSegment = segments[0];
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
   const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
   const [hasSeenGetStarted, setHasSeenGetStarted] = useState<boolean | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [storedReturnTo, setStoredReturnTo] = useState(readStoredReturnTo);
   const authConfigStatus = getAuthConfigStatus();
 
   const finishSignedOut = useCallback(() => {
@@ -129,7 +129,6 @@ export const useAuthOnboardingGate = () => {
   }, [clearStaleAuthSession, finishSignedOut]);
 
   useWebShellEffects(pathname);
-  useNotificationRouting(router, canAccessMainApp(onboardingState));
 
   useEffect(() => {
     let isMounted = true;
@@ -155,17 +154,10 @@ export const useAuthOnboardingGate = () => {
           return;
         }
 
-        const sessionUser = await getCurrentSessionUser();
-        if (!active) return;
-        if (!sessionUser) {
-          finishSignedOut();
-          return;
-        }
-
         const user = await getCurrentUser();
         if (!active) return;
         if (!user) {
-          logger.warn('Auth', 'Stored session user is no longer valid');
+          logger.warn('Auth', 'No active auth user found');
           await clearStaleAuthSession();
           return;
         }
@@ -191,7 +183,6 @@ export const useAuthOnboardingGate = () => {
     return onAuthChange(async (event, user) => {
       if (event === 'SIGNED_OUT' || !user) {
         finishSignedOut();
-        router.replace(ROUTES.auth);
         return;
       }
 
@@ -200,11 +191,10 @@ export const useAuthOnboardingGate = () => {
         setIsAuthenticated(true);
         setHasSeenGetStarted(true);
         void persistHasSeenGetStarted();
-        const state = await refreshOnboardingState(user.id);
-        if (state.status !== 'guest') router.replace(getRouteForOnboardingState(state));
+        await refreshOnboardingState(user.id);
       }
     });
-  }, [finishSignedOut, refreshOnboardingState, router]);
+  }, [finishSignedOut, refreshOnboardingState]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -213,9 +203,25 @@ export const useAuthOnboardingGate = () => {
   }, [isAuthenticated]);
 
   useEffect(() => subscribeToOnboardingState((state) => {
+    if (state.status === 'guest') {
+      finishSignedOut();
+      return;
+    }
+    setIsAuthenticated(true);
     setOnboardingState(state);
     setCurrentUserId(state.userId);
-  }), []);
+  }), [finishSignedOut]);
+
+  const routeAccess = useMemo(() => {
+    if (isAuthenticated === null || hasSeenGetStarted === null) return null;
+    return getRouteAccessDecision({
+      hasSeenGetStarted,
+      isAuthenticated,
+      onboardingState,
+      pathname,
+      storedReturnTo,
+    });
+  }, [hasSeenGetStarted, isAuthenticated, onboardingState, pathname, storedReturnTo]);
 
   useEffect(() => {
     if (isCheckingAuth || isCheckingOnboarding || isAuthenticated === null || hasSeenGetStarted === null) {
@@ -227,23 +233,28 @@ export const useAuthOnboardingGate = () => {
       return;
     }
 
-    const redirect = getAuthOnboardingRedirect({
-      firstSegment,
-      hasSeenGetStarted,
-      isAuthenticated,
-      onboardingState,
-      pathname,
-    });
+    if (!routeAccess) return;
 
-    if (redirect && pathname !== redirect) router.replace(redirect);
+    if (routeAccess.returnTo && routeAccess.returnTo !== storedReturnTo) {
+      setStoredReturnTo(routeAccess.returnTo);
+      writeStoredReturnTo(routeAccess.returnTo);
+    }
+
+    if (routeAccess.targetRoute && pathname !== routeAccess.targetRoute) {
+      router.replace(routeAccess.targetRoute);
+    }
   }, [
-    currentUserId, firstSegment, hasSeenGetStarted, isAuthenticated, isCheckingAuth,
-    isCheckingOnboarding, onboardingState, pathname, refreshOnboardingState, router,
+    currentUserId, hasSeenGetStarted, isAuthenticated, isCheckingAuth, isCheckingOnboarding,
+    onboardingState, pathname, refreshOnboardingState, routeAccess, router, storedReturnTo,
   ]);
 
-  const inAuthRoute = firstSegment === 'auth';
-  const inOnboardingRoute = firstSegment === 'onboarding';
-  const onGetStarted = !firstSegment || firstSegment === 'index';
+  useEffect(() => {
+    if (!storedReturnTo || onboardingState?.status !== 'fully-onboarded') return;
+    if (pathname === storedReturnTo || !getSafeAppReturnTo(storedReturnTo)) {
+      setStoredReturnTo(null);
+      writeStoredReturnTo(null);
+    }
+  }, [onboardingState?.status, pathname, storedReturnTo]);
 
   return {
     authConfigStatus,
@@ -251,7 +262,7 @@ export const useAuthOnboardingGate = () => {
     isLoading: isCheckingAuth || isCheckingOnboarding || isAuthenticated === null ||
       hasSeenGetStarted === null || (isAuthenticated && !onboardingState),
     pathname,
-    shouldShowNav: isAuthenticated === true && canAccessMainApp(onboardingState) &&
-      !inAuthRoute && !inOnboardingRoute && !onGetStarted && !isPublicRoute(pathname),
+    routeAccess,
+    shouldShowNav: routeAccess?.shouldShowNav ?? false,
   };
 };

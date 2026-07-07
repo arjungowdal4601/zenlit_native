@@ -6,8 +6,6 @@ const prism = theme.prism.colors;
 
 export const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: prism.background },
-  loadingContainer: { alignItems: 'center', justifyContent: 'center' },
-  loadingText: { color: prism.muted, fontSize: 14, marginTop: 12 },
   safeArea: { backgroundColor: prism.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12,
@@ -27,8 +25,6 @@ export const styles = StyleSheet.create({
   },
   headerTitle: { ...theme.typography.title, fontSize: 24, lineHeight: 28, color: prism.text },
   headerHelper: { marginTop: 4, color: prism.muted, fontSize: 13, textAlign: 'center' },
-  successBar: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#16a34a', paddingHorizontal: 16, paddingVertical: 10 },
-  successText: { color: prism.text, fontSize: 14, fontWeight: '600' },
   content: { paddingBottom: 120 },
   bannerWrapper: { position: 'relative', marginBottom: 60 },
   bannerImage: { width: '100%', height: 200, borderRadius: 0 },

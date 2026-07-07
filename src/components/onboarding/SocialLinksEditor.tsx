@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, Text, TextInput, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from '../icons';
 
 import { SOCIAL_PLATFORMS, extractUsername } from '../../constants/socialPlatforms';
 import GradientTitle from '../GradientTitle';

@@ -6,12 +6,6 @@ import {
   type OnboardingState,
   type ProfileBasicsDraftRecord,
 } from '../utils/onboardingState';
-import type {
-  OptionalProfileDetailsInput,
-  ProfileBasicsInput,
-  ResolveOnboardingOptions,
-  ServiceResult,
-} from '../types/onboarding';
 import {
   formatDate,
   normalizeGender,
@@ -23,6 +17,31 @@ import {
   type ProfileData,
 } from '../utils/profileValidation';
 import { logger } from '../utils/logger';
+
+type ResolveOnboardingOptions = {
+  userId?: string | null;
+};
+
+type ProfileBasicsInput = {
+  display_name: string;
+  user_name: string;
+  date_of_birth: string;
+  gender: string;
+};
+
+type OptionalProfileDetailsInput = {
+  bio?: string | null;
+  instagram?: string | null;
+  x_twitter?: string | null;
+  linkedin?: string | null;
+  profile_pic_url?: string | null;
+  banner_url?: string | null;
+};
+
+type ServiceResult<T> = {
+  data: T | null;
+  error: Error | null;
+};
 
 type OnboardingStateListener = (state: OnboardingState) => void;
 type SupabaseReadResponse = { data: any; error: any };
@@ -139,6 +158,14 @@ export const resolveOnboardingState = async (
       profileError: asError(error, 'Failed to resolve onboarding'),
     });
   }
+};
+
+export const refreshPublishedOnboardingState = async (
+  options: ResolveOnboardingOptions = {},
+): Promise<OnboardingState> => {
+  const state = await resolveOnboardingState(options);
+  publishOnboardingState(state);
+  return state;
 };
 
 const markOptionalProfileComplete = async (userId: string) => {

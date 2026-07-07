@@ -1,5 +1,5 @@
 import { Text, TextInput, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from '../icons';
 
 import UsernameSuggestions from '../UsernameSuggestions';
 import { styles } from '../../styles/profileBasics.styles';

@@ -4,7 +4,13 @@ import type {
   ProfileBasicsDraftRecord,
   RequiredProfileField,
 } from './onboardingState';
-import { USERNAME_PATTERN } from './profileValidation';
+import {
+  parseDobString,
+  validateDateOfBirth,
+  validateDisplayName,
+  validateUsername,
+  VALID_GENDERS,
+} from './profileValidation';
 
 export const EMPTY_PREFILL: BasicProfileValues = {
   display_name: null,
@@ -20,8 +26,6 @@ const REQUIRED_FIELDS: RequiredProfileField[] = [
   'gender',
 ];
 
-const VALID_GENDERS = new Set(['male', 'female', 'other']);
-
 const cleanString = (value: string | null | undefined): string | null => {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
@@ -29,39 +33,18 @@ const cleanString = (value: string | null | undefined): string | null => {
 };
 
 const isValidDisplayName = (value: string | null) =>
-  typeof value === 'string' && value.trim().length >= 2 && value.trim().length <= 50;
+  typeof value === 'string' && validateDisplayName(value.trim()).isValid;
 
 const isValidUsername = (value: string | null) =>
-  typeof value === 'string' &&
-  value.length >= 3 &&
-  value.length <= 30 &&
-  USERNAME_PATTERN.test(value);
+  typeof value === 'string' && validateUsername(value).isValid;
 
 const isValidDateOfBirth = (value: string | null) => {
   if (!value) return false;
-
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return false;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]) - 1;
-  const day = Number(match[3]);
-  const date = new Date(year, month, day);
-  if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
-    return false;
-  }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (date > today) return false;
-
-  const minimumAge = new Date(today);
-  minimumAge.setFullYear(today.getFullYear() - 13);
-  return date <= minimumAge;
+  return Boolean(parseDobString(value)) && validateDateOfBirth(value).isValid;
 };
 
 const isValidGender = (value: string | null) =>
-  typeof value === 'string' && VALID_GENDERS.has(value);
+  typeof value === 'string' && (VALID_GENDERS as readonly string[]).includes(value);
 
 const isFieldValid = (field: RequiredProfileField, value: string | null) => {
   switch (field) {

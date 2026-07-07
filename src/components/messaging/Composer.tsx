@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from '../icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { gradientColors, theme } from '../../styles/theme';

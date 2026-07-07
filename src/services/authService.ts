@@ -1,12 +1,11 @@
 import type { SupabaseConfigStatus } from '../lib/supabase';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase, supabaseConfigStatus, supabaseReady } from '../lib/supabase';
 
 export type AppUser = {
   id: string;
   email: string | null;
 };
-
-export type AuthChangeEvent = 'SIGNED_IN' | 'SIGNED_OUT' | 'TOKEN_REFRESHED' | string;
 
 const AUTH_REQUEST_TIMEOUT_MS = 8000;
 
@@ -47,17 +46,6 @@ export const getCurrentUser = async (): Promise<AppUser | null> => {
   );
   if (error || !data.user) return null;
   return toAppUser(data.user);
-};
-
-export const getCurrentSessionUser = async (): Promise<AppUser | null> => {
-  if (!supabaseReady) return null;
-
-  const { data, error } = await withAuthTimeout<SupabaseAuthResponse>(
-    supabase.auth.getSession(),
-    'Auth session check',
-  );
-  if (error || !data.session?.user) return null;
-  return toAppUser(data.session.user);
 };
 
 export const signInWithEmailOtp = async (email: string) => {
@@ -102,7 +90,7 @@ export const onAuthChange = (
     return () => {};
   }
 
-  const { data } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: any) => {
+  const { data } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
     await callback(event, toAppUser(session?.user));
   });
 

@@ -8,6 +8,7 @@ const transpiledPackages = [
   'expo-[^/]+',
   '@expo-google-fonts(?:\\+[^/]+)?',
   'react-native-[^/]+',
+  'standard-navigation',
   'lucide-react-native',
 ].join('|');
 

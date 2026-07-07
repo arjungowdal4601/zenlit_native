@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from './icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import type { CompressedImage } from '../utils/imageCompression';

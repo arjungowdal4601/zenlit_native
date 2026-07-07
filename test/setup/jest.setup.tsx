@@ -10,16 +10,6 @@ const mockCreateIcon = (name: string) => {
   return MockIcon;
 };
 
-jest.mock('@react-native-async-storage/async-storage', () => ({
-  __esModule: true,
-  default: {
-    getItem: jest.fn(async () => null),
-    setItem: jest.fn(async () => undefined),
-    removeItem: jest.fn(async () => undefined),
-    clear: jest.fn(async () => undefined),
-  },
-}));
-
 jest.mock('react-native-safe-area-context', () => {
   const ReactRuntime = require('react');
   const { View } = require('react-native');
@@ -38,17 +28,6 @@ jest.mock('expo-font', () => ({
   isLoaded: jest.fn(() => true),
 }));
 
-jest.mock('expo-notifications', () => ({
-  setNotificationHandler: jest.fn(),
-  addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
-  addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
-  getPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
-  requestPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
-  getExpoPushTokenAsync: jest.fn(async () => ({ data: 'ExponentPushToken[test]' })),
-  setNotificationChannelAsync: jest.fn(async () => undefined),
-  AndroidImportance: { MAX: 'max' },
-}));
-
 jest.mock('expo-location', () => ({
   requestForegroundPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
   getForegroundPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
@@ -60,9 +39,7 @@ jest.mock('expo-location', () => ({
 }));
 
 jest.mock('expo-image-picker', () => ({
-  requestCameraPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
   requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
-  launchCameraAsync: jest.fn(async () => ({ canceled: true, assets: [] })),
   launchImageLibraryAsync: jest.fn(async () => ({ canceled: true, assets: [] })),
   MediaTypeOptions: { Images: 'Images' },
 }));
@@ -76,21 +53,6 @@ jest.mock('expo-linear-gradient', () => {
   };
 });
 
-jest.mock('@react-native-masked-view/masked-view', () => {
-  const ReactRuntime = require('react');
-  const { View } = require('react-native');
-  return {
-    __esModule: true,
-    default: ({ children, ...props }: { children: React.ReactNode }) =>
-      ReactRuntime.createElement(View, props, children),
-  };
-});
-
-jest.mock('@expo/vector-icons', () => ({
-  Feather: mockCreateIcon('Feather'),
-  FontAwesome6: mockCreateIcon('FontAwesome6'),
-}));
-
 jest.mock('@vercel/analytics/react', () => ({
   Analytics: () => null,
 }));
@@ -100,11 +62,38 @@ jest.mock('@vercel/speed-insights/react', () => ({
 }));
 
 jest.mock('lucide-react-native', () => ({
+  ArrowLeft: mockCreateIcon('ArrowLeft'),
+  ArrowUp: mockCreateIcon('ArrowUp'),
+  Calendar: mockCreateIcon('Calendar'),
+  Camera: mockCreateIcon('Camera'),
+  Check: mockCreateIcon('Check'),
+  ChevronLeft: mockCreateIcon('ChevronLeft'),
+  ChevronRight: mockCreateIcon('ChevronRight'),
+  CircleAlert: mockCreateIcon('CircleAlert'),
+  CircleCheck: mockCreateIcon('CircleCheck'),
+  CircleX: mockCreateIcon('CircleX'),
   Compass: mockCreateIcon('Compass'),
+  EllipsisVertical: mockCreateIcon('EllipsisVertical'),
+  Info: mockCreateIcon('Info'),
+  Instagram: mockCreateIcon('Instagram'),
+  Linkedin: mockCreateIcon('Linkedin'),
+  LoaderCircle: mockCreateIcon('LoaderCircle'),
+  LogOut: mockCreateIcon('LogOut'),
+  Mail: mockCreateIcon('Mail'),
+  Menu: mockCreateIcon('Menu'),
   MessageSquare: mockCreateIcon('MessageSquare'),
+  Paperclip: mockCreateIcon('Paperclip'),
   Plus: mockCreateIcon('Plus'),
+  Search: mockCreateIcon('Search'),
+  SquarePen: mockCreateIcon('SquarePen'),
+  Trash2: mockCreateIcon('Trash2'),
+  TriangleAlert: mockCreateIcon('TriangleAlert'),
+  Twitter: mockCreateIcon('Twitter'),
+  Upload: mockCreateIcon('Upload'),
+  User: mockCreateIcon('User'),
   UserCircle: mockCreateIcon('UserCircle'),
   Users: mockCreateIcon('Users'),
+  X: mockCreateIcon('X'),
 }));
 
 jest.mock('../../src/lib/supabase', () => {
@@ -149,7 +138,6 @@ jest.mock('../../src/lib/supabase', () => {
   const supabase = {
     auth: {
       getUser: jest.fn(async () => ({ data: { user: null }, error: null })),
-      getSession: jest.fn(async () => ({ data: { session: null }, error: null })),
       signInWithOtp: jest.fn(async () => ({ data: {}, error: null })),
       verifyOtp: jest.fn(async () => ({ data: { user: null }, error: null })),
       signOut: jest.fn(async () => ({ error: null })),

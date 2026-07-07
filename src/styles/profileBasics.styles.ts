@@ -249,7 +249,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   iosBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'transparent',
   },
   iosPickerSheet: {

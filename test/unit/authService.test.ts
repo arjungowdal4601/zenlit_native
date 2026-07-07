@@ -1,6 +1,5 @@
 import { supabase } from '../../src/lib/supabase';
 import {
-  getCurrentSessionUser,
   getCurrentUser,
   onAuthChange,
   signInWithEmailOtp,
@@ -11,7 +10,6 @@ import {
 const mockSupabase = supabase as unknown as {
   auth: {
     getUser: jest.Mock;
-    getSession: jest.Mock;
     signInWithOtp: jest.Mock;
     verifyOtp: jest.Mock;
     signOut: jest.Mock;
@@ -33,18 +31,6 @@ describe('authService', () => {
     await expect(getCurrentUser()).resolves.toEqual({
       id: 'user-1',
       email: 'alex@example.com',
-    });
-  });
-
-  it('maps the current session user to the app user shape', async () => {
-    mockSupabase.auth.getSession.mockResolvedValueOnce({
-      data: { session: { user: { id: 'user-2', email: null } } },
-      error: null,
-    });
-
-    await expect(getCurrentSessionUser()).resolves.toEqual({
-      id: 'user-2',
-      email: null,
     });
   });
 

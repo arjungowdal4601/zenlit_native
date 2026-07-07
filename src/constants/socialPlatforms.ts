@@ -1,6 +1,5 @@
 import React, { type ReactElement } from 'react';
-import { Feather } from '@expo/vector-icons';
-import { FontAwesome6 } from '@expo/vector-icons';
+import { Feather } from '../components/icons';
 
 export type SocialPlatformId = 'instagram' | 'linkedin' | 'twitter';
 
@@ -36,7 +35,7 @@ export const SOCIAL_PLATFORMS: Record<SocialPlatformId, SocialPlatformMeta> = {
     label: 'Instagram',
     style: {},
     renderIcon: (props) =>
-      React.createElement(FontAwesome6 as any, {
+      React.createElement(Feather, {
         name: 'instagram',
         size: props?.size ?? 16,
         color: props?.color ?? '#ffffff',
@@ -48,7 +47,7 @@ export const SOCIAL_PLATFORMS: Record<SocialPlatformId, SocialPlatformMeta> = {
     label: 'LinkedIn',
     style: { backgroundColor: '#0077B5' },
     renderIcon: (props) =>
-      React.createElement(FontAwesome6 as any, {
+      React.createElement(Feather, {
         name: 'linkedin',
         size: props?.size ?? 16,
         color: props?.color ?? '#ffffff',
@@ -60,8 +59,8 @@ export const SOCIAL_PLATFORMS: Record<SocialPlatformId, SocialPlatformMeta> = {
     label: 'X (Twitter)',
     style: { backgroundColor: '#000000' },
     renderIcon: (props) =>
-      React.createElement(FontAwesome6 as any, {
-        name: 'x-twitter',
+      React.createElement(Feather, {
+        name: 'twitter',
         size: props?.size ?? 16,
         color: props?.color ?? '#ffffff',
       }),

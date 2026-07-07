@@ -1,7 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from '../icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import ImageUploadDialog from '../ImageUploadDialog';
@@ -12,13 +12,6 @@ import { prismGradientColors, theme } from '../../styles/theme';
 import type { useCompleteProfileOnboarding } from '../../hooks/useCompleteProfileOnboarding';
 
 type CompleteProfileViewModel = ReturnType<typeof useCompleteProfileOnboarding>;
-
-export const CompleteProfileLoading = () => (
-  <View style={[styles.root, styles.loadingContainer]}>
-    <ActivityIndicator color={theme.prism.colors.accent} size="large" />
-    <Text style={styles.loadingText}>Checking setup...</Text>
-  </View>
-);
 
 export const CompleteProfileForm = ({ profile }: { profile: CompleteProfileViewModel }) => (
   <View style={styles.root}>
@@ -43,13 +36,6 @@ export const CompleteProfileForm = ({ profile }: { profile: CompleteProfileViewM
         <View style={{ width: 44 }} />
       </View>
     </SafeAreaView>
-
-    {profile.showSuccess ? (
-      <View style={styles.successBar}>
-        <Feather name="check" size={18} color={theme.prism.colors.text} />
-        <Text style={styles.successText}>{profile.successMessage}</Text>
-      </View>
-    ) : null}
 
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.bannerWrapper}>
@@ -122,10 +108,10 @@ export const CompleteProfileForm = ({ profile }: { profile: CompleteProfileViewM
           style={[
             styles.actionButton,
             styles.saveButton,
-            (!profile.authReady || profile.isSaving) && { opacity: 0.5 },
+            profile.isSaving && { opacity: 0.5 },
           ]}
           onPress={profile.handleSave}
-          disabled={!profile.authReady || profile.isSaving}
+          disabled={profile.isSaving}
           accessibilityRole="button"
         >
           <LinearGradient

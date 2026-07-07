@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from './icons';
 import ConfirmDialog from './ConfirmDialog';
 import OptionsDialog from './OptionsDialog';
 import DropdownMenu from './DropdownMenu';

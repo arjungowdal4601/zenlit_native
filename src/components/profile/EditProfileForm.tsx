@@ -1,4 +1,4 @@
-import { Feather } from '@expo/vector-icons';
+import { Feather, type IconName } from '../icons';
 import { ActivityIndicator, Modal, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -50,7 +50,7 @@ const ToastBar = ({ toast }: { toast: EditProfileToast }) => {
         : toast.type === 'warning'
           ? styles.toastWarning
           : styles.toastInfo;
-  const icon =
+  const icon: IconName =
     toast.type === 'success'
       ? 'check-circle'
       : toast.type === 'error'

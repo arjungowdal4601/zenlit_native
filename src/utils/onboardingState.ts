@@ -49,7 +49,6 @@ export type OnboardingStatus =
 export type OnboardingState = {
   status: OnboardingStatus;
   userId: string | null;
-  canAccessMainApp: boolean;
   prefill: BasicProfileValues;
   missingFields: RequiredProfileField[];
   reason?: string;
@@ -74,7 +73,6 @@ export const evaluateOnboardingState = ({
     return {
       status: 'guest',
       userId: null,
-      canAccessMainApp: false,
       prefill: EMPTY_PREFILL,
       missingFields: [],
     };
@@ -86,7 +84,6 @@ export const evaluateOnboardingState = ({
     return {
       status: 'recovery',
       userId,
-      canAccessMainApp: false,
       prefill,
       missingFields: getMissingFields(prefill),
       reason: 'backend-read-failed',
@@ -97,7 +94,6 @@ export const evaluateOnboardingState = ({
     return {
       status: 'recovery',
       userId,
-      canAccessMainApp: false,
       prefill,
       missingFields: getMissingFields(prefill),
       reason: 'draft-read-failed',
@@ -108,7 +104,6 @@ export const evaluateOnboardingState = ({
     return {
       status: 'recovery',
       userId,
-      canAccessMainApp: false,
       prefill,
       missingFields: getMissingFields(prefill),
       reason: 'invalid-profile-data',
@@ -120,7 +115,6 @@ export const evaluateOnboardingState = ({
     return {
       status: 'profile-basics-required',
       userId,
-      canAccessMainApp: false,
       prefill,
       missingFields,
     };
@@ -130,7 +124,6 @@ export const evaluateOnboardingState = ({
     return {
       status: 'optional-profile-details',
       userId,
-      canAccessMainApp: false,
       prefill,
       missingFields: [],
     };
@@ -139,14 +132,13 @@ export const evaluateOnboardingState = ({
   return {
     status: 'fully-onboarded',
     userId,
-    canAccessMainApp: true,
     prefill,
     missingFields: [],
   };
 };
 
 export const canAccessMainApp = (state: OnboardingState | null | undefined) =>
-  state?.canAccessMainApp === true;
+  state?.status === 'fully-onboarded';
 
 export const getRouteForOnboardingState = (state: OnboardingState | null | undefined): AppRoute => {
   if (!state) {

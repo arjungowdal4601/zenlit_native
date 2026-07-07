@@ -1,27 +1,21 @@
 import { act, fireEvent, render, screen } from '../utils/render';
 
-const mockReplace = jest.fn();
-const mockResolveOnboardingState = jest.fn();
+const mockRefreshPublishedOnboardingState = jest.fn();
 const mockSignOut = jest.fn();
-
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace }),
-}));
 
 jest.mock('../../src/services/authService', () => ({
   signOut: (...args: unknown[]) => mockSignOut(...args),
 }));
 
 jest.mock('../../src/services/onboardingService', () => ({
-  resolveOnboardingState: (...args: unknown[]) => mockResolveOnboardingState(...args),
+  refreshPublishedOnboardingState: (...args: unknown[]) => mockRefreshPublishedOnboardingState(...args),
 }));
 
 import OnboardingRecoveryScreen from '../../app/onboarding/recovery';
 
 describe('Onboarding recovery screen', () => {
   beforeEach(() => {
-    mockReplace.mockClear();
-    mockResolveOnboardingState.mockReset();
+    mockRefreshPublishedOnboardingState.mockReset();
     mockSignOut.mockReset();
     mockSignOut.mockResolvedValue({ error: null });
   });
@@ -34,11 +28,10 @@ describe('Onboarding recovery screen', () => {
     expect(screen.queryByText(/unfinished setup/i)).toBeNull();
   });
 
-  it('continues by resolving onboarding state and routing from the shared result', async () => {
-    mockResolveOnboardingState.mockResolvedValueOnce({
+  it('continues by refreshing and publishing onboarding state for the root gate', async () => {
+    mockRefreshPublishedOnboardingState.mockResolvedValueOnce({
       status: 'fully-onboarded',
       userId: 'user-1',
-      canAccessMainApp: true,
       prefill: {
         display_name: 'Alex',
         user_name: 'alex',
@@ -55,15 +48,13 @@ describe('Onboarding recovery screen', () => {
       await Promise.resolve();
     });
 
-    expect(mockResolveOnboardingState).toHaveBeenCalledTimes(1);
-    expect(mockReplace).toHaveBeenCalledWith('/radar');
+    expect(mockRefreshPublishedOnboardingState).toHaveBeenCalledTimes(1);
   });
 
-  it('sends recovery users with missing fields back to Profile Basics', async () => {
-    mockResolveOnboardingState.mockResolvedValueOnce({
+  it('stays on recovery and shows a retry message while state is still recovery', async () => {
+    mockRefreshPublishedOnboardingState.mockResolvedValueOnce({
       status: 'recovery',
       userId: 'user-1',
-      canAccessMainApp: false,
       prefill: {
         display_name: null,
         user_name: 'alex',
@@ -81,11 +72,11 @@ describe('Onboarding recovery screen', () => {
       await Promise.resolve();
     });
 
-    expect(mockResolveOnboardingState).toHaveBeenCalledTimes(1);
-    expect(mockReplace).toHaveBeenCalledWith('/onboarding/profile/basic');
+    expect(mockRefreshPublishedOnboardingState).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('We still could not confirm your setup. Please try again or sign out.')).toBeTruthy();
   });
 
-  it('signs out globally and returns to Auth', async () => {
+  it('signs out globally and lets the root gate return to Auth', async () => {
     render(<OnboardingRecoveryScreen />);
 
     await act(async () => {
@@ -94,6 +85,5 @@ describe('Onboarding recovery screen', () => {
     });
 
     expect(mockSignOut).toHaveBeenCalledWith('global');
-    expect(mockReplace).toHaveBeenCalledWith('/auth');
   });
 });

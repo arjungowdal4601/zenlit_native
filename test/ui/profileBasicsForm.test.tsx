@@ -4,7 +4,6 @@ import { render, screen } from '../utils/render';
 import { ProfileBasicsForm } from '../../src/components/onboarding/ProfileBasicsForm';
 
 const makeFormProps = (overrides: Record<string, unknown> = {}) => ({
-  closeIosPicker: jest.fn(),
   displayName: 'Alex Johnson',
   dob: '1998-04-12',
   errors: {
@@ -16,7 +15,6 @@ const makeFormProps = (overrides: Record<string, unknown> = {}) => ({
   gender: 'Others',
   handleContinue: jest.fn(),
   handleDobWebChange: jest.fn(),
-  handleIosDobChange: jest.fn(),
   handleSuggestionSelect: jest.fn(),
   handleUsernameChange: jest.fn(),
   isCheckingUsername: false,
@@ -24,16 +22,13 @@ const makeFormProps = (overrides: Record<string, unknown> = {}) => ({
   isLoadingProfile: false,
   isSubmitting: false,
   isWebDateFocused: false,
-  maxDobDate: new Date('2013-01-01T00:00:00.000Z'),
   maxDobInputValue: '2013-01-01',
   openDobPicker: jest.fn(),
-  resolvedDobDate: new Date('1998-04-12T00:00:00.000Z'),
   saveError: '',
   setDisplayName: jest.fn(),
   setErrors: jest.fn(),
   setGender: jest.fn(),
   setIsWebDateFocused: jest.fn(),
-  showIosPicker: false,
   username: 'alex',
   usernameAvailable: true,
   usernameSuggestions: [],

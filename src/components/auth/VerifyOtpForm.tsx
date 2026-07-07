@@ -1,7 +1,7 @@
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from '../icons';
 
 import GradientTitle from '../GradientTitle';
 import { styles } from '../../styles/verifyOtp.styles';

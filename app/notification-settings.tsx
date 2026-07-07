@@ -7,22 +7,20 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
 import { theme } from '../src/styles/theme';
 import { logger } from '../src/utils/logger';
-import { useNotifications, type NotificationPreferences } from '../src/hooks/useNotifications';
 import {
   getNotificationSettings,
   updateNotificationSettings,
+  type NotificationPreferences,
 } from '../src/services/notificationService';
 
 const NotificationSettingsScreen: React.FC = () => {
   const router = useRouter();
-  const { permissionStatus, expoPushToken } = useNotifications();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -114,9 +112,6 @@ const NotificationSettingsScreen: React.FC = () => {
     );
   }
 
-  const hasPermission = permissionStatus === 'granted';
-  const hasToken = !!expoPushToken;
-
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -127,34 +122,12 @@ const NotificationSettingsScreen: React.FC = () => {
       </View>
 
       <ScrollView style={styles.content}>
-        {Platform.OS !== 'web' && !hasPermission && (
-          <View style={styles.warningCard}>
-            <Text style={styles.warningTitle}>Permission Required</Text>
-            <Text style={styles.warningText}>
-              Push notifications are disabled. Please enable them in your device settings to
-              receive notifications.
-            </Text>
-          </View>
-        )}
-
-        {Platform.OS !== 'web' && hasPermission && !hasToken && (
-          <View style={styles.warningCard}>
-            <Text style={styles.warningTitle}>Setup Required</Text>
-            <Text style={styles.warningText}>
-              Notification token not registered. Please restart the app to complete setup.
-            </Text>
-          </View>
-        )}
-
-        {Platform.OS === 'web' && (
-          <View style={styles.warningCard}>
-            <Text style={styles.warningTitle}>Not Available on Web</Text>
-            <Text style={styles.warningText}>
-              Push notifications are only available on mobile devices. Please use the iOS or
-              Android app to receive notifications.
-            </Text>
-          </View>
-        )}
+        <View style={styles.warningCard}>
+          <Text style={styles.warningTitle}>Paused for Web</Text>
+          <Text style={styles.warningText}>
+            Push delivery is disabled while Zenlit is focused on the web app.
+          </Text>
+        </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -172,7 +145,7 @@ const NotificationSettingsScreen: React.FC = () => {
               onValueChange={handleToggleNotifications}
               trackColor={{ false: '#334155', true: '#60a5fa' }}
               thumbColor="#ffffff"
-              disabled={saving || Platform.OS === 'web'}
+              disabled={saving}
             />
           </View>
         </View>
@@ -194,7 +167,7 @@ const NotificationSettingsScreen: React.FC = () => {
               onValueChange={(value) => handleTogglePreference('messages', value)}
               trackColor={{ false: '#334155', true: '#60a5fa' }}
               thumbColor="#ffffff"
-              disabled={saving || !notificationsEnabled || Platform.OS === 'web'}
+              disabled={saving || !notificationsEnabled}
             />
           </View>
           <View style={styles.infoCard}>
@@ -205,15 +178,6 @@ const NotificationSettingsScreen: React.FC = () => {
             </Text>
           </View>
         </View>
-
-        {Platform.OS !== 'web' && hasToken && (
-          <View style={styles.section}>
-            <Text style={styles.tokenLabel}>Device Token</Text>
-            <Text style={styles.tokenText} numberOfLines={2}>
-              {expoPushToken}
-            </Text>
-          </View>
-        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -321,20 +285,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#94a3b8',
     lineHeight: 18,
-  },
-  tokenLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748b',
-    marginBottom: 8,
-  },
-  tokenText: {
-    fontSize: 12,
-    color: '#94a3b8',
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    backgroundColor: '#0f172a',
-    padding: 12,
-    borderRadius: 8,
   },
 });
 

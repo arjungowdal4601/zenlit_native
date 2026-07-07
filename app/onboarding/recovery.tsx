@@ -2,17 +2,14 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StatusBar, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
 
 import GradientTitle from '../../src/components/GradientTitle';
 import { signOut } from '../../src/services/authService';
-import { resolveOnboardingState } from '../../src/services/onboardingService';
-import { getRouteForOnboardingState, ROUTES } from '../../src/utils/onboardingState';
+import { refreshPublishedOnboardingState } from '../../src/services/onboardingService';
 import { styles } from '../../src/styles/onboardingRecovery.styles';
 import { prismGradientColors, theme } from '../../src/styles/theme';
 
 const OnboardingRecoveryScreen: React.FC = () => {
-  const router = useRouter();
   const [isContinuing, setIsContinuing] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState('');
@@ -26,13 +23,11 @@ const OnboardingRecoveryScreen: React.FC = () => {
     setError('');
 
     try {
-      const state = await resolveOnboardingState();
-      if (state.status === 'recovery' && state.missingFields.length > 0) {
-        router.replace(ROUTES.onboardingBasic);
+      const state = await refreshPublishedOnboardingState();
+      if (state.status === 'recovery') {
+        setError('We still could not confirm your setup. Please try again or sign out.');
         return;
       }
-
-      router.replace(getRouteForOnboardingState(state));
     } catch {
       setError('We could not check your setup right now. Please try again or sign out.');
     } finally {
@@ -52,7 +47,6 @@ const OnboardingRecoveryScreen: React.FC = () => {
       await signOut('global');
     } finally {
       setIsSigningOut(false);
-      router.replace(ROUTES.auth);
     }
   };
 

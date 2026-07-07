@@ -1,10 +1,10 @@
 # Zenlit
 
-Zenlit is a web-first, native-ready Expo app for location-first networking. The current product target is the browser MVP on Vercel: mobile Safari/Chrome first, desktop browser second, native apps later only after traction. The main app entry is Radar, with supporting Feed, Create, Chat, and Profile screens. Authentication uses Supabase email OTP, public profile data lives in Supabase, and onboarding is guarded by a backend-driven resolver before the bottom tabs are shown.
+Zenlit is a web-first, native-ready Expo app for location-first networking. The current product target is the browser MVP: mobile Safari/Chrome first, desktop browser second, native apps later only after traction. The main app entry is Radar, with supporting Feed, Create, Chat, and Profile screens. Authentication uses Supabase email OTP, public profile data lives in Supabase, and onboarding is guarded by a backend-driven resolver before the bottom tabs are shown.
 
 ## Current Direction
 
-- Build and test the web product first: `npm run dev`, `npm run build:web`, Vercel deployment.
+- Build and test the web product first: `npm run dev`, `npm run build:web`, Vercel deployment, and Docker web packaging.
 - Keep Expo + React Native Web rather than rewriting to pure web.
 - Keep service, validation, auth, onboarding, profile, feed, messaging, and storage logic portable for future native apps.
 - Treat iOS/Android builds, app store assets, native push tokens, and native permission work as traction-gated future work.
@@ -13,10 +13,10 @@ Zenlit is a web-first, native-ready Expo app for location-first networking. The 
 
 Prerequisites:
 
-- Node.js and npm
+- Node.js 22.13 or newer and npm
 - Expo CLI through `npx expo`
 - A Supabase project with email OTP enabled
-- Vercel project environment variables for production web deploys
+- Vercel project environment variables or Docker build args for production web deploys
 
 Install dependencies:
 
@@ -45,17 +45,15 @@ Build the web app:
 npm run build:web
 ```
 
-Native scripts remain available for future validation, but they are not part of the current launch path.
-
 ## Docker
 
-Build and run the production web container:
+Build and run the production Expo Web container:
 
 ```bash
 docker compose up --build
 ```
 
-Open `http://localhost:8081`. Compose reads `.env` and passes the `EXPO_PUBLIC_SUPABASE_*` values at build time.
+Open `http://localhost:8081`. Compose reads `.env` and passes the `EXPO_PUBLIC_SUPABASE_*` values as build args. The container serves the static `dist/` export with Nginx and falls back to `index.html` for Expo Router routes.
 
 ## Scripts
 
@@ -66,8 +64,6 @@ Open `http://localhost:8081`. Compose reads `.env` and passes the `EXPO_PUBLIC_S
 | `npm run build` | Export the web build to `dist/` |
 | `npm run build:web` | Explicit web export command used by Vercel |
 | `npm run preview:web` | Serve the exported `dist/` build locally |
-| `npm run ios` | Future native validation script |
-| `npm run android` | Future native validation script |
 | `npm run typecheck` | Run TypeScript with no emit |
 | `npm test` | Run the full Jest suite in band |
 | `npm run test:unit` | Run unit tests under `test/unit` |
@@ -79,9 +75,11 @@ Open `http://localhost:8081`. Compose reads `.env` and passes the `EXPO_PUBLIC_S
 
 ## Web Deployment
 
-Vercel is the primary deployment target. `vercel.json` uses `npm run build:web`, outputs `dist`, and rewrites routes to support browser refreshes on app paths such as `/messages/[id]` and `/profile/[id]`.
+Vercel and Docker are both supported web deployment paths. `vercel.json` uses `npm run build:web`, outputs `dist`, and rewrites routes to support browser refreshes on app paths such as `/messages/[id]` and `/profile/[id]`.
 
 Set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in Vercel project environment variables.
+
+Docker uses the same `npm run build:web` export and serves it through Nginx. Pass `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` through `.env` when running `docker compose up --build`.
 
 ## Project Map
 

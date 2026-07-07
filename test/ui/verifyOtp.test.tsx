@@ -6,6 +6,10 @@ const mockSignInWithEmailOtp = jest.fn();
 let mockSearchParams: Record<string, unknown> = { email: 'alex@example.com' };
 
 jest.mock('expo-router', () => ({
+  Redirect: ({ href }: { href: string }) => {
+    mockReplace(href);
+    return null;
+  },
   useRouter: () => ({ replace: mockReplace }),
   useLocalSearchParams: () => mockSearchParams,
 }));

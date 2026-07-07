@@ -1,7 +1,5 @@
 import React, { useMemo } from 'react';
-import { Platform, StyleSheet, Text, TextProps, TextStyle, View } from 'react-native';
-import MaskedView from '@react-native-masked-view/masked-view';
-import { LinearGradient } from 'expo-linear-gradient';
+import { StyleSheet, Text, TextProps, TextStyle } from 'react-native';
 
 import { theme } from '../styles/theme';
 
@@ -36,67 +34,28 @@ export const GradientTitle: React.FC<GradientTitleProps> = ({
     return computed;
   }, [style]);
 
-  if (Platform.OS === 'web') {
-    const webGradientStyle: any = {
-      backgroundImage:
-        variant === 'prism'
-          ? `linear-gradient(90deg, ${theme.prism.gradients.brand.join(', ')})`
-          : 'linear-gradient(90deg, #2563eb, #7e22ce)',
-      WebkitBackgroundClip: 'text',
-      backgroundClip: 'text',
-      color: 'transparent',
-      WebkitTextFillColor: 'transparent',
-      display: 'inline-block',
-    };
-
-    return (
-      <Text
-        numberOfLines={numberOfLines}
-        ellipsizeMode={ellipsizeMode}
-        accessible={false}
-        importantForAccessibility="no"
-        style={[effectiveStyle, webGradientStyle]}
-      >
-        {text}
-      </Text>
-    );
-  }
+  const webGradientStyle: any = {
+    backgroundImage:
+      variant === 'prism'
+        ? `linear-gradient(90deg, ${theme.prism.gradients.brand.join(', ')})`
+        : 'linear-gradient(90deg, #2563eb, #7e22ce)',
+    WebkitBackgroundClip: 'text',
+    backgroundClip: 'text',
+    color: 'transparent',
+    WebkitTextFillColor: 'transparent',
+    display: 'inline-block',
+  };
 
   return (
-    <MaskedView
-      style={styles.maskContainer}
-      maskElement={
-        <View style={styles.maskWrapper}>
-          <Text
-            numberOfLines={numberOfLines}
-            ellipsizeMode={ellipsizeMode}
-            accessible={false}
-            importantForAccessibility="no"
-            style={[effectiveStyle, styles.maskText]}
-          >
-            {text}
-          </Text>
-        </View>
-      }
+    <Text
+      numberOfLines={numberOfLines}
+      ellipsizeMode={ellipsizeMode}
+      accessible={false}
+      importantForAccessibility="no"
+      style={[effectiveStyle, webGradientStyle]}
     >
-      <LinearGradient
-        colors={variant === 'prism' ? theme.prism.gradients.brand : ["#2563eb", "#7e22ce"]}
-        start={{ x: 0, y: 0.5 }}
-        end={{ x: 1, y: 0.5 }}
-        style={styles.gradientFill}
-      >
-        {/** Use an invisible sizing text to ensure gradient matches mask size without drawing behind it */}
-        <Text
-          accessible={false}
-          importantForAccessibility="no"
-          numberOfLines={numberOfLines}
-          ellipsizeMode={ellipsizeMode}
-          style={[effectiveStyle, styles.hiddenText]}
-        >
-          {text}
-        </Text>
-      </LinearGradient>
-    </MaskedView>
+      {text}
+    </Text>
   );
 };
 
@@ -107,24 +66,6 @@ const styles = StyleSheet.create({
     fontWeight: theme.header.title.fontWeight,
     letterSpacing: theme.header.title.letterSpacing,
     lineHeight: theme.header.title.lineHeight,
-  },
-  maskContainer: {
-    flexShrink: 1,
-  },
-  maskWrapper: {
-    backgroundColor: 'transparent',
-  },
-  gradientFill: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hiddenText: {
-    color: 'transparent',
-    opacity: 0,
-  },
-  maskText: {
-    // Ensure the mask is fully opaque to reveal the gradient underneath
-    color: '#000000',
   },
 });
 

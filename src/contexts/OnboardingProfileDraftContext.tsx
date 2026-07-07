@@ -34,7 +34,7 @@ const OnboardingProfileDraftContext =
   createContext<OnboardingProfileDraftContextValue | null>(null);
 
 export const OnboardingProfileDraftProvider = ({ children }: { children: ReactNode }) => {
-  // ponytail: in-memory only; use AsyncStorage if closed-tab draft recovery becomes required.
+  // ponytail: in-memory only; add browser persistence if closed-tab draft recovery becomes required.
   const [bio, setBio] = useState('');
   const [bannerImage, setBannerImage] = useState<CompressedImage | null>(null);
   const [profileImage, setProfileImage] = useState<CompressedImage | null>(null);

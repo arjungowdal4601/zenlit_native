@@ -1,7 +1,5 @@
 import { logger } from '../utils/logger'
 import { createClient } from '@supabase/supabase-js'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import Constants from 'expo-constants'
 
 const normalize = (val?: string): string | undefined => {
   if (typeof val !== 'string') return undefined
@@ -21,21 +19,9 @@ export type SupabaseConfigStatus = {
 }
 
 const getSupabaseConfig = (): SupabaseConfig => {
-  let url = normalize(process.env.EXPO_PUBLIC_SUPABASE_URL)
-  let anonKey = normalize(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY)
-  let source = 'process.env'
-
-  if (!url || !anonKey) {
-    url = normalize(Constants.expoConfig?.extra?.supabaseUrl)
-    anonKey = normalize(Constants.expoConfig?.extra?.supabaseAnonKey)
-    source = 'Constants.expoConfig.extra'
-  }
-
-  if (!url || !anonKey) {
-    url = normalize((Constants as any).manifest?.extra?.supabaseUrl)
-    anonKey = normalize((Constants as any).manifest?.extra?.supabaseAnonKey)
-    source = 'Constants.manifest.extra'
-  }
+  const url = normalize(process.env.EXPO_PUBLIC_SUPABASE_URL)
+  const anonKey = normalize(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY)
+  const source = 'process.env'
 
   return { url, anonKey, source };
 };
@@ -142,7 +128,6 @@ if (supabaseConfigStatus.ready) {
   try {
     supabase = createClient(envUrl as string, envAnon as string, {
       auth: {
-        storage: AsyncStorage,
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,

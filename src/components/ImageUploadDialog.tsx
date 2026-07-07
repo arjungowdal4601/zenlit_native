@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View, Image, Alert, Platform, ActivityIndicator } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Modal, Pressable, StyleSheet, Text, View, Image, Alert, ActivityIndicator } from 'react-native';
+import { Feather } from './icons';
 import * as ImagePicker from 'expo-image-picker';
 import { compressImage, type CompressedImage } from '../utils/imageCompression';
 
@@ -28,19 +28,6 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const requestCameraPermission = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(
-        'Permission Required',
-        'Camera permission is required to take photos.',
-        [{ text: 'OK' }]
-      );
-      return false;
-    }
-    return true;
-  };
-
   const requestMediaLibraryPermission = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -54,65 +41,12 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
     return true;
   };
 
-  const handleCameraCapture = async () => {
-    console.log('Camera capture initiated...');
-    console.log('Platform:', Platform.OS);
-    
-    // Check if we're on web platform
-    if (Platform.OS === 'web') {
-      Alert.alert(
-        'Camera Not Available', 
-        'Camera functionality is not available in web browsers. Please use "Upload from Gallery" to select an image from your device.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-    
-    const hasPermission = await requestCameraPermission();
-    if (!hasPermission) {
-      console.log('Camera permission denied');
-      return;
-    }
-
-    console.log('Camera permission granted, launching camera...');
-    
-    try {
-      const result = await ImagePicker.launchCameraAsync({
-        // Use string media types per Expo SDK 52+ changes
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-        base64: true,
-      });
-
-      console.log('Camera result:', result);
-
-      if (!result.canceled && result.assets && result.assets[0]) {
-        const asset = result.assets[0];
-        console.log('Image captured successfully:', asset.uri);
-        const displayUri = asset.uri;
-        const uploadUri = asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri;
-        setSelectedImage(displayUri);
-        setSelectedUploadUri(uploadUri);
-        setIsPreviewMode(true);
-      } else {
-        console.log('Camera capture was canceled or failed');
-      }
-    } catch (error) {
-      console.error('Camera capture error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Please try again.';
-      Alert.alert('Error', `Failed to capture image: ${errorMessage}`);
-    }
-  };
-
   const handleFileUpload = async () => {
     const hasPermission = await requestMediaLibraryPermission();
     if (!hasPermission) return;
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        // Use string media types per Expo SDK 52+ changes
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
@@ -168,45 +102,22 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
   };
 
   const handleRemoveImage = () => {
-    if (Platform.OS === 'web') {
-      const confirmRemoval =
-        typeof window !== 'undefined' && typeof window.confirm === 'function'
-          ? window.confirm.bind(window)
-          : () => true;
+    const confirmRemoval =
+      typeof window !== 'undefined' && typeof window.confirm === 'function'
+        ? window.confirm.bind(window)
+        : () => true;
 
-      const confirmed = confirmRemoval('Are you sure you want to remove this image?');
-      if (!confirmed) {
-        return;
-      }
-
-      if (onRemove) {
-        onRemove();
-      } else {
-        onImageSelected(null);
-      }
-      handleClose();
+    const confirmed = confirmRemoval('Are you sure you want to remove this image?');
+    if (!confirmed) {
       return;
     }
 
-    Alert.alert(
-      'Remove Image',
-      'Are you sure you want to remove this image?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => {
-            if (onRemove) {
-              onRemove();
-            } else {
-              onImageSelected(null);
-            }
-            handleClose();
-          }
-        }
-      ]
-    );
+    if (onRemove) {
+      onRemove();
+    } else {
+      onImageSelected(null);
+    }
+    handleClose();
   };
 
   return (
@@ -272,24 +183,6 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
               <Text style={styles.title}>{title}</Text>
               
               <Pressable
-                onPress={handleCameraCapture}
-                style={({ pressed }) => [
-                  styles.row,
-                  styles.rowOutline,
-                  pressed ? styles.rowPressed : null,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Take photo with camera"
-              >
-                <View style={styles.rowInner}>
-                  <View style={styles.rowIcon}>
-                    <Feather name="camera" size={16} color="#cbd5f5" />
-                  </View>
-                  <Text style={styles.rowLabel}>Take Photo</Text>
-                </View>
-              </Pressable>
-
-              <Pressable
                 onPress={handleFileUpload}
                 style={({ pressed }) => [
                   styles.row,
@@ -297,13 +190,13 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
                   pressed ? styles.rowPressed : null,
                 ]}
                 accessibilityRole="button"
-                accessibilityLabel="Upload from gallery"
+                accessibilityLabel="Upload image"
               >
                 <View style={styles.rowInner}>
                   <View style={styles.rowIcon}>
                     <Feather name="upload" size={16} color="#cbd5f5" />
                   </View>
-                  <Text style={styles.rowLabel}>Upload from Gallery</Text>
+                  <Text style={styles.rowLabel}>Upload Image</Text>
                 </View>
               </Pressable>
 
@@ -358,7 +251,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   backdropPress: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   card: {
     width: '100%',

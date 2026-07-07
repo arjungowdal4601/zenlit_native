@@ -1,9 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Platform } from 'react-native';
-import { useRouter } from 'expo-router';
-import { DateTimePickerAndroid, type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
-import { getCurrentUser } from '../services/authService';
 import { resolveOnboardingState, saveProfileBasicsDraft, saveRequiredProfileBasics } from '../services/onboardingService';
 import { getFriendlyOnboardingError, isDuplicateUsernameError } from '../utils/onboardingErrors';
 import { canSubmitProfileBasics, EMPTY_PROFILE_BASICS_FORM_ERRORS, getProfileBasicsFormErrors } from '../utils/profileBasicsForm';
@@ -12,10 +8,7 @@ import {
   normalizeGender,
   parseDobString,
   sanitizeUsernameInput,
-  validateProfileData,
-  type ProfileData,
 } from '../utils/profileValidation';
-import { getRouteForOnboardingState, ROUTES } from '../utils/onboardingState';
 import { useUsernameAvailability } from './useUsernameAvailability';
 
 export const GENDERS = ['Male', 'Female', 'Others'] as const;
@@ -26,12 +19,10 @@ const toGenderOption = (value?: string | null): GenderOption | '' =>
   value && value in GENDER_LABELS ? GENDER_LABELS[value as keyof typeof GENDER_LABELS] : '';
 
 export const useProfileBasicsOnboarding = () => {
-  const router = useRouter();
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [dob, setDob] = useState('');
   const [dobDate, setDobDate] = useState<Date | null>(null);
-  const [showIosPicker, setShowIosPicker] = useState(false);
   const [gender, setGender] = useState<GenderOption | ''>('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -47,15 +38,6 @@ export const useProfileBasicsOnboarding = () => {
     return now;
   }, []);
   const maxDobInputValue = useMemo(() => formatDate(maxDobDate), [maxDobDate]);
-  const resolvedDobDate = useMemo(() => {
-    if (dobDate) return dobDate;
-    const parsed = parseDobString(dob);
-    if (parsed) return parsed;
-    const fallback = new Date();
-    fallback.setFullYear(fallback.getFullYear() - 18);
-    fallback.setHours(0, 0, 0, 0);
-    return fallback;
-  }, [dob, dobDate]);
   const {
     isCheckingUsername,
     markUsernameAvailable,
@@ -73,21 +55,10 @@ export const useProfileBasicsOnboarding = () => {
       setSaveError('');
 
       try {
-        const user = await getCurrentUser();
-        if (!user) {
-          router.replace(ROUTES.auth);
-          return;
-        }
-
-        const state = await resolveOnboardingState({ userId: user.id });
+        const state = await resolveOnboardingState();
         if (!mounted) return;
 
-        setCurrentUserId(user.id);
-
-        if (state.status !== 'profile-basics-required') {
-          router.replace(getRouteForOnboardingState(state));
-          return;
-        }
+        setCurrentUserId(state.userId);
 
         setDisplayName(state.prefill.display_name ?? '');
         setUsername(state.prefill.user_name ?? '');
@@ -99,7 +70,6 @@ export const useProfileBasicsOnboarding = () => {
         if (mounted) {
           setSaveError('We could not load your saved setup.');
           setHasLoadedProfile(true);
-          router.replace(ROUTES.onboardingRecovery);
         }
       } finally {
         if (mounted) setIsLoadingProfile(false);
@@ -110,7 +80,7 @@ export const useProfileBasicsOnboarding = () => {
     return () => {
       mounted = false;
     };
-  }, [router]);
+  }, []);
   const updateDob = (date: Date) => {
     const normalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     normalized.setHours(0, 0, 0, 0);
@@ -134,22 +104,15 @@ export const useProfileBasicsOnboarding = () => {
   };
 
   const openDobPicker = () => {
-    if (Platform.OS === 'android') {
-      DateTimePickerAndroid.open({
-        mode: 'date',
-        value: resolvedDobDate,
-        maximumDate: maxDobDate,
-        onChange: (_event: DateTimePickerEvent, selectedDate?: Date) => {
-          if (selectedDate) updateDob(selectedDate);
-        },
-      });
-      return;
+    const element = webDateInputRef.current;
+    if (!element) return;
+    const dateInput = element as HTMLInputElement & { showPicker?: () => void };
+    try {
+      if (typeof dateInput.showPicker === 'function') dateInput.showPicker();
+      else dateInput.focus();
+    } catch {
+      dateInput.focus();
     }
-    if (Platform.OS === 'ios') setShowIosPicker(true);
-  };
-
-  const handleIosDobChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (selectedDate) updateDob(selectedDate);
   };
 
   const isFilled = useMemo(
@@ -208,25 +171,18 @@ export const useProfileBasicsOnboarding = () => {
       return;
     }
 
-    const profileData: ProfileData = {
+    const profileData = {
       display_name: displayName.trim(),
       user_name: username.trim().toLowerCase(),
       date_of_birth: dobDate ? formatDate(dobDate) : dob,
       gender: normalizeGender(gender),
     };
 
-    const validation = validateProfileData(profileData);
-    if (!validation.isValid) {
-      setSaveError(validation.error || 'Please check your profile details.');
-      return;
-    }
-
     setIsSubmitting(true);
     setSaveError('');
     try {
       const { error } = await saveRequiredProfileBasics(profileData, currentUserId);
       if (error) throw error;
-      router.replace(ROUTES.onboardingComplete);
     } catch (error) {
       if (isDuplicateUsernameError(error)) {
         markUsernameUnavailable();
@@ -238,11 +194,11 @@ export const useProfileBasicsOnboarding = () => {
   };
 
   return {
-    closeIosPicker: () => setShowIosPicker(false), displayName, dob, errors, gender,
-    handleContinue, handleDobWebChange, handleIosDobChange, handleSuggestionSelect, handleUsernameChange,
+    displayName, dob, errors, gender,
+    handleContinue, handleDobWebChange, handleSuggestionSelect, handleUsernameChange,
     isCheckingUsername, isFilled, isLoadingProfile, isSubmitting, isWebDateFocused,
-    maxDobDate, maxDobInputValue, openDobPicker, resolvedDobDate, saveError,
-    setDisplayName, setErrors, setGender, setIsWebDateFocused, showIosPicker,
+    maxDobInputValue, openDobPicker, saveError,
+    setDisplayName, setErrors, setGender, setIsWebDateFocused,
     username, usernameAvailable, usernameSuggestions, webDateInputRef,
   };
 };

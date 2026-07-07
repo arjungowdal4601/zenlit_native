@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather } from './icons';
 
 export type SuccessPopupProps = {
   visible: boolean;
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   card: {
     width: '100%',

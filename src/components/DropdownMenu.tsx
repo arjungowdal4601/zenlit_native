@@ -1,11 +1,11 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, type IconName } from './icons';
 
 export type DropdownItem = {
   label: string;
   destructive?: boolean;
-  iconName?: React.ComponentProps<typeof Feather>['name'];
+  iconName?: IconName;
   onPress: () => void;
 };
 
@@ -54,11 +54,11 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({ visible, items, onClose, st
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 32,
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   card: {
     position: 'absolute',

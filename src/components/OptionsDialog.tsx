@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   backdropPress: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   card: {
     width: '100%',
