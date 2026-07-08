@@ -35,6 +35,13 @@ describe('web deployment configuration', () => {
         source: string;
         destination: string;
       }>;
+      headers?: Array<{
+        source: string;
+        headers: Array<{
+          key: string;
+          value: string;
+        }>;
+      }>;
     }>('vercel.json');
 
     expect(packageJson.scripts['build:web']).toBe('expo export --platform web');
@@ -61,9 +68,35 @@ describe('web deployment configuration', () => {
         },
       ],
     });
+
+    const appHeaders = vercelJson.headers?.find((entry) => entry.source === '/:path*')?.headers ?? [];
+    const headerMap = new Map(appHeaders.map(({ key, value }) => [key, value]));
+    const csp = headerMap.get('Content-Security-Policy') ?? '';
+
+    expect(headerMap.get('Strict-Transport-Security')).toBe(
+      'max-age=31536000; includeSubDomains; preload',
+    );
+    expect(headerMap.get('X-Content-Type-Options')).toBe('nosniff');
+    expect(headerMap.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
+    expect(headerMap.get('Permissions-Policy')).toBe(
+      'camera=(), microphone=(), payment=(), usb=(), geolocation=(self)',
+    );
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("base-uri 'self'");
+    expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("script-src 'self' https://va.vercel-scripts.com");
+    expect(csp).toContain('https://*.supabase.co');
+    expect(csp).toContain('https://*.supabase.com');
+    expect(csp).toContain('https://*.supabase.in');
+    expect(csp).toContain('wss://*.supabase.co');
+    expect(csp).toContain('wss://*.supabase.com');
+    expect(csp).toContain('wss://*.supabase.in');
+    expect(csp).toContain('https://vitals.vercel-insights.com');
+    expect(csp).toContain('https://va.vercel-scripts.com');
   });
 
-  it('keeps Docker as a production Expo web deployment path', () => {
+  it('keeps Docker as a static Expo web packaging path', () => {
     const dockerfile = readText('Dockerfile');
     const compose = readText('docker-compose.yml');
     const nginxConfig = readText('docker/nginx.conf');

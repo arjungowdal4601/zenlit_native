@@ -16,7 +16,7 @@ Prerequisites:
 - Node.js 22.13 or newer and npm
 - Expo CLI through `npx expo`
 - A Supabase project with email OTP enabled
-- Vercel project environment variables or Docker build args for production web deploys
+- Vercel project environment variables for production web deploys; Docker build args for local static container checks
 
 Install dependencies:
 
@@ -75,11 +75,11 @@ Open `http://localhost:8081`. Compose reads `.env` and passes the `EXPO_PUBLIC_S
 
 ## Web Deployment
 
-Vercel and Docker are both supported web deployment paths. `vercel.json` uses `npm run build:web`, outputs `dist`, and rewrites routes to support browser refreshes on app paths such as `/messages/[id]` and `/profile/[id]`.
+Vercel is the production deployment path. `vercel.json` uses `npm run build:web`, outputs `dist`, rewrites routes to `/index.html`, and applies production security headers for the Expo Web SPA.
 
-Set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in Vercel project environment variables.
+Set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in Vercel project environment variables. In Supabase Auth settings, keep the Site URL pointed at the production Vercel or custom domain, and allow only approved production/preview redirect URLs. Do not use broad wildcard redirects.
 
-Docker uses the same `npm run build:web` export and serves it through Nginx. Pass `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` through `.env` when running `docker compose up --build`.
+Docker uses the same `npm run build:web` export and serves it through Nginx for local/static packaging checks. It is not the production TLS boundary; only expose the container publicly behind HTTPS termination and equivalent security headers.
 
 ## Project Map
 
