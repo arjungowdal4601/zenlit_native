@@ -1,21 +1,27 @@
 import { act, fireEvent, render, screen } from '../utils/render';
 
-const mockRefreshPublishedOnboardingState = jest.fn();
+const mockReplace = jest.fn();
+const mockResolveOnboardingState = jest.fn();
 const mockSignOut = jest.fn();
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ replace: mockReplace }),
+}));
 
 jest.mock('../../src/services/authService', () => ({
   signOut: (...args: unknown[]) => mockSignOut(...args),
 }));
 
 jest.mock('../../src/services/onboardingService', () => ({
-  refreshPublishedOnboardingState: (...args: unknown[]) => mockRefreshPublishedOnboardingState(...args),
+  resolveOnboardingState: (...args: unknown[]) => mockResolveOnboardingState(...args),
 }));
 
 import OnboardingRecoveryScreen from '../../app/onboarding/recovery';
 
 describe('Onboarding recovery screen', () => {
   beforeEach(() => {
-    mockRefreshPublishedOnboardingState.mockReset();
+    mockReplace.mockClear();
+    mockResolveOnboardingState.mockReset();
     mockSignOut.mockReset();
     mockSignOut.mockResolvedValue({ error: null });
   });
@@ -28,8 +34,8 @@ describe('Onboarding recovery screen', () => {
     expect(screen.queryByText(/unfinished setup/i)).toBeNull();
   });
 
-  it('continues by refreshing and publishing onboarding state for the root gate', async () => {
-    mockRefreshPublishedOnboardingState.mockResolvedValueOnce({
+  it('continues by resolving onboarding state and routing to the next screen', async () => {
+    mockResolveOnboardingState.mockResolvedValueOnce({
       status: 'fully-onboarded',
       userId: 'user-1',
       prefill: {
@@ -48,11 +54,12 @@ describe('Onboarding recovery screen', () => {
       await Promise.resolve();
     });
 
-    expect(mockRefreshPublishedOnboardingState).toHaveBeenCalledTimes(1);
+    expect(mockResolveOnboardingState).toHaveBeenCalledTimes(1);
+    expect(mockReplace).toHaveBeenCalledWith('/radar');
   });
 
   it('stays on recovery and shows a retry message while state is still recovery', async () => {
-    mockRefreshPublishedOnboardingState.mockResolvedValueOnce({
+    mockResolveOnboardingState.mockResolvedValueOnce({
       status: 'recovery',
       userId: 'user-1',
       prefill: {
@@ -72,7 +79,8 @@ describe('Onboarding recovery screen', () => {
       await Promise.resolve();
     });
 
-    expect(mockRefreshPublishedOnboardingState).toHaveBeenCalledTimes(1);
+    expect(mockResolveOnboardingState).toHaveBeenCalledTimes(1);
+    expect(mockReplace).not.toHaveBeenCalled();
     expect(screen.getByText('We still could not confirm your setup. Please try again or sign out.')).toBeTruthy();
   });
 

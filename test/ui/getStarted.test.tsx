@@ -1,14 +1,10 @@
-import { act, fireEvent, render, screen } from '../utils/render';
+import { fireEvent, render, screen } from '../utils/render';
 
 const mockReplace = jest.fn();
-const mockPersistHasSeenGetStarted = jest.fn(async () => undefined);
+const mockPersistHasSeenGetStarted = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace }),
-  useFocusEffect: (callback: () => void) => {
-    const React = require('react');
-    React.useEffect(() => callback(), [callback]);
-  },
 }));
 
 jest.mock('../../src/utils/getStartedPreference', () => ({
@@ -19,14 +15,8 @@ import GetStartedScreen from '../../app/index';
 
 describe('Get Started screen', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
     mockReplace.mockClear();
     mockPersistHasSeenGetStarted.mockClear();
-  });
-
-  afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
   });
 
   it('shows the minimal Zenlit entry copy and CTA', () => {
@@ -43,11 +33,6 @@ describe('Get Started screen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Get Started' }));
 
     expect(mockPersistHasSeenGetStarted).toHaveBeenCalledTimes(1);
-
-    act(() => {
-      jest.advanceTimersByTime(300);
-    });
-
     expect(mockReplace).toHaveBeenCalledWith('/auth');
   });
 });

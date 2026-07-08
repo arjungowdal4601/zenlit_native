@@ -7,7 +7,7 @@ const getBrowserStorage = () => {
   return globalThis.localStorage;
 };
 
-export const readHasSeenGetStarted = async (): Promise<boolean> => {
+export const readHasSeenGetStarted = (): boolean => {
   try {
     const value = getBrowserStorage()?.getItem(HAS_SEEN_GET_STARTED_KEY);
     return value === 'true';
@@ -17,7 +17,7 @@ export const readHasSeenGetStarted = async (): Promise<boolean> => {
   }
 };
 
-export const persistHasSeenGetStarted = async (): Promise<void> => {
+export const persistHasSeenGetStarted = (): void => {
   try {
     getBrowserStorage()?.setItem(HAS_SEEN_GET_STARTED_KEY, 'true');
   } catch (error) {

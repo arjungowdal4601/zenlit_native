@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
 
 import { resolveOnboardingState, saveProfileBasicsDraft, saveRequiredProfileBasics } from '../services/onboardingService';
 import { getFriendlyOnboardingError, isDuplicateUsernameError } from '../utils/onboardingErrors';
+import { getRouteForOnboardingState } from '../utils/onboardingState';
 import { canSubmitProfileBasics, EMPTY_PROFILE_BASICS_FORM_ERRORS, getProfileBasicsFormErrors } from '../utils/profileBasicsForm';
 import {
   formatDate,
@@ -17,12 +19,16 @@ export type GenderOption = typeof GENDERS[number];
 const GENDER_LABELS = { male: 'Male', female: 'Female', other: 'Others' } as const;
 const toGenderOption = (value?: string | null): GenderOption | '' =>
   value && value in GENDER_LABELS ? GENDER_LABELS[value as keyof typeof GENDER_LABELS] : '';
+const normalizeDobInput = (value: string) => {
+  const parsed = parseDobString(value);
+  return parsed ? formatDate(parsed) : value.slice(0, 10);
+};
 
 export const useProfileBasicsOnboarding = () => {
+  const router = useRouter();
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [dob, setDob] = useState('');
-  const [dobDate, setDobDate] = useState<Date | null>(null);
   const [gender, setGender] = useState<GenderOption | ''>('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -32,17 +38,14 @@ export const useProfileBasicsOnboarding = () => {
   const [isWebDateFocused, setIsWebDateFocused] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState(EMPTY_PROFILE_BASICS_FORM_ERRORS);
-  const maxDobDate = useMemo(() => {
+  const maxDobInputValue = useMemo(() => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    return now;
+    return formatDate(now);
   }, []);
-  const maxDobInputValue = useMemo(() => formatDate(maxDobDate), [maxDobDate]);
   const {
     isCheckingUsername,
-    markUsernameAvailable,
-    markUsernameUnavailable,
-    resetUsernameAvailability,
+    setUsernameAvailability,
     usernameAvailable,
     usernameSuggestions,
   } = useUsernameAvailability({ currentUserId, username });
@@ -63,7 +66,6 @@ export const useProfileBasicsOnboarding = () => {
         setDisplayName(state.prefill.display_name ?? '');
         setUsername(state.prefill.user_name ?? '');
         setDob(state.prefill.date_of_birth ?? '');
-        setDobDate(state.prefill.date_of_birth ? parseDobString(state.prefill.date_of_birth) : null);
         setGender(toGenderOption(state.prefill.gender));
         setHasLoadedProfile(true);
       } catch {
@@ -81,26 +83,8 @@ export const useProfileBasicsOnboarding = () => {
       mounted = false;
     };
   }, []);
-  const updateDob = (date: Date) => {
-    const normalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    normalized.setHours(0, 0, 0, 0);
-    setDobDate(normalized);
-    setDob(formatDate(normalized));
-  };
-
   const handleDobWebChange = (value: string) => {
-    if (!value) {
-      setDob('');
-      setDobDate(null);
-      return;
-    }
-    const parsed = parseDobString(value);
-    if (parsed) {
-      updateDob(parsed);
-      return;
-    }
-    setDob(value.slice(0, 10));
-    setDobDate(null);
+    setDob(value ? normalizeDobInput(value) : '');
   };
 
   const openDobPicker = () => {
@@ -121,16 +105,15 @@ export const useProfileBasicsOnboarding = () => {
         displayName,
         username,
         dob,
-        dobDate,
         gender,
         usernameAvailable,
         isCheckingUsername,
       }),
-    [displayName, username, dob, dobDate, gender, usernameAvailable, isCheckingUsername],
+    [displayName, username, dob, gender, usernameAvailable, isCheckingUsername],
   );
 
   const validateForm = () => {
-    const nextErrors = getProfileBasicsFormErrors({ displayName, username, dob, dobDate, gender });
+    const nextErrors = getProfileBasicsFormErrors({ displayName, username, dob, gender });
     setErrors(nextErrors);
     return !nextErrors.displayName && !nextErrors.username && !nextErrors.dob && !nextErrors.gender;
   };
@@ -142,16 +125,16 @@ export const useProfileBasicsOnboarding = () => {
       void saveProfileBasicsDraft({
         display_name: displayName,
         user_name: username,
-        date_of_birth: dobDate ? formatDate(dobDate) : dob,
+        date_of_birth: normalizeDobInput(dob),
         gender,
       }, currentUserId);
     }, 700);
 
     return () => clearTimeout(draftTimer);
-  }, [currentUserId, displayName, dob, dobDate, gender, hasLoadedProfile, isSubmitting, username]);
+  }, [currentUserId, displayName, dob, gender, hasLoadedProfile, isSubmitting, username]);
 
   const handleUsernameChange = (value: string) => {
-    resetUsernameAvailability();
+    setUsernameAvailability(null);
     setUsername(sanitizeUsernameInput(value));
     setSaveError('');
     if (errors.username) setErrors((next) => ({ ...next, username: '' }));
@@ -159,7 +142,7 @@ export const useProfileBasicsOnboarding = () => {
 
   const handleSuggestionSelect = (suggestion: string) => {
     setUsername(suggestion);
-    markUsernameAvailable();
+    setUsernameAvailability(true);
     setSaveError('');
     if (errors.username) setErrors((next) => ({ ...next, username: '' }));
   };
@@ -174,18 +157,19 @@ export const useProfileBasicsOnboarding = () => {
     const profileData = {
       display_name: displayName.trim(),
       user_name: username.trim().toLowerCase(),
-      date_of_birth: dobDate ? formatDate(dobDate) : dob,
+      date_of_birth: normalizeDobInput(dob),
       gender: normalizeGender(gender),
     };
 
     setIsSubmitting(true);
     setSaveError('');
     try {
-      const { error } = await saveRequiredProfileBasics(profileData, currentUserId);
-      if (error) throw error;
+      const { data, error } = await saveRequiredProfileBasics(profileData, currentUserId);
+      if (error || !data) throw error ?? new Error('Failed to save profile basics');
+      router.replace(getRouteForOnboardingState(data));
     } catch (error) {
       if (isDuplicateUsernameError(error)) {
-        markUsernameUnavailable();
+        setUsernameAvailability(false);
       }
       setSaveError(getFriendlyOnboardingError(error));
     } finally {

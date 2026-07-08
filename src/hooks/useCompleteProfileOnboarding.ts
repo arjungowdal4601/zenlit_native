@@ -7,7 +7,7 @@ import {
 } from '../services/onboardingService';
 import type { CompressedImage } from '../utils/imageCompression';
 import { getFriendlyOnboardingError } from '../utils/onboardingErrors';
-import { ROUTES } from '../utils/onboardingState';
+import { getRouteForOnboardingState, ROUTES } from '../utils/onboardingState';
 import { uploadProfileImagesWithCleanup } from '../utils/profileImageUploads';
 
 export const useCompleteProfileOnboarding = () => {
@@ -15,8 +15,6 @@ export const useCompleteProfileOnboarding = () => {
   const [bio, setBio] = useState('');
   const [bannerImage, setBannerImage] = useState<CompressedImage | null>(null);
   const [profileImage, setProfileImage] = useState<CompressedImage | null>(null);
-  const [bannerImageUrl, setBannerImageUrl] = useState<string | null>(null);
-  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [instagram, setInstagram] = useState('');
   const [twitter, setTwitter] = useState('');
   const [linkedin, setLinkedin] = useState('');
@@ -37,8 +35,6 @@ export const useCompleteProfileOnboarding = () => {
     setBio('');
     setBannerImage(null);
     setProfileImage(null);
-    setBannerImageUrl(null);
-    setProfileImageUrl(null);
     setInstagram('');
     setTwitter('');
     setLinkedin('');
@@ -53,8 +49,6 @@ export const useCompleteProfileOnboarding = () => {
       const uploadedImages = await uploadProfileImagesWithCleanup({
         avatarImage: profileImage,
         bannerImage,
-        previousAvatarUrl: profileImageUrl,
-        previousBannerUrl: bannerImageUrl,
       });
 
       try {
@@ -63,11 +57,14 @@ export const useCompleteProfileOnboarding = () => {
           instagram: instagram.trim() || null,
           x_twitter: twitter.trim() || null,
           linkedin: linkedin.trim() || null,
-          profile_pic_url: uploadedImages.avatarUrl ?? profileImageUrl ?? null,
-          banner_url: uploadedImages.bannerUrl ?? bannerImageUrl ?? null,
+          profile_pic_url: uploadedImages.avatarUrl ?? null,
+          banner_url: uploadedImages.bannerUrl ?? null,
         });
         if (result.error || !result.data) {
           throw result.error ?? new Error('Failed to save optional profile details');
+        }
+        if (mountedRef.current) {
+          router.replace(getRouteForOnboardingState(result.data));
         }
       } catch (error) {
         await uploadedImages.cleanupUploadedImages();
@@ -101,6 +98,7 @@ export const useCompleteProfileOnboarding = () => {
 
       if (mountedRef.current) {
         clearDraft();
+        router.replace(getRouteForOnboardingState(data));
       }
     } catch (error) {
       if (mountedRef.current) {
@@ -116,20 +114,16 @@ export const useCompleteProfileOnboarding = () => {
   const handleImageSelected = (image: CompressedImage | null) => {
     if (uploadType === 'avatar') {
       setProfileImage(image);
-      if (!image) setProfileImageUrl(null);
     } else {
       setBannerImage(image);
-      if (!image) setBannerImageUrl(null);
     }
   };
 
   const handleRemoveImage = () => {
     if (uploadType === 'avatar') {
       setProfileImage(null);
-      setProfileImageUrl(null);
     } else {
       setBannerImage(null);
-      setBannerImageUrl(null);
     }
   };
 
@@ -140,7 +134,6 @@ export const useCompleteProfileOnboarding = () => {
 
   return {
     bannerImage,
-    bannerImageUrl,
     bio,
     errorMessage,
     handleBack: () => router.replace(ROUTES.onboardingBasic),
@@ -154,7 +147,6 @@ export const useCompleteProfileOnboarding = () => {
     openBannerMenu: () => openImageDialog('banner'),
     openProfileMenu: () => openImageDialog('avatar'),
     profileImage,
-    profileImageUrl,
     setBio,
     setInstagram,
     setLinkedin,

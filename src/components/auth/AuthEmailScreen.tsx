@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -11,42 +11,15 @@ import { signInWithEmailOtp } from '../../services/authService';
 import { logger } from '../../utils/logger';
 import {
   getEmailOtpErrorMessage,
-  getEmailOtpExceptionMessage,
   maskEmail,
   normalizeEmail,
 } from '../../utils/authEmail';
 import { prismGradientColors, theme } from '../../styles/theme';
 
-const EMAIL_PLACEHOLDER = 'Enter your email';
-
 const AuthEmailScreen: React.FC = () => {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
-
-  const cardOpacity = useRef(new Animated.Value(0)).current;
-  const cardTranslate = useRef(new Animated.Value(24)).current;
-  const cardScale = useRef(new Animated.Value(0.98)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(cardOpacity, {
-        toValue: 1,
-        duration: 320,
-        useNativeDriver: Platform.OS !== 'web',
-      }),
-      Animated.timing(cardTranslate, {
-        toValue: 0,
-        duration: 320,
-        useNativeDriver: Platform.OS !== 'web',
-      }),
-      Animated.timing(cardScale, {
-        toValue: 1,
-        duration: 320,
-        useNativeDriver: Platform.OS !== 'web',
-      }),
-    ]).start();
-  }, [cardOpacity, cardScale, cardTranslate]);
 
   const normalizedEmail = normalizeEmail(email);
   const isValidEmail = Boolean(normalizedEmail);
@@ -84,7 +57,7 @@ const AuthEmailScreen: React.FC = () => {
         stack: error?.stack,
       });
 
-      Alert.alert('Error', getEmailOtpExceptionMessage(error));
+      Alert.alert('Error', getEmailOtpErrorMessage(error));
       setEmailLoading(false);
     }
   };
@@ -106,15 +79,7 @@ const AuthEmailScreen: React.FC = () => {
             <Text style={styles.brandSubtitle}>Connect with people around you</Text>
           </View>
 
-          <Animated.View
-            style={[
-              styles.card,
-              {
-                opacity: cardOpacity,
-                transform: [{ translateY: cardTranslate }, { scale: cardScale }],
-              },
-            ]}
-          >
+          <View style={styles.card}>
             <Text style={styles.cardTitle}>Welcome</Text>
             <Text style={styles.cardSubtitle}>Enter your email to continue</Text>
 
@@ -123,7 +88,7 @@ const AuthEmailScreen: React.FC = () => {
               <TextInput
                 value={email}
                 onChangeText={setEmail}
-                placeholder={EMAIL_PLACEHOLDER}
+                placeholder="Enter your email"
                 placeholderTextColor={theme.prism.colors.muted}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -153,7 +118,7 @@ const AuthEmailScreen: React.FC = () => {
                 </Text>
               </LinearGradient>
             </Pressable>
-          </Animated.View>
+          </View>
 
           <Text style={styles.legalText}>
             By continuing, you agree to our{' '}

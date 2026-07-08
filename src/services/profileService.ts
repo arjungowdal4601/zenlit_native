@@ -150,7 +150,7 @@ export const checkUsernameAvailability = async (
  * Generates username suggestions when the desired username is taken.
  */
 export const generateUsernameSuggestions = async (baseUsername: string): Promise<string[]> => {
-  const suggestions: string[] = [];
+  const candidates: string[] = [];
   const maxSuggestions = 5;
   const maxAttempts = 15;
 
@@ -163,31 +163,33 @@ export const generateUsernameSuggestions = async (baseUsername: string): Promise
     () => `${baseUsername}${Math.floor(Math.random() * 9999) + 100}`,
   ];
 
-  for (let i = 0; i < maxAttempts && suggestions.length < maxSuggestions; i++) {
+  for (let i = 0; i < maxAttempts; i++) {
     const suggestion = suggestionTypes[i % suggestionTypes.length]();
 
-    if (suggestions.includes(suggestion)) {
-      continue;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('user_name')
-        .eq('user_name', suggestion)
-        .maybeSingle();
-
-      if (error) {
-        continue;
-      }
-
-      if (!data) {
-        suggestions.push(suggestion);
-      }
-    } catch (error) {
-      continue;
+    if (!candidates.includes(suggestion)) {
+      candidates.push(suggestion);
     }
   }
 
-  return suggestions;
+  if (candidates.length === 0) {
+    return [];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('user_name')
+      .in('user_name', candidates);
+
+    if (error) {
+      return [];
+    }
+
+    const taken = new Set((data ?? []).map(({ user_name }: { user_name: string }) => user_name));
+    return candidates
+      .filter((suggestion) => !taken.has(suggestion))
+      .slice(0, maxSuggestions);
+  } catch (error) {
+    return [];
+  }
 };

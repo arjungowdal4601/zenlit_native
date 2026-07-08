@@ -1,11 +1,10 @@
 import { normalizeProfileBasicsInput, isBasicProfileFieldValid } from './onboardingProfileFields';
-import { formatDate, validateDateOfBirth, validateDisplayName, validateUsername } from './profileValidation';
+import { validateDateOfBirth, validateDisplayName, validateUsername } from './profileValidation';
 
 export type ProfileBasicsFormValues = {
   displayName: string;
   username: string;
   dob: string;
-  dobDate: Date | null;
   gender: string;
 };
 
@@ -32,14 +31,13 @@ export const getProfileBasicsFormErrors = ({
   displayName,
   username,
   dob,
-  dobDate,
   gender,
 }: ProfileBasicsFormValues): ProfileBasicsFormErrors => {
   const nextErrors = { ...EMPTY_PROFILE_BASICS_FORM_ERRORS };
   const values = normalizeProfileBasicsInput({
     display_name: displayName,
     user_name: username,
-    date_of_birth: dobDate ? formatDate(dobDate) : dob,
+    date_of_birth: dob,
     gender,
   });
 

@@ -93,7 +93,7 @@ describe('onboarding navigation ownership', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('saves Profile Basics without choosing the next route locally', async () => {
+  it('saves Profile Basics and routes to Complete Profile from the returned state', async () => {
     mockResolveOnboardingState.mockResolvedValueOnce(basicsRequiredState);
     mockSaveRequiredProfileBasics.mockResolvedValueOnce({ data: optionalPendingState, error: null });
 
@@ -112,10 +112,10 @@ describe('onboarding navigation ownership', () => {
     });
 
     expect(mockSaveRequiredProfileBasics).toHaveBeenCalledTimes(1);
-    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith('/onboarding/profile/complete');
   });
 
-  it('skips Complete Profile without choosing the next route locally', async () => {
+  it('skips Complete Profile and routes to the app from the returned state', async () => {
     mockSkipOptionalProfileDetails.mockResolvedValueOnce({ data: onboardedState, error: null });
 
     renderCompleteProfile();
@@ -127,6 +127,17 @@ describe('onboarding navigation ownership', () => {
     });
 
     expect(mockSkipOptionalProfileDetails).toHaveBeenCalledTimes(1);
-    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockReplace).toHaveBeenCalledWith('/radar');
+  });
+
+  it('keeps Complete Profile social URL cleanup local to the form', () => {
+    renderCompleteProfile();
+
+    fireEvent.press(screen.getByLabelText('Edit Instagram username'));
+    fireEvent.changeText(screen.getByPlaceholderText('username'), 'https://instagram.com/alex/');
+
+    expect(screen.getByText('Will link to: instagram.com/alex')).toBeTruthy();
+    fireEvent.press(screen.getByText('Save'));
+    expect(screen.getByText('alex')).toBeTruthy();
   });
 });

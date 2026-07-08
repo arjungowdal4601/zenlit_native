@@ -72,7 +72,6 @@ export const validateUsername = (username: string): ValidationResult => {
 
   return { isValid: true };
 };
-
 /**
  * Validates display name
  */
@@ -115,36 +114,6 @@ export const validateDateOfBirth = (dateOfBirth: string): ValidationResult => {
 
   if (date > minAge) {
     return { isValid: false, error: 'You must be at least 13 years old' };
-  }
-
-  return { isValid: true };
-};
-
-/**
- * Validates all profile data
- */
-export const validateProfileData = (profileData: ProfileData): ValidationResult => {
-  const displayNameValidation = validateDisplayName(profileData.display_name);
-  if (!displayNameValidation.isValid) {
-    return displayNameValidation;
-  }
-
-  const usernameValidation = validateUsername(profileData.user_name);
-  if (!usernameValidation.isValid) {
-    return usernameValidation;
-  }
-
-  const dobValidation = validateDateOfBirth(profileData.date_of_birth);
-  if (!dobValidation.isValid) {
-    return dobValidation;
-  }
-
-  if (!profileData.gender) {
-    return { isValid: false, error: 'Gender is required' };
-  }
-
-  if (!(VALID_GENDERS as readonly string[]).includes(profileData.gender)) {
-    return { isValid: false, error: 'Invalid gender value' };
   }
 
   return { isValid: true };

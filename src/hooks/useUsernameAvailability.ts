@@ -18,28 +18,16 @@ export const useUsernameAvailability = ({
   const usernameCheckTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const usernameCheckIdRef = useRef(0);
 
-  const resetUsernameAvailability = useCallback(() => {
+  const setUsernameAvailability = useCallback((value: boolean | null) => {
     usernameCheckIdRef.current += 1;
-    setUsernameAvailable(null);
-    setUsernameSuggestions([]);
-  }, []);
-
-  const markUsernameAvailable = useCallback(() => {
-    usernameCheckIdRef.current += 1;
-    setUsernameAvailable(true);
-    setUsernameSuggestions([]);
-  }, []);
-
-  const markUsernameUnavailable = useCallback(() => {
-    usernameCheckIdRef.current += 1;
-    setUsernameAvailable(false);
+    setIsCheckingUsername(false);
+    setUsernameAvailable(value);
     setUsernameSuggestions([]);
   }, []);
 
   const checkUsername = useCallback(async (usernameToCheck: string) => {
     if (!usernameToCheck || usernameToCheck.length < 3 || !validateUsername(usernameToCheck).isValid) {
-      setUsernameAvailable(null);
-      setUsernameSuggestions([]);
+      setUsernameAvailability(null);
       return;
     }
 
@@ -57,7 +45,7 @@ export const useUsernameAvailability = ({
     } finally {
       if (checkId === usernameCheckIdRef.current) setIsCheckingUsername(false);
     }
-  }, [currentUserId]);
+  }, [currentUserId, setUsernameAvailability]);
 
   useEffect(() => {
     if (usernameCheckTimeoutRef.current) clearTimeout(usernameCheckTimeoutRef.current);
@@ -65,20 +53,17 @@ export const useUsernameAvailability = ({
     if (username.trim().length >= 3) {
       usernameCheckTimeoutRef.current = setTimeout(() => checkUsername(username.trim()), 500);
     } else {
-      setUsernameAvailable(null);
-      setUsernameSuggestions([]);
+      setUsernameAvailability(null);
     }
 
     return () => {
       if (usernameCheckTimeoutRef.current) clearTimeout(usernameCheckTimeoutRef.current);
     };
-  }, [username, checkUsername]);
+  }, [username, checkUsername, setUsernameAvailability]);
 
   return {
     isCheckingUsername,
-    markUsernameAvailable,
-    markUsernameUnavailable,
-    resetUsernameAvailability,
+    setUsernameAvailability,
     usernameAvailable,
     usernameSuggestions,
   };

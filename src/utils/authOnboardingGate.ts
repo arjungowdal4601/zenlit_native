@@ -24,16 +24,7 @@ const APP_DYNAMIC_ROUTE_PATTERNS = [
   /^\/profile\/[^/?#]+$/,
 ];
 
-export type RouteAccessPhase =
-  | 'signed-out-first-run'
-  | 'signed-out-returning'
-  | 'profile-basics-required'
-  | 'optional-profile-details'
-  | 'recovery'
-  | 'fully-onboarded';
-
 export type RouteAccessDecision = {
-  phase: RouteAccessPhase;
   targetRoute: string | null;
   returnTo: string | null;
   shouldShowNav: boolean;
@@ -53,7 +44,7 @@ export type AuthOnboardingGateInput = {
   storedReturnTo?: string | null;
 };
 
-export const normalizeRoutePath = (value?: string | null) => {
+const normalizeRoutePath = (value?: string | null) => {
   if (!value || !value.startsWith('/') || value.startsWith('//')) return null;
   if (value.includes('://') || value.includes('\\') || value.includes('..')) return null;
 
@@ -62,24 +53,24 @@ export const normalizeRoutePath = (value?: string | null) => {
   return path.length > 1 ? path.replace(/\/+$/, '') : path;
 };
 
-export const isPublicRoute = (pathname: string) => {
+const isPublicRoute = (pathname: string) => {
   const path = normalizeRoutePath(pathname);
   return path ? PUBLIC_ROUTES.has(path) : false;
 };
 
-export const isAuthRoute = (pathname: string) => {
+const isAuthRoute = (pathname: string) => {
   const path = normalizeRoutePath(pathname);
   return path === AUTH_ROUTE_PREFIX || Boolean(path?.startsWith(`${AUTH_ROUTE_PREFIX}/`));
 };
 
-export const isOnboardingRoute = (pathname: string) => {
+const isOnboardingRoute = (pathname: string) => {
   const path = normalizeRoutePath(pathname);
   return path === ONBOARDING_ROUTE_PREFIX || Boolean(path?.startsWith(`${ONBOARDING_ROUTE_PREFIX}/`));
 };
 
-export const isLandingRoute = (pathname: string) => normalizeRoutePath(pathname) === ROUTES.landing;
+const isLandingRoute = (pathname: string) => normalizeRoutePath(pathname) === ROUTES.landing;
 
-export const isAppRoute = (pathname: string) => {
+const isAppRoute = (pathname: string) => {
   const path = normalizeRoutePath(pathname);
   if (!path) return false;
   return APP_EXACT_ROUTES.has(path) || APP_DYNAMIC_ROUTE_PATTERNS.some((pattern) => pattern.test(path));
@@ -119,23 +110,7 @@ export const getRouteAccessDecision = ({
   };
 
   if (isPublicRoute(path)) {
-    if (canUseMainApp) {
-      return { ...baseDecision, phase: 'fully-onboarded', targetRoute: null };
-    }
-    if (canAccessProfileBasicsRoute) {
-      return { ...baseDecision, phase: 'profile-basics-required', targetRoute: null };
-    }
-    if (canAccessCompleteProfileRoute) {
-      return { ...baseDecision, phase: 'optional-profile-details', targetRoute: null };
-    }
-    if (canAccessRecoveryRoute) {
-      return { ...baseDecision, phase: 'recovery', targetRoute: null };
-    }
-    return {
-      ...baseDecision,
-      phase: hasSeenGetStarted ? 'signed-out-returning' : 'signed-out-first-run',
-      targetRoute: null,
-    };
+    return { ...baseDecision, targetRoute: null };
   }
 
   if (effectiveSignedOut) {
@@ -144,7 +119,6 @@ export const getRouteAccessDecision = ({
 
     return {
       ...baseDecision,
-      phase: hasSeenGetStarted ? 'signed-out-returning' : 'signed-out-first-run',
       targetRoute: firstRunOnLanding || alreadyInAuth ? null : ROUTES.auth,
       returnTo: getSafeAppReturnTo(path),
     };
@@ -153,7 +127,6 @@ export const getRouteAccessDecision = ({
   if (!onboardingState) {
     return {
       ...baseDecision,
-      phase: hasSeenGetStarted ? 'signed-out-returning' : 'signed-out-first-run',
       targetRoute: null,
     };
   }
@@ -166,21 +139,14 @@ export const getRouteAccessDecision = ({
 
     return {
       ...baseDecision,
-      phase: 'fully-onboarded',
       targetRoute: targetRoute ?? (shouldLeaveCompletedFlowRoute ? ROUTES.home : null),
     };
   }
 
   const targetRoute = getRouteForOnboardingState(onboardingState);
-  const phase: RouteAccessPhase = onboardingState.status === 'recovery'
-    ? 'recovery'
-    : onboardingState.status === 'optional-profile-details'
-      ? 'optional-profile-details'
-      : 'profile-basics-required';
 
   return {
     ...baseDecision,
-    phase,
     targetRoute: path === targetRoute ? null : targetRoute,
   };
 };

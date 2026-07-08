@@ -32,19 +32,6 @@ export const getEmailOtpErrorMessage = (error: unknown) => {
   return 'Unable to send verification code. Please try again.';
 };
 
-export const getEmailOtpExceptionMessage = (error: unknown) => {
-  const message = getErrorText(error).toLowerCase();
-
-  if (message.includes('not configured')) {
-    return 'Authentication service is not properly configured. Please contact support.';
-  }
-  if (message.includes('network') || message.includes('fetch')) {
-    return 'Unable to connect. Please check your internet connection and try again.';
-  }
-
-  return 'Unable to send verification code. Please try again.';
-};
-
 export const getVerifyOtpErrorMessage = (error: unknown) => {
   const message = getErrorText(error).toLowerCase();
 

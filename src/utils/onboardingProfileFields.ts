@@ -34,30 +34,16 @@ const cleanString = (value: string | null | undefined): string | null => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
-const isValidDisplayName = (value: string | null) =>
-  typeof value === 'string' && validateDisplayName(value.trim()).isValid;
-
-const isValidUsername = (value: string | null) =>
-  typeof value === 'string' && validateUsername(value).isValid;
-
-const isValidDateOfBirth = (value: string | null) => {
-  if (!value) return false;
-  return Boolean(parseDobString(value)) && validateDateOfBirth(value).isValid;
-};
-
-const isValidGender = (value: string | null) =>
-  typeof value === 'string' && (VALID_GENDERS as readonly string[]).includes(value);
-
 export const isBasicProfileFieldValid = (field: RequiredProfileField, value: string | null) => {
   switch (field) {
     case 'display_name':
-      return isValidDisplayName(value);
+      return typeof value === 'string' && validateDisplayName(value.trim()).isValid;
     case 'user_name':
-      return isValidUsername(value);
+      return typeof value === 'string' && validateUsername(value).isValid;
     case 'date_of_birth':
-      return isValidDateOfBirth(value);
+      return Boolean(value && parseDobString(value)) && validateDateOfBirth(value ?? '').isValid;
     case 'gender':
-      return isValidGender(value);
+      return typeof value === 'string' && (VALID_GENDERS as readonly string[]).includes(value);
     default:
       return false;
   }

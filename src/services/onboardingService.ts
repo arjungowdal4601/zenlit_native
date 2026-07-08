@@ -41,17 +41,7 @@ type ServiceResult<T> = {
   error: Error | null;
 };
 
-type OnboardingStateListener = (state: OnboardingState) => void;
 type SupabaseReadResponse = { data: any; error: any };
-
-const onboardingStateListeners = new Set<OnboardingStateListener>();
-
-export const subscribeToOnboardingState = (listener: OnboardingStateListener) => {
-  onboardingStateListeners.add(listener);
-  return () => void onboardingStateListeners.delete(listener);
-};
-
-const publishOnboardingState = (state: OnboardingState) => onboardingStateListeners.forEach((listener) => listener(state));
 
 const getAuthenticatedUser = async (userId?: string | null) => {
   const { data, error } = await withTimeout<SupabaseReadResponse>(supabase.auth.getUser(), 'Authenticated user check');
@@ -131,14 +121,6 @@ export const resolveOnboardingState = async (
   }
 };
 
-export const refreshPublishedOnboardingState = async (
-  options: ResolveOnboardingOptions = {},
-): Promise<OnboardingState> => {
-  const state = await resolveOnboardingState(options);
-  publishOnboardingState(state);
-  return state;
-};
-
 const markOptionalProfileComplete = async (userId: string) => {
   const { error } = await supabase
     .from('profiles')
@@ -213,7 +195,6 @@ export const saveRequiredProfileBasics = async (
       userId: user.id,
       profile: { id: user.id, email: user.email, ...profileData, optional_profile_completed_at: null },
     });
-    publishOnboardingState(state);
     return { data: state, error: null };
   } catch (error) {
     logger.error('Onboarding', 'Failed to save required profile basics', error);
@@ -250,7 +231,6 @@ export const saveOptionalProfileDetails = async (
 
     await markOptionalProfileComplete(user.id);
     const state = await resolveOnboardingState({ userId: user.id });
-    publishOnboardingState(state);
     return { data: state, error: null };
   } catch (error) {
     logger.error('Onboarding', 'Failed to save optional profile details', error);
@@ -265,7 +245,6 @@ export const skipOptionalProfileDetails = async (
     const user = await getAuthenticatedUser(userId);
     await markOptionalProfileComplete(user.id);
     const state = await resolveOnboardingState({ userId: user.id });
-    publishOnboardingState(state);
     return { data: state, error: null };
   } catch (error) {
     logger.error('Onboarding', 'Failed to skip optional profile details', error);

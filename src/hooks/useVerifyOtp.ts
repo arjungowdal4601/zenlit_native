@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { isAuthReady, signInWithEmailOtp, verifyEmailOtp } from '../services/authService';
@@ -11,43 +11,24 @@ const COOLDOWN_SECONDS = 60;
 export const useVerifyOtp = () => {
   const router = useRouter();
   const { email: routeEmail } = useLocalSearchParams<{ email?: string | string[] }>();
-  const email = useMemo(() => normalizeEmail(routeEmail), [routeEmail]);
+  const email = normalizeEmail(routeEmail);
   const [code, setCode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
-  const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isComplete = code.length === 6;
 
-  const clearCooldown = () => {
-    if (cooldownIntervalRef.current) {
-      clearInterval(cooldownIntervalRef.current);
-      cooldownIntervalRef.current = null;
-    }
-  };
-
-  const startCooldown = (seconds: number) => {
-    clearCooldown();
-    setCooldown(seconds);
-    cooldownIntervalRef.current = setInterval(() => {
-      setCooldown((prev) => {
-        if (prev <= 1) {
-          clearCooldown();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
+  useEffect(() => {
+    if (email) setCooldown(COOLDOWN_SECONDS);
+  }, [email]);
 
   useEffect(() => {
-    if (!email) return undefined;
-
-    startCooldown(COOLDOWN_SECONDS);
-    return clearCooldown;
-  }, [email]);
+    if (cooldown <= 0) return undefined;
+    const timer = setTimeout(() => setCooldown((prev) => Math.max(0, prev - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   const handleCodeChange = (text: string) => {
     setCode(text.replace(/[^0-9]/g, ''));
@@ -122,7 +103,7 @@ export const useVerifyOtp = () => {
       }
 
       setStatus('We sent a new code to your inbox.');
-      startCooldown(COOLDOWN_SECONDS);
+      setCooldown(COOLDOWN_SECONDS);
       setResending(false);
     } catch (resendException: any) {
       logger.error('Auth', 'OTP resend exception', {

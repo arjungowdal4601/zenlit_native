@@ -69,13 +69,6 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0,
   },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginLeft: 8,
-  },
   footerLinks: {
     marginTop: 24,
     flexDirection: 'row',

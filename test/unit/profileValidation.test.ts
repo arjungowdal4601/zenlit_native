@@ -4,23 +4,11 @@ import {
   parseDobString,
   validateDateOfBirth,
   validateDisplayName,
-  validateProfileData,
   sanitizeUsernameInput,
   validateUsername,
 } from '../../src/utils/profileValidation';
 
 describe('profile validation', () => {
-  it('accepts the required profile basics used for onboarding', () => {
-    const result = validateProfileData({
-      display_name: 'Alex Johnson',
-      user_name: 'alex.j',
-      date_of_birth: '1998-04-12',
-      gender: 'other',
-    });
-
-    expect(result.isValid).toBe(true);
-  });
-
   it('returns friendly inline validation messages for invalid basics', () => {
     expect(validateDisplayName('').error).toBe('Display name is required');
     expect(validateUsername('ab').error).toBe('Username must be at least 3 characters long');

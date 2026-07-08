@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 
@@ -7,10 +7,9 @@ import { toError } from '../utils/errorUtils';
 import { logger } from '../utils/logger';
 import { evaluateOnboardingState, type OnboardingState } from '../utils/onboardingState';
 import { getRouteAccessDecision, getSafeAppReturnTo } from '../utils/authOnboardingGate';
-import { resolveOnboardingState, subscribeToOnboardingState } from '../services/onboardingService';
+import { resolveOnboardingState } from '../services/onboardingService';
 import {
   getAuthConfigStatus,
-  getCurrentUser,
   isAuthReady,
   onAuthChange,
   signOut,
@@ -76,12 +75,11 @@ export const useAuthOnboardingGate = () => {
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
   const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
   const [hasSeenGetStarted, setHasSeenGetStarted] = useState<boolean | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [storedReturnTo, setStoredReturnTo] = useState(readStoredReturnTo);
+  const routeRefreshKeyRef = useRef<string | null>(null);
   const authConfigStatus = getAuthConfigStatus();
 
   const finishSignedOut = useCallback(() => {
-    setCurrentUserId(null);
     setIsAuthenticated(false);
     setOnboardingState(null);
     setIsCheckingAuth(false);
@@ -97,20 +95,14 @@ export const useAuthOnboardingGate = () => {
     finishSignedOut();
   }, [finishSignedOut]);
 
-  const refreshOnboardingState = useCallback(async (userId: string | null) => {
-    if (!userId) {
-      finishSignedOut();
-      return evaluateOnboardingState({ userId: null });
-    }
-
+  const refreshOnboardingState = useCallback(async (userId?: string | null) => {
     setIsCheckingOnboarding(true);
     try {
-      const state = await resolveOnboardingState({ userId });
+      const state = await resolveOnboardingState(userId ? { userId } : undefined);
       if (state.status === 'guest') {
         await clearStaleAuthSession();
         return state;
       }
-      setCurrentUserId(state.userId);
       setOnboardingState(state);
       setIsCheckingOnboarding(false);
       return state;
@@ -129,16 +121,7 @@ export const useAuthOnboardingGate = () => {
   useWebShellEffects(pathname);
 
   useEffect(() => {
-    let isMounted = true;
-    readHasSeenGetStarted()
-      .then((seen) => isMounted && setHasSeenGetStarted(seen))
-      .catch((error) => {
-        logger.warn('App', 'Failed to load landing preference', error);
-        if (isMounted) setHasSeenGetStarted(false);
-      });
-    return () => {
-      isMounted = false;
-    };
+    setHasSeenGetStarted(readHasSeenGetStarted());
   }, []);
 
   useEffect(() => {
@@ -152,18 +135,19 @@ export const useAuthOnboardingGate = () => {
           return;
         }
 
-        const user = await getCurrentUser();
+        setIsCheckingOnboarding(true);
+        const state = await resolveOnboardingState();
         if (!active) return;
-        if (!user) {
+        if (state.status === 'guest') {
           logger.warn('Auth', 'No active auth user found');
           await clearStaleAuthSession();
           return;
         }
 
-        setCurrentUserId(user.id);
         setIsAuthenticated(true);
         setIsCheckingAuth(false);
-        await refreshOnboardingState(user.id);
+        setOnboardingState(state);
+        setIsCheckingOnboarding(false);
       } catch (error) {
         logger.error('Auth', 'Error checking session:', error);
         finishSignedOut();
@@ -174,7 +158,7 @@ export const useAuthOnboardingGate = () => {
     return () => {
       active = false;
     };
-  }, [clearStaleAuthSession, finishSignedOut, refreshOnboardingState]);
+  }, [clearStaleAuthSession, finishSignedOut]);
 
   useEffect(() => {
     if (!isAuthReady()) return;
@@ -185,10 +169,7 @@ export const useAuthOnboardingGate = () => {
       }
 
       if (event === 'SIGNED_IN') {
-        setCurrentUserId(user.id);
         setIsAuthenticated(true);
-        setHasSeenGetStarted(true);
-        void persistHasSeenGetStarted();
         await refreshOnboardingState(user.id);
       }
     });
@@ -197,18 +178,8 @@ export const useAuthOnboardingGate = () => {
   useEffect(() => {
     if (!isAuthenticated) return;
     setHasSeenGetStarted(true);
-    void persistHasSeenGetStarted();
+    persistHasSeenGetStarted();
   }, [isAuthenticated]);
-
-  useEffect(() => subscribeToOnboardingState((state) => {
-    if (state.status === 'guest') {
-      finishSignedOut();
-      return;
-    }
-    setIsAuthenticated(true);
-    setOnboardingState(state);
-    setCurrentUserId(state.userId);
-  }), [finishSignedOut]);
 
   const routeAccess = useMemo(() => {
     if (isAuthenticated === null || hasSeenGetStarted === null) return null;
@@ -221,13 +192,15 @@ export const useAuthOnboardingGate = () => {
     });
   }, [hasSeenGetStarted, isAuthenticated, onboardingState, pathname, storedReturnTo]);
 
+  const onboardingUserId = onboardingState?.userId ?? null;
+
   useEffect(() => {
     if (isCheckingAuth || isCheckingOnboarding || isAuthenticated === null || hasSeenGetStarted === null) {
       return;
     }
 
     if (isAuthenticated && !onboardingState) {
-      void refreshOnboardingState(currentUserId);
+      void refreshOnboardingState();
       return;
     }
 
@@ -239,10 +212,18 @@ export const useAuthOnboardingGate = () => {
     }
 
     if (routeAccess.targetRoute && pathname !== routeAccess.targetRoute) {
+      const routeRefreshKey = `${onboardingUserId ?? ''}:${pathname}:${onboardingState?.status ?? 'none'}:${routeAccess.targetRoute}`;
+      if (isAuthenticated && onboardingUserId && routeRefreshKeyRef.current !== routeRefreshKey) {
+        routeRefreshKeyRef.current = routeRefreshKey;
+        void refreshOnboardingState(onboardingUserId);
+        return;
+      }
       router.replace(routeAccess.targetRoute);
+    } else {
+      routeRefreshKeyRef.current = null;
     }
   }, [
-    currentUserId, hasSeenGetStarted, isAuthenticated, isCheckingAuth, isCheckingOnboarding,
+    hasSeenGetStarted, isAuthenticated, isCheckingAuth, isCheckingOnboarding, onboardingUserId,
     onboardingState, pathname, refreshOnboardingState, routeAccess, router, storedReturnTo,
   ]);
 

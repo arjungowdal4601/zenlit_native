@@ -9,7 +9,6 @@ describe('profile basics form validation', () => {
       displayName: 'Alex Johnson',
       username: 'alexqa',
       dob: '',
-      dobDate: null,
       gender: 'Others',
     });
 
@@ -27,7 +26,6 @@ describe('profile basics form validation', () => {
         displayName: 'Alex Johnson',
         username: 'alexqa',
         dob: '1998-04-12',
-        dobDate: null,
         gender: 'Others',
         usernameAvailable: null,
         isCheckingUsername: false,
