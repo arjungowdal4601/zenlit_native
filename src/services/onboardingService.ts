@@ -7,16 +7,14 @@ import {
   type ProfileBasicsDraftRecord,
 } from '../utils/onboardingState';
 import {
-  formatDate,
-  normalizeGender,
-  parseDobString,
-  validateDateOfBirth,
-  validateDisplayName,
-  validateProfileData,
-  validateUsername,
-  type ProfileData,
-} from '../utils/profileValidation';
+  getMissingFields,
+  getValidProfileBasicsDraftValues,
+  normalizeProfileBasicsInput,
+} from '../utils/onboardingProfileFields';
+import type { ProfileData } from '../utils/profileValidation';
+import { toError } from '../utils/errorUtils';
 import { logger } from '../utils/logger';
+import { withTimeout } from '../utils/async';
 
 type ResolveOnboardingOptions = {
   userId?: string | null;
@@ -47,7 +45,6 @@ type OnboardingStateListener = (state: OnboardingState) => void;
 type SupabaseReadResponse = { data: any; error: any };
 
 const onboardingStateListeners = new Set<OnboardingStateListener>();
-const ONBOARDING_REQUEST_TIMEOUT_MS = 8000;
 
 export const subscribeToOnboardingState = (listener: OnboardingStateListener) => {
   onboardingStateListeners.add(listener);
@@ -56,32 +53,8 @@ export const subscribeToOnboardingState = (listener: OnboardingStateListener) =>
 
 const publishOnboardingState = (state: OnboardingState) => onboardingStateListeners.forEach((listener) => listener(state));
 
-const withOnboardingTimeout = async <T>(request: PromiseLike<T>, label: string): Promise<T> => {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`${label} timed out`)), ONBOARDING_REQUEST_TIMEOUT_MS);
-  });
-  return Promise.race([Promise.resolve(request), timeout]).finally(() => {
-    if (timer) clearTimeout(timer);
-  });
-};
-
-const asError = (value: unknown, fallback: string): Error => {
-  if (value instanceof Error) return value;
-
-  if (typeof value === 'object' && value && 'message' in value) {
-    const details = ['message', 'code', 'details', 'hint']
-      .map((key) => String((value as Record<string, unknown>)[key] ?? ''))
-      .filter(Boolean)
-      .join(' ');
-    return new Error(details || fallback);
-  }
-
-  return new Error(fallback);
-};
-
 const getAuthenticatedUser = async (userId?: string | null) => {
-  const { data, error } = await withOnboardingTimeout<SupabaseReadResponse>(supabase.auth.getUser(), 'Authenticated user check');
+  const { data, error } = await withTimeout<SupabaseReadResponse>(supabase.auth.getUser(), 'Authenticated user check');
   if (error || !data.user) {
     throw new Error('Not authenticated');
   }
@@ -93,20 +66,18 @@ const getAuthenticatedUser = async (userId?: string | null) => {
   return { id: data.user.id, email: data.user.email ?? null };
 };
 
-const normalizeDraftPayload = (values: Partial<ProfileBasicsInput>) => {
-  const displayName = values.display_name?.trim() ?? '';
-  const username = values.user_name?.trim().toLowerCase() ?? '';
-  const rawDob = values.date_of_birth?.trim() ?? '';
-  const rawGender = values.gender?.trim() ?? '';
-  const normalizedGender = rawGender ? normalizeGender(rawGender) : null;
-  const parsedDob = parseDobString(rawDob);
-  const dobValue = parsedDob ? formatDate(parsedDob) : rawDob;
+const toProfileData = (values: ProfileBasicsInput): ProfileData => {
+  const normalized = normalizeProfileBasicsInput(values);
+  const missingFields = getMissingFields(normalized);
+  if (missingFields.length > 0) {
+    throw new Error('Profile basics are invalid');
+  }
 
   return {
-    display_name: validateDisplayName(displayName).isValid ? displayName : null,
-    user_name: validateUsername(username).isValid ? username : null,
-    date_of_birth: validateDateOfBirth(dobValue).isValid ? dobValue : null,
-    gender: normalizedGender ? normalizedGender : null,
+    display_name: normalized.display_name as string,
+    user_name: normalized.user_name as string,
+    date_of_birth: normalized.date_of_birth as string,
+    gender: normalized.gender as ProfileData['gender'],
   };
 };
 
@@ -114,7 +85,7 @@ export const resolveOnboardingState = async (
   options: ResolveOnboardingOptions = {},
 ): Promise<OnboardingState> => {
   try {
-    const { data, error } = await withOnboardingTimeout<SupabaseReadResponse>(supabase.auth.getUser(), 'Onboarding auth check');
+    const { data, error } = await withTimeout<SupabaseReadResponse>(supabase.auth.getUser(), 'Onboarding auth check');
     if (error || !data.user) {
       return evaluateOnboardingState({ userId: null });
     }
@@ -128,7 +99,7 @@ export const resolveOnboardingState = async (
     const [
       { data: profile, error: profileError },
       { data: draft, error: draftError },
-    ] = await withOnboardingTimeout<[SupabaseReadResponse, SupabaseReadResponse]>(
+    ] = await withTimeout<[SupabaseReadResponse, SupabaseReadResponse]>(
       Promise.all([
         supabase
           .from('profiles')
@@ -148,14 +119,14 @@ export const resolveOnboardingState = async (
       userId,
       profile: profile as OnboardingProfileRecord | null,
       draft: draft as ProfileBasicsDraftRecord | null,
-      profileError: profileError ? asError(profileError, 'Failed to load profile') : null,
-      draftError: draftError ? asError(draftError, 'Failed to load setup draft') : null,
+      profileError: profileError ? toError(profileError, 'Failed to load profile') : null,
+      draftError: draftError ? toError(draftError, 'Failed to load setup draft') : null,
     });
   } catch (error) {
     logger.error('Onboarding', 'Failed to resolve onboarding state', error);
     return evaluateOnboardingState({
       userId: options.userId ?? null,
-      profileError: asError(error, 'Failed to resolve onboarding'),
+      profileError: toError(error, 'Failed to resolve onboarding'),
     });
   }
 };
@@ -183,7 +154,7 @@ export const saveProfileBasicsDraft = async (
 ): Promise<ServiceResult<BasicProfileValues>> => {
   try {
     const user = await getAuthenticatedUser(userId);
-    const payload = normalizeDraftPayload(values);
+    const payload = getValidProfileBasicsDraftValues(values);
 
     const hasAnyDraftValue = Object.values(payload).some((value) => value !== null);
     if (!hasAnyDraftValue) {
@@ -208,7 +179,7 @@ export const saveProfileBasicsDraft = async (
     return { data: payload, error: null };
   } catch (error) {
     logger.warn('Onboarding', 'Failed to save profile basics draft', error);
-    return { data: null, error: asError(error, 'Failed to save setup draft') };
+    return { data: null, error: toError(error, 'Failed to save setup draft') };
   }
 };
 
@@ -218,16 +189,7 @@ export const saveRequiredProfileBasics = async (
 ): Promise<ServiceResult<OnboardingState>> => {
   try {
     const user = await getAuthenticatedUser(userId);
-    const parsedDob = parseDobString(values.date_of_birth);
-    const profileData: ProfileData = {
-      display_name: values.display_name.trim(),
-      user_name: values.user_name.trim().toLowerCase(),
-      date_of_birth: parsedDob ? formatDate(parsedDob) : values.date_of_birth.trim(),
-      gender: normalizeGender(values.gender),
-    };
-
-    const validation = validateProfileData(profileData);
-    if (!validation.isValid) throw new Error(validation.error ?? 'Profile basics are invalid');
+    const profileData = toProfileData(values);
 
     const { error } = await supabase
       .from('profiles')
@@ -255,7 +217,7 @@ export const saveRequiredProfileBasics = async (
     return { data: state, error: null };
   } catch (error) {
     logger.error('Onboarding', 'Failed to save required profile basics', error);
-    return { data: null, error: asError(error, 'Failed to save profile basics') };
+    return { data: null, error: toError(error, 'Failed to save profile basics') };
   }
 };
 
@@ -292,7 +254,7 @@ export const saveOptionalProfileDetails = async (
     return { data: state, error: null };
   } catch (error) {
     logger.error('Onboarding', 'Failed to save optional profile details', error);
-    return { data: null, error: asError(error, 'Failed to save optional profile details') };
+    return { data: null, error: toError(error, 'Failed to save optional profile details') };
   }
 };
 
@@ -307,6 +269,6 @@ export const skipOptionalProfileDetails = async (
     return { data: state, error: null };
   } catch (error) {
     logger.error('Onboarding', 'Failed to skip optional profile details', error);
-    return { data: null, error: asError(error, 'Failed to skip optional details') };
+    return { data: null, error: toError(error, 'Failed to skip optional details') };
   }
 };

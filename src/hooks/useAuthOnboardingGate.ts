@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 
 import { theme } from '../styles/theme';
+import { toError } from '../utils/errorUtils';
 import { logger } from '../utils/logger';
 import { evaluateOnboardingState, type OnboardingState } from '../utils/onboardingState';
 import { getRouteAccessDecision, getSafeAppReturnTo } from '../utils/authOnboardingGate';
@@ -17,9 +18,6 @@ import {
 import { persistHasSeenGetStarted, readHasSeenGetStarted } from '../utils/getStartedPreference';
 
 const RETURN_TO_STORAGE_KEY = 'zenlit.returnTo';
-
-const asError = (error: unknown, fallback: string) =>
-  error instanceof Error ? error : new Error(fallback);
 
 const readStoredReturnTo = () => {
   if (Platform.OS !== 'web' || typeof sessionStorage === 'undefined') return null;
@@ -120,7 +118,7 @@ export const useAuthOnboardingGate = () => {
       logger.error('Onboarding', 'Gate failed to refresh onboarding state', error);
       const state = evaluateOnboardingState({
         userId,
-        profileError: asError(error, 'Failed to check onboarding state'),
+        profileError: toError(error, 'Failed to check onboarding state'),
       });
       setOnboardingState(state);
       setIsCheckingOnboarding(false);

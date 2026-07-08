@@ -5,6 +5,8 @@ import type {
   RequiredProfileField,
 } from './onboardingState';
 import {
+  formatDate,
+  normalizeGender,
   parseDobString,
   validateDateOfBirth,
   validateDisplayName,
@@ -19,7 +21,7 @@ export const EMPTY_PREFILL: BasicProfileValues = {
   gender: null,
 };
 
-const REQUIRED_FIELDS: RequiredProfileField[] = [
+export const REQUIRED_PROFILE_FIELDS: RequiredProfileField[] = [
   'display_name',
   'user_name',
   'date_of_birth',
@@ -46,7 +48,7 @@ const isValidDateOfBirth = (value: string | null) => {
 const isValidGender = (value: string | null) =>
   typeof value === 'string' && (VALID_GENDERS as readonly string[]).includes(value);
 
-const isFieldValid = (field: RequiredProfileField, value: string | null) => {
+export const isBasicProfileFieldValid = (field: RequiredProfileField, value: string | null) => {
   switch (field) {
     case 'display_name':
       return isValidDisplayName(value);
@@ -61,7 +63,7 @@ const isFieldValid = (field: RequiredProfileField, value: string | null) => {
   }
 };
 
-const normalizeBasics = (
+const normalizeStoredProfileBasics = (
   values?: OnboardingProfileRecord | ProfileBasicsDraftRecord | null,
 ): BasicProfileValues => ({
   display_name: cleanString(values?.display_name),
@@ -70,12 +72,39 @@ const normalizeBasics = (
   gender: cleanString(values?.gender)?.toLowerCase() ?? null,
 });
 
+export const normalizeProfileBasicsInput = (
+  values: Partial<BasicProfileValues>,
+): BasicProfileValues => {
+  const dateOfBirth = cleanString(values.date_of_birth);
+  const parsedDob = dateOfBirth ? parseDobString(dateOfBirth) : null;
+  const gender = cleanString(values.gender);
+
+  return {
+    display_name: cleanString(values.display_name),
+    user_name: cleanString(values.user_name)?.toLowerCase() ?? null,
+    date_of_birth: parsedDob ? formatDate(parsedDob) : dateOfBirth,
+    gender: gender ? normalizeGender(gender) : null,
+  };
+};
+
+export const getValidProfileBasicsDraftValues = (
+  values: Partial<BasicProfileValues>,
+): BasicProfileValues => {
+  const normalized = normalizeProfileBasicsInput(values);
+  return {
+    display_name: isBasicProfileFieldValid('display_name', normalized.display_name) ? normalized.display_name : null,
+    user_name: isBasicProfileFieldValid('user_name', normalized.user_name) ? normalized.user_name : null,
+    date_of_birth: isBasicProfileFieldValid('date_of_birth', normalized.date_of_birth) ? normalized.date_of_birth : null,
+    gender: isBasicProfileFieldValid('gender', normalized.gender) ? normalized.gender : null,
+  };
+};
+
 export const mergePrefill = (
   profile?: OnboardingProfileRecord | null,
   draft?: ProfileBasicsDraftRecord | null,
 ): BasicProfileValues => {
-  const normalizedProfile = normalizeBasics(profile);
-  const normalizedDraft = normalizeBasics(draft);
+  const normalizedProfile = normalizeStoredProfileBasics(profile);
+  const normalizedDraft = normalizeStoredProfileBasics(draft);
 
   return {
     display_name: normalizedProfile.display_name ?? normalizedDraft.display_name,
@@ -86,17 +115,17 @@ export const mergePrefill = (
 };
 
 export const getMissingFields = (values: BasicProfileValues): RequiredProfileField[] =>
-  REQUIRED_FIELDS.filter((field) => !isFieldValid(field, values[field]));
+  REQUIRED_PROFILE_FIELDS.filter((field) => !isBasicProfileFieldValid(field, values[field]));
 
 export const hasInvalidSavedProfileValue = (
   profile: OnboardingProfileRecord | null | undefined,
 ) => {
   if (!profile) return false;
 
-  const normalized = normalizeBasics(profile);
-  return REQUIRED_FIELDS.some((field) => {
+  const normalized = normalizeStoredProfileBasics(profile);
+  return REQUIRED_PROFILE_FIELDS.some((field) => {
     const rawValue = profile[field];
     const hasSavedValue = typeof rawValue === 'string' && rawValue.trim().length > 0;
-    return hasSavedValue && !isFieldValid(field, normalized[field]);
+    return hasSavedValue && !isBasicProfileFieldValid(field, normalized[field]);
   });
 };

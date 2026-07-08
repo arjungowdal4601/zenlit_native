@@ -1,12 +1,4 @@
-const getErrorText = (error: unknown) => {
-  if (error instanceof Error) return error.message;
-  if (typeof error !== 'object' || !error) return String(error ?? '');
-
-  return ['message', 'code', 'details', 'hint']
-    .map((key) => String((error as Record<string, unknown>)[key] ?? ''))
-    .filter(Boolean)
-    .join(' ');
-};
+import { getErrorText } from './errorUtils';
 
 export const isDuplicateUsernameError = (error: unknown) => {
   const message = getErrorText(error).toLowerCase();

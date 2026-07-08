@@ -7,12 +7,11 @@ import { getEmailOtpErrorMessage, getVerifyOtpErrorMessage, maskEmail, normalize
 import { ROUTES } from '../utils/onboardingState';
 
 const COOLDOWN_SECONDS = 60;
-export const normalizeRouteEmail = normalizeEmail;
 
 export const useVerifyOtp = () => {
   const router = useRouter();
   const { email: routeEmail } = useLocalSearchParams<{ email?: string | string[] }>();
-  const email = useMemo(() => normalizeRouteEmail(routeEmail), [routeEmail]);
+  const email = useMemo(() => normalizeEmail(routeEmail), [routeEmail]);
   const [code, setCode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);

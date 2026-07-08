@@ -1,9 +1,5 @@
-import {
-  formatDate,
-  validateDateOfBirth,
-  validateDisplayName,
-  validateUsername,
-} from './profileValidation';
+import { normalizeProfileBasicsInput, isBasicProfileFieldValid } from './onboardingProfileFields';
+import { formatDate, validateDateOfBirth, validateDisplayName, validateUsername } from './profileValidation';
 
 export type ProfileBasicsFormValues = {
   displayName: string;
@@ -40,28 +36,33 @@ export const getProfileBasicsFormErrors = ({
   gender,
 }: ProfileBasicsFormValues): ProfileBasicsFormErrors => {
   const nextErrors = { ...EMPTY_PROFILE_BASICS_FORM_ERRORS };
+  const values = normalizeProfileBasicsInput({
+    display_name: displayName,
+    user_name: username,
+    date_of_birth: dobDate ? formatDate(dobDate) : dob,
+    gender,
+  });
 
-  const dnRes = validateDisplayName(displayName.trim());
+  const dnRes = validateDisplayName(values.display_name ?? '');
   if (!dnRes.isValid) {
     nextErrors.displayName = dnRes.error || 'Display name is invalid';
   }
 
-  const unRes = validateUsername(username.trim());
+  const unRes = validateUsername(values.user_name ?? '');
   if (!unRes.isValid) {
     nextErrors.username = unRes.error || 'Username is invalid';
   }
 
-  if (!(dob.trim().length > 0 || dobDate)) {
+  if (!values.date_of_birth) {
     nextErrors.dob = 'Date of birth is required';
   } else {
-    const dobStr = dobDate ? formatDate(dobDate) : dob;
-    const dobRes = validateDateOfBirth(dobStr);
+    const dobRes = validateDateOfBirth(values.date_of_birth);
     if (!dobRes.isValid) {
       nextErrors.dob = dobRes.error || 'Date of birth is invalid';
     }
   }
 
-  if (!gender.trim().length) {
+  if (!isBasicProfileFieldValid('gender', values.gender)) {
     nextErrors.gender = 'Please select your gender';
   }
 

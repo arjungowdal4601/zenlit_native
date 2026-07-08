@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 
-import { useOnboardingProfileDraft } from '../contexts/OnboardingProfileDraftContext';
 import {
   saveOptionalProfileDetails,
   skipOptionalProfileDetails,
@@ -13,7 +12,14 @@ import { uploadProfileImagesWithCleanup } from '../utils/profileImageUploads';
 
 export const useCompleteProfileOnboarding = () => {
   const router = useRouter();
-  const draft = useOnboardingProfileDraft();
+  const [bio, setBio] = useState('');
+  const [bannerImage, setBannerImage] = useState<CompressedImage | null>(null);
+  const [profileImage, setProfileImage] = useState<CompressedImage | null>(null);
+  const [bannerImageUrl, setBannerImageUrl] = useState<string | null>(null);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [instagram, setInstagram] = useState('');
+  const [twitter, setTwitter] = useState('');
+  const [linkedin, setLinkedin] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showImageUploadDialog, setShowImageUploadDialog] = useState(false);
@@ -27,6 +33,17 @@ export const useCompleteProfileOnboarding = () => {
     };
   }, []);
 
+  const clearDraft = () => {
+    setBio('');
+    setBannerImage(null);
+    setProfileImage(null);
+    setBannerImageUrl(null);
+    setProfileImageUrl(null);
+    setInstagram('');
+    setTwitter('');
+    setLinkedin('');
+  };
+
   const handleSave = async () => {
     if (isSaving) return;
     setIsSaving(true);
@@ -34,20 +51,20 @@ export const useCompleteProfileOnboarding = () => {
 
     try {
       const uploadedImages = await uploadProfileImagesWithCleanup({
-        avatarImage: draft.profileImage,
-        bannerImage: draft.bannerImage,
-        previousAvatarUrl: draft.profileImageUrl,
-        previousBannerUrl: draft.bannerImageUrl,
+        avatarImage: profileImage,
+        bannerImage,
+        previousAvatarUrl: profileImageUrl,
+        previousBannerUrl: bannerImageUrl,
       });
 
       try {
         const result = await saveOptionalProfileDetails({
-          bio: draft.bio?.trim() || null,
-          instagram: draft.instagram?.trim() || null,
-          x_twitter: draft.twitter?.trim() || null,
-          linkedin: draft.linkedin?.trim() || null,
-          profile_pic_url: uploadedImages.avatarUrl ?? draft.profileImageUrl ?? null,
-          banner_url: uploadedImages.bannerUrl ?? draft.bannerImageUrl ?? null,
+          bio: bio.trim() || null,
+          instagram: instagram.trim() || null,
+          x_twitter: twitter.trim() || null,
+          linkedin: linkedin.trim() || null,
+          profile_pic_url: uploadedImages.avatarUrl ?? profileImageUrl ?? null,
+          banner_url: uploadedImages.bannerUrl ?? bannerImageUrl ?? null,
         });
         if (result.error || !result.data) {
           throw result.error ?? new Error('Failed to save optional profile details');
@@ -58,7 +75,7 @@ export const useCompleteProfileOnboarding = () => {
       }
 
       if (mountedRef.current) {
-        draft.clearDraft();
+        clearDraft();
       }
     } catch (error) {
       if (mountedRef.current) {
@@ -83,7 +100,7 @@ export const useCompleteProfileOnboarding = () => {
       }
 
       if (mountedRef.current) {
-        draft.clearDraft();
+        clearDraft();
       }
     } catch (error) {
       if (mountedRef.current) {
@@ -98,21 +115,21 @@ export const useCompleteProfileOnboarding = () => {
 
   const handleImageSelected = (image: CompressedImage | null) => {
     if (uploadType === 'avatar') {
-      draft.setProfileImage(image);
-      if (!image) draft.setProfileImageUrl(null);
+      setProfileImage(image);
+      if (!image) setProfileImageUrl(null);
     } else {
-      draft.setBannerImage(image);
-      if (!image) draft.setBannerImageUrl(null);
+      setBannerImage(image);
+      if (!image) setBannerImageUrl(null);
     }
   };
 
   const handleRemoveImage = () => {
     if (uploadType === 'avatar') {
-      draft.setProfileImage(null);
-      draft.setProfileImageUrl(null);
+      setProfileImage(null);
+      setProfileImageUrl(null);
     } else {
-      draft.setBannerImage(null);
-      draft.setBannerImageUrl(null);
+      setBannerImage(null);
+      setBannerImageUrl(null);
     }
   };
 
@@ -122,18 +139,29 @@ export const useCompleteProfileOnboarding = () => {
   };
 
   return {
-    ...draft,
+    bannerImage,
+    bannerImageUrl,
+    bio,
     errorMessage,
     handleBack: () => router.replace(ROUTES.onboardingBasic),
     handleImageSelected,
     handleRemoveImage,
     handleSave,
     handleSkip,
+    instagram,
     isSaving,
+    linkedin,
     openBannerMenu: () => openImageDialog('banner'),
     openProfileMenu: () => openImageDialog('avatar'),
+    profileImage,
+    profileImageUrl,
+    setBio,
+    setInstagram,
+    setLinkedin,
     setShowImageUploadDialog,
+    setTwitter,
     showImageUploadDialog,
+    twitter,
     uploadType,
   };
 };

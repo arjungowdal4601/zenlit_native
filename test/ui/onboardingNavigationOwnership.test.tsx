@@ -1,7 +1,6 @@
 import React from 'react';
 
 import { act, fireEvent, render, screen, waitFor } from '../utils/render';
-import { OnboardingProfileDraftProvider } from '../../src/contexts/OnboardingProfileDraftContext';
 import type { OnboardingState } from '../../src/utils/onboardingState';
 
 const mockReplace = jest.fn();
@@ -58,11 +57,7 @@ const onboardedState: OnboardingState = {
   status: 'fully-onboarded',
 };
 
-const renderCompleteProfile = () => render(
-  <OnboardingProfileDraftProvider>
-    <CompleteProfileScreen />
-  </OnboardingProfileDraftProvider>,
-);
+const renderCompleteProfile = () => render(<CompleteProfileScreen />);
 
 describe('onboarding navigation ownership', () => {
   beforeEach(() => {

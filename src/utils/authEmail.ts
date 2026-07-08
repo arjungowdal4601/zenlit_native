@@ -1,11 +1,6 @@
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { getErrorText } from './errorUtils';
 
-const getErrorText = (error: unknown) =>
-  error instanceof Error
-    ? error.message
-    : typeof error === 'object' && error && 'message' in error
-      ? String((error as { message?: unknown }).message ?? '')
-      : String(error ?? '');
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const normalizeEmail = (value?: string | string[] | null) => {
   if (typeof value !== 'string') return null;

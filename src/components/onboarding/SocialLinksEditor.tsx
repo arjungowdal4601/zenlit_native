@@ -18,16 +18,19 @@ type SocialLinksEditorProps = {
 
 type ModalState = 'instagram' | 'twitter' | 'linkedin' | null;
 
-const labels = {
+const LINK_LABELS = {
   instagram: {
+    label: 'Instagram',
     title: 'Instagram Username',
     helper: 'instagram.com',
   },
   twitter: {
+    label: 'X',
     title: 'X (Twitter) Username',
     helper: 'x.com',
   },
   linkedin: {
+    label: 'LinkedIn',
     title: 'LinkedIn Username',
     helper: 'linkedin.com/in',
   },
@@ -42,63 +45,47 @@ export const SocialLinksEditor = ({
   twitter,
 }: SocialLinksEditorProps) => {
   const [activeModal, setActiveModal] = useState<ModalState>(null);
-  const modalValue =
-    activeModal === 'instagram' ? instagram : activeModal === 'twitter' ? twitter : linkedin;
-  const setModalValue =
-    activeModal === 'instagram'
-      ? setInstagram
-      : activeModal === 'twitter'
-        ? setTwitter
-        : setLinkedin;
-  const modalLabels = activeModal ? labels[activeModal] : labels.instagram;
+  const items = [
+    {
+      key: 'instagram' as const,
+      value: instagram,
+      setValue: setInstagram,
+      badgeStyle: styles.instagramBadge,
+    },
+    {
+      key: 'twitter' as const,
+      value: twitter,
+      setValue: setTwitter,
+      badgeStyle: styles.outlinedBadge,
+    },
+    {
+      key: 'linkedin' as const,
+      value: linkedin,
+      setValue: setLinkedin,
+      badgeStyle: { backgroundColor: SOCIAL_PLATFORMS.linkedin.style.backgroundColor },
+    },
+  ];
+  const activeItem = items.find((item) => item.key === activeModal) ?? items[0];
+  const modalLabels = LINK_LABELS[activeItem.key];
 
   return (
     <View style={styles.socialSection}>
       <GradientTitle text="Social Links" style={styles.sectionTitle} variant="prism" />
 
-      <View style={styles.socialCard}>
-        <View style={[styles.socialBadge, styles.instagramBadge]}>
-          {SOCIAL_PLATFORMS.instagram.renderIcon({ size: 20, color: theme.prism.colors.text })}
+      {items.map((item) => (
+        <View key={item.key} style={styles.socialCard}>
+          <View style={[styles.socialBadge, item.badgeStyle]}>
+            {SOCIAL_PLATFORMS[item.key].renderIcon({ size: 20, color: theme.prism.colors.text })}
+          </View>
+          <View style={styles.socialContent}>
+            <Text style={styles.socialLabel}>{LINK_LABELS[item.key].label}</Text>
+            <Text style={styles.socialValue}>{item.value || 'No link added'}</Text>
+          </View>
+          <Pressable style={styles.editButton} onPress={() => setActiveModal(item.key)}>
+            <Feather name="edit-3" size={16} color={theme.prism.colors.text} />
+          </Pressable>
         </View>
-        <View style={styles.socialContent}>
-          <Text style={styles.socialLabel}>Instagram</Text>
-          <Text style={styles.socialValue}>{instagram || 'No link added'}</Text>
-        </View>
-        <Pressable style={styles.editButton} onPress={() => setActiveModal('instagram')}>
-          <Feather name="edit-3" size={16} color={theme.prism.colors.text} />
-        </Pressable>
-      </View>
-
-      <View style={styles.socialCard}>
-        <View style={[styles.socialBadge, styles.outlinedBadge]}>
-          {SOCIAL_PLATFORMS.twitter.renderIcon({ size: 20, color: theme.prism.colors.text })}
-        </View>
-        <View style={styles.socialContent}>
-          <Text style={styles.socialLabel}>X</Text>
-          <Text style={styles.socialValue}>{twitter || 'No link added'}</Text>
-        </View>
-        <Pressable style={styles.editButton} onPress={() => setActiveModal('twitter')}>
-          <Feather name="edit-3" size={16} color={theme.prism.colors.text} />
-        </Pressable>
-      </View>
-
-      <View style={styles.socialCard}>
-        <View
-          style={[
-            styles.socialBadge,
-            { backgroundColor: SOCIAL_PLATFORMS.linkedin.style.backgroundColor },
-          ]}
-        >
-          {SOCIAL_PLATFORMS.linkedin.renderIcon({ size: 20, color: theme.prism.colors.text })}
-        </View>
-        <View style={styles.socialContent}>
-          <Text style={styles.socialLabel}>LinkedIn</Text>
-          <Text style={styles.socialValue}>{linkedin || 'No link added'}</Text>
-        </View>
-        <Pressable style={styles.editButton} onPress={() => setActiveModal('linkedin')}>
-          <Feather name="edit-3" size={16} color={theme.prism.colors.text} />
-        </Pressable>
-      </View>
+      ))}
 
       <Modal
         transparent
@@ -110,8 +97,8 @@ export const SocialLinksEditor = ({
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{modalLabels.title}</Text>
             <TextInput
-              value={modalValue}
-              onChangeText={(text) => setModalValue(extractUsername(text))}
+              value={activeItem.value}
+              onChangeText={(text) => activeItem.setValue(extractUsername(text))}
               placeholder="username"
               placeholderTextColor={theme.prism.colors.mutedDeep}
               style={styles.modalInput}
@@ -119,7 +106,7 @@ export const SocialLinksEditor = ({
               autoCorrect={false}
             />
             <Text style={styles.modalHelper}>
-              Will link to: {modalLabels.helper}/{modalValue || 'username'}
+              Will link to: {modalLabels.helper}/{activeItem.value || 'username'}
             </Text>
             <View style={styles.modalActions}>
               <Pressable style={[styles.modalBtn, styles.modalCancel]} onPress={() => setActiveModal(null)}>
