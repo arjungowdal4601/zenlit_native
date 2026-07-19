@@ -23,13 +23,23 @@ export const ProfileImageEditor = ({
     ) : (
       <View style={[styles.bannerImage, styles.bannerFallback]} />
     )}
-    <Pressable style={styles.bannerOverlay} onPress={onEditBanner}>
+    <Pressable
+      style={styles.bannerOverlay}
+      onPress={onEditBanner}
+      accessibilityRole="button"
+      accessibilityLabel="Edit banner photo"
+    >
       <View style={styles.overlayCircle}>
         <Feather name="camera" size={18} color="#ffffff" />
       </View>
     </Pressable>
     <View style={styles.avatarWrapper}>
-      <Pressable onPress={onEditProfile} style={styles.avatarButton}>
+      <Pressable
+        onPress={onEditProfile}
+        style={styles.avatarButton}
+        accessibilityRole="button"
+        accessibilityLabel="Edit profile photo"
+      >
         {profileImage ? (
           <Image source={{ uri: profileImage }} style={styles.avatar} />
         ) : (

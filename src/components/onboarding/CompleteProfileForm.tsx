@@ -79,13 +79,23 @@ export const CompleteProfileForm = ({ profile }: { profile: CompleteProfileViewM
           ) : (
             <View style={[styles.bannerImage, styles.bannerFallback]} />
           )}
-          <Pressable style={styles.bannerOverlay} onPress={profile.openBannerMenu}>
+          <Pressable
+            style={styles.bannerOverlay}
+            onPress={profile.openBannerMenu}
+            accessibilityRole="button"
+            accessibilityLabel="Add banner photo"
+          >
             <View style={styles.overlayCircle}>
               <Feather name="camera" size={18} color={theme.prism.colors.text} />
             </View>
           </Pressable>
           <View style={styles.avatarWrapper}>
-            <Pressable onPress={profile.openProfileMenu} style={styles.avatarButton}>
+            <Pressable
+              onPress={profile.openProfileMenu}
+              style={styles.avatarButton}
+              accessibilityRole="button"
+              accessibilityLabel="Add profile photo"
+            >
               {profile.profileImage ? (
                 <Image source={{ uri: profile.profileImage.uri }} style={styles.avatar} />
               ) : (

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather } from './icons';
@@ -43,7 +43,7 @@ export type PostProps = {
   showSocialLinks?: boolean;
   showMenu?: boolean;
   showTimestamp?: boolean;
-  onDelete?: (id: string) => void;
+  onDelete?: (id: string) => void | Promise<void>;
 };
 
 export const Post: React.FC<PostProps> = ({
@@ -58,6 +58,8 @@ export const Post: React.FC<PostProps> = ({
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [deleteProcessing, setDeleteProcessing] = useState(false);
+  const deleteInFlightRef = useRef(false);
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
 
   const socialEntries = useMemo(() => {
@@ -126,9 +128,19 @@ export const Post: React.FC<PostProps> = ({
     setDropdownOpen(true);
   }, [showMenu]);
 
-  const handleConfirmDelete = useCallback(() => {
-    setConfirmOpen(false);
-    onDelete?.(post.id);
+  const handleConfirmDelete = useCallback(async () => {
+    if (deleteInFlightRef.current) return;
+
+    deleteInFlightRef.current = true;
+    setDeleteProcessing(true);
+
+    try {
+      await onDelete?.(post.id);
+    } finally {
+      deleteInFlightRef.current = false;
+      setDeleteProcessing(false);
+      setConfirmOpen(false);
+    }
   }, [post.id, onDelete]);
 
   useEffect(() => {
@@ -274,6 +286,7 @@ export const Post: React.FC<PostProps> = ({
         confirmLabel={'Delete'}
         cancelLabel={'Cancel'}
         tone="danger"
+        processing={deleteProcessing}
         onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmOpen(false)}
       />

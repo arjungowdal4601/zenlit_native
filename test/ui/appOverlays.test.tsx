@@ -1,5 +1,5 @@
 import React from 'react';
-import { AccessibilityInfo, Pressable, Text, View } from 'react-native';
+import { AccessibilityInfo, Modal, Pressable, Text, View } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import ConfirmDialog from '../../src/components/ConfirmDialog';
@@ -73,6 +73,13 @@ describe('shared app overlays', () => {
     );
 
     fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+    act(() => {
+      screen.UNSAFE_getByType(Modal).props.onRequestClose();
+    });
+    fireEvent(
+      screen.getByLabelText('Confirm action. Logging you out…'),
+      'accessibilityEscape',
+    );
 
     expect(onConfirm).not.toHaveBeenCalled();
     expect(onCancel).not.toHaveBeenCalled();
@@ -91,7 +98,25 @@ describe('shared app overlays', () => {
 
     expect(screen.getByLabelText('Choose a source')).toBeTruthy();
     expect(screen.getByText('Choose from gallery')).toBeTruthy();
-    fireEvent.press(screen.UNSAFE_getByProps({ testID: 'app-bottom-sheet-backdrop' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Close Choose a source' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('supports assistive-technology escape dismissal for bottom sheets', () => {
+    const onClose = jest.fn();
+
+    render(
+      <AppBottomSheet
+        visible
+        onRequestClose={onClose}
+        title="Visibility"
+        accessibilityLabel="Visibility settings"
+      >
+        <Text>Visibility controls</Text>
+      </AppBottomSheet>,
+    );
+
+    fireEvent(screen.getByLabelText('Visibility settings'), 'accessibilityEscape');
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

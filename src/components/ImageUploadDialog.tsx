@@ -55,6 +55,8 @@ type SelectedImage = {
   displayUri: string;
   uploadUri: string;
   source: SelectedSource;
+  width: number;
+  height: number;
 };
 
 const CAMERA_PERMISSION_COPY =
@@ -73,6 +75,15 @@ const getPickerOptions = (imageKind: ImageKind): ImagePicker.ImagePickerOptions 
 
 const getDataUri = (base64: string | null | undefined, mimeType = 'image/jpeg') =>
   base64 ? `data:${mimeType};base64,${base64}` : null;
+
+const getSelectedImageAspectRatio = (image: SelectedImage | null) =>
+  image &&
+  Number.isFinite(image.width) &&
+  Number.isFinite(image.height) &&
+  image.width > 0 &&
+  image.height > 0
+    ? image.width / image.height
+    : 4 / 3;
 
 const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
   visible,
@@ -224,6 +235,8 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
         displayUri: asset.uri,
         uploadUri: encodedUri ?? asset.uri,
         source: 'gallery',
+        width: asset.width,
+        height: asset.height,
       });
       setStep('preview');
     } catch (error) {
@@ -372,6 +385,8 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
         displayUri: encodedUri ?? picture.uri,
         uploadUri: encodedUri ?? picture.uri,
         source: 'camera',
+        width: picture.width,
+        height: picture.height,
       });
       setIsCameraReady(false);
       setStep('preview');
@@ -693,13 +708,14 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
   const renderPreview = () => (
     <View style={styles.content}>
       <View
+        testID="selected-image-frame"
         style={[
           styles.previewFrame,
           imageKind === 'avatar'
             ? styles.squareFrame
             : imageKind === 'banner'
               ? styles.bannerFrame
-              : styles.attachmentFrame,
+              : { aspectRatio: getSelectedImageAspectRatio(selectedImage) },
         ]}
       >
         {selectedImage ? (
@@ -728,6 +744,13 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
           busy={isProcessing}
         />
       </View>
+      {issue?.kind === 'processing' && selectedImage?.source === 'camera' ? (
+        <SecondaryButton
+          label="Choose from gallery"
+          onPress={() => void chooseFromGallery()}
+          disabled={isProcessing}
+        />
+      ) : null}
       <TertiaryButton label="Cancel" onPress={handleClose} disabled={isProcessing} />
     </View>
   );

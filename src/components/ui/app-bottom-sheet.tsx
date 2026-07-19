@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Feather } from '../icons';
 import { theme } from '../../styles/theme';
 import { useReducedMotionPreference } from './app-dialog';
 
@@ -25,6 +27,7 @@ export type AppBottomSheetProps = {
 
 const ENTER_DURATION = 220;
 const EXIT_DURATION = 170;
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
   visible,
@@ -66,12 +69,12 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
       Animated.timing(opacity, {
         toValue: visible ? 1 : 0,
         duration: visible ? ENTER_DURATION : EXIT_DURATION,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
       Animated.timing(translateY, {
         toValue: visible ? 0 : 32,
         duration: visible ? ENTER_DURATION : EXIT_DURATION,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     ]);
 
@@ -107,6 +110,7 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
         <Animated.View
           accessibilityViewIsModal
           accessibilityLabel={accessibilityLabel ?? title}
+          onAccessibilityEscape={onRequestClose}
           role="dialog"
           style={[
             styles.frame,
@@ -125,7 +129,26 @@ export const AppBottomSheet: React.FC<AppBottomSheetProps> = ({
             style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, theme.spacing.md) }]}
           >
             <View style={styles.handle} accessibilityElementsHidden />
-            {title ? <Text style={styles.title}>{title}</Text> : null}
+            <View style={styles.header}>
+              <View style={styles.headerSide} accessibilityElementsHidden />
+              {title ? (
+                <Text numberOfLines={1} style={styles.title}>
+                  {title}
+                </Text>
+              ) : (
+                <View style={styles.titleSpacer} />
+              )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Close ${accessibilityLabel ?? title ?? 'sheet'}`}
+                accessibilityHint="Closes this panel"
+                hitSlop={8}
+                onPress={onRequestClose}
+                style={({ pressed }) => [styles.closeButton, pressed && styles.closeButtonPressed]}
+              >
+                <Feather name="x" size={19} color={theme.prism.colors.textSoft} />
+              </Pressable>
+            </View>
             {children ? (
               <ScrollView
                 style={styles.contentScroll}
@@ -180,14 +203,43 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderRadius: 2,
     backgroundColor: theme.prism.colors.mutedDeep,
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.xs,
+  },
+  header: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  headerSide: {
+    width: 44,
+    height: 44,
   },
   title: {
     ...theme.typography.title,
+    flex: 1,
     color: theme.prism.colors.text,
     fontSize: 21,
     lineHeight: 26,
     textAlign: 'center',
+  },
+  titleSpacer: {
+    flex: 1,
+  },
+  closeButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: theme.radii.md,
+    borderCurve: 'continuous',
+    borderWidth: 1,
+    borderColor: theme.prism.colors.border,
+    backgroundColor: 'rgba(8, 13, 16, 0.72)',
+  },
+  closeButtonPressed: {
+    opacity: 0.72,
+    borderColor: theme.prism.colors.borderStrong,
   },
   contentScroll: {
     flexShrink: 1,

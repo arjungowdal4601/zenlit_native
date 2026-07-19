@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import {
   Animated,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -44,6 +45,7 @@ const AppToastContext = createContext<AppToastContextValue | null>(null);
 const DEFAULT_DURATION = 4000;
 const ENTER_DURATION = 180;
 const EXIT_DURATION = 140;
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 const toneMeta: Record<
   AppToastTone,
@@ -89,12 +91,12 @@ export const AppToastProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         Animated.timing(opacity, {
           toValue: 0,
           duration: EXIT_DURATION,
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(translateY, {
           toValue: -12,
           duration: EXIT_DURATION,
-          useNativeDriver: true,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ]);
 
@@ -136,12 +138,12 @@ export const AppToastProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           Animated.timing(opacity, {
             toValue: 1,
             duration: ENTER_DURATION,
-            useNativeDriver: true,
+            useNativeDriver: USE_NATIVE_DRIVER,
           }),
           Animated.timing(translateY, {
             toValue: 0,
             duration: ENTER_DURATION,
-            useNativeDriver: true,
+            useNativeDriver: USE_NATIVE_DRIVER,
           }),
         ]).start();
       }

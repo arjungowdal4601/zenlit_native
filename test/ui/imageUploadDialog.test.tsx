@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 const mockIsCameraAvailable = jest.fn();
 const mockRequestCameraPermission = jest.fn();
@@ -213,6 +213,12 @@ describe('ImageUploadDialog', () => {
       expect(pickerOptions.aspect).toEqual(aspect);
       expect(screen.getByLabelText('Selected image preview')).toBeTruthy();
       expect(screen.getByLabelText('Choose another')).toBeTruthy();
+      if (imageKind === 'attachment') {
+        expect(
+          StyleSheet.flatten(screen.getByTestId('selected-image-frame').props.style)
+            .aspectRatio,
+        ).toBe(1200 / 800);
+      }
     },
   );
 
@@ -436,6 +442,65 @@ describe('ImageUploadDialog', () => {
     ).toBeTruthy();
     expect(screen.getByLabelText('Use photo')).toBeTruthy();
     expect(screen.props.onImageSelected).not.toHaveBeenCalled();
+    consoleSpy.mockRestore();
+  });
+
+  it('preserves camera dimensions and offers gallery after camera processing fails', async () => {
+    mockTakePicture.mockResolvedValue({
+      uri: 'file://camera-wide.jpg',
+      base64: 'camera-wide-base64',
+      width: 1600,
+      height: 900,
+      format: 'jpg',
+    });
+    getImagePickerMocks().launchImageLibraryAsync.mockResolvedValue({
+      canceled: false,
+      assets: [
+        {
+          uri: 'file://gallery-fallback.jpg',
+          width: 900,
+          height: 1200,
+          type: 'image',
+          fileName: 'gallery-fallback.jpg',
+          fileSize: 1000,
+          mimeType: 'image/jpeg',
+          base64: 'gallery-fallback-base64',
+          assetId: null,
+          duration: null,
+          exif: null,
+          pairedVideoAsset: null,
+        },
+      ],
+    });
+    mockCompressImage.mockRejectedValueOnce(new Error('compress failed'));
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    const screen = renderDialog({}, 'attachment');
+    fireEvent.press(screen.getByLabelText('Take a photo'));
+    await screen.findByTestId('camera-preview');
+    fireEvent.press(screen.getByLabelText('Mark camera ready'));
+    fireEvent.press(screen.getByLabelText('Capture photo'));
+    await screen.findByLabelText('Selected image preview');
+
+    expect(
+      StyleSheet.flatten(screen.getByTestId('selected-image-frame').props.style).aspectRatio,
+    ).toBe(1600 / 900);
+    fireEvent.press(screen.getByLabelText('Use photo'));
+
+    await screen.findByText(
+      'We couldn’t optimise this image. Please try again or choose a different photo.',
+    );
+    expect(screen.getByLabelText('Retake')).toBeTruthy();
+    expect(screen.getByLabelText('Use photo')).toBeTruthy();
+    expect(screen.getByLabelText('Choose from gallery')).toBeTruthy();
+    expect(screen.getByLabelText('Cancel')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Choose from gallery'));
+
+    await screen.findByLabelText('Choose another');
+    expect(getImagePickerMocks().launchImageLibraryAsync).toHaveBeenCalledTimes(1);
+    expect(
+      StyleSheet.flatten(screen.getByTestId('selected-image-frame').props.style).aspectRatio,
+    ).toBe(900 / 1200);
     consoleSpy.mockRestore();
   });
 

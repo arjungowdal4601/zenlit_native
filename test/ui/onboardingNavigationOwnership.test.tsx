@@ -147,6 +147,8 @@ describe('onboarding navigation ownership', () => {
     ).toBeNull();
     expect(screen.getByText('Bio')).toBeTruthy();
     expect(screen.getByPlaceholderText('Tell about yourself...')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add banner photo' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add profile photo' })).toBeTruthy();
   });
 
   it('renders official social badges and uses X as the user-facing platform name', () => {

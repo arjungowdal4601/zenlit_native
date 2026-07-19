@@ -3,6 +3,7 @@ import {
   AccessibilityInfo,
   Animated,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -30,6 +31,7 @@ export type AppDialogProps = {
 
 const ENTER_DURATION = 180;
 const EXIT_DURATION = 140;
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 const toneColors: Record<AppDialogTone, string> = {
   default: theme.prism.colors.accent,
@@ -109,12 +111,12 @@ export const AppDialog: React.FC<AppDialogProps> = ({
       Animated.timing(opacity, {
         toValue: visible ? 1 : 0,
         duration: visible ? ENTER_DURATION : EXIT_DURATION,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
       Animated.timing(scale, {
         toValue: visible ? 1 : 0.97,
         duration: visible ? ENTER_DURATION : EXIT_DURATION,
-        useNativeDriver: true,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     ]);
 
@@ -150,6 +152,7 @@ export const AppDialog: React.FC<AppDialogProps> = ({
         <Animated.View
           accessibilityViewIsModal
           accessibilityLabel={accessibilityLabel ?? title ?? description}
+          onAccessibilityEscape={onRequestClose}
           role="dialog"
           style={[
             styles.surfaceFrame,

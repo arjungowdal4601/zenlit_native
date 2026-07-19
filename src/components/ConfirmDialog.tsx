@@ -27,10 +27,14 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onConfirm,
   onCancel,
 }) => {
+  const handleRequestClose = () => {
+    if (!processing) onCancel();
+  };
+
   return (
     <AppDialog
       visible={visible}
-      onRequestClose={onCancel}
+      onRequestClose={handleRequestClose}
       title={title}
       description={message}
       tone={tone}
@@ -45,7 +49,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             pressed && !processing && styles.pressed,
             processing && styles.disabled,
           ]}
-          onPress={onCancel}
+          onPress={handleRequestClose}
           disabled={processing}
           accessibilityRole="button"
           accessibilityState={{ disabled: processing }}

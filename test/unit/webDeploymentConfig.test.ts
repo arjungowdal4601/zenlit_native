@@ -84,7 +84,7 @@ describe('web deployment configuration', () => {
       ],
     });
 
-    const appHeaders = vercelJson.headers?.find((entry) => entry.source === '/:path*')?.headers ?? [];
+    const appHeaders = vercelJson.headers?.find((entry) => entry.source === '/(.*)')?.headers ?? [];
     const headerMap = new Map(appHeaders.map(({ key, value }) => [key, value]));
     const csp = headerMap.get('Content-Security-Policy') ?? '';
 
