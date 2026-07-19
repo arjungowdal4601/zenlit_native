@@ -10,6 +10,7 @@ import {
 const mockSupabase = supabase as unknown as {
   auth: { getUser: jest.Mock };
   from: jest.Mock;
+  rpc: jest.Mock;
 };
 
 const makeBuilder = (result: { data?: unknown; error?: Error | null } = {}) => {
@@ -53,13 +54,11 @@ describe('notificationService', () => {
       data: { user: { id: 'user-1' } },
       error: null,
     });
-    mockSupabase.from.mockReturnValueOnce(builder);
+    mockSupabase.rpc.mockReturnValueOnce(builder);
 
     const result = await getNotificationSettings();
 
-    expect(mockSupabase.from).toHaveBeenCalledWith('profiles');
-    expect(builder.select).toHaveBeenCalledWith('notification_enabled, notification_preferences');
-    expect(builder.eq).toHaveBeenCalledWith('id', 'user-1');
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('get_my_private_profile');
     expect(result).toEqual({
       settings: {
         enabled: false,
@@ -103,7 +102,8 @@ describe('notificationService', () => {
     mockSupabase.auth.getUser
       .mockResolvedValueOnce({ data: { user: { id: 'user-3' } }, error: null })
       .mockResolvedValueOnce({ data: { user: { id: 'user-3' } }, error: null });
-    mockSupabase.from.mockReturnValueOnce(readBuilder).mockReturnValueOnce(updateBuilder);
+    mockSupabase.rpc.mockReturnValueOnce(readBuilder);
+    mockSupabase.from.mockReturnValueOnce(updateBuilder);
 
     const result = await updateNotificationSettings({
       enabled: true,

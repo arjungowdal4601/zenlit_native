@@ -1,4 +1,5 @@
 import {
+  SOCIAL_PLATFORMS,
   ensureSocialUrl,
   extractUsername,
   getTwitterHandle,
@@ -22,5 +23,13 @@ describe('social platform helpers', () => {
   it('treats x_twitter as the fallback Twitter handle field', () => {
     expect(getTwitterHandle({ x_twitter: 'zenlit_x' })).toBe('zenlit_x');
     expect(getTwitterHandle({ twitter: 'zenlit', x_twitter: 'zenlit_x' })).toBe('zenlit');
+  });
+
+  it('presents the existing twitter platform key as X', () => {
+    expect(SOCIAL_PLATFORMS.twitter.id).toBe('twitter');
+    expect(SOCIAL_PLATFORMS.twitter.label).toBe('X');
+    expect(ensureSocialUrl(SOCIAL_PLATFORMS.twitter.id, '@zenlit')).toBe(
+      'https://x.com/zenlit',
+    );
   });
 });

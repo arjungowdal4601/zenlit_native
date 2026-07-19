@@ -1,9 +1,15 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import AppDialog, { type AppDialogTone } from './ui/app-dialog';
+import { theme } from '../styles/theme';
 
 export type ConfirmDialogProps = {
   visible: boolean;
   message: string;
+  title?: string;
+  tone?: AppDialogTone;
+  processing?: boolean;
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm: () => void;
@@ -13,87 +19,131 @@ export type ConfirmDialogProps = {
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   visible,
   message,
+  title = 'Confirm action',
+  tone = 'danger',
+  processing = false,
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   onConfirm,
   onCancel,
 }) => {
   return (
-    <Modal transparent animationType="fade" visible={visible} onRequestClose={onCancel}>
-      <View style={styles.backdrop}>
-        <View style={styles.card}>
-          <Text style={styles.message}>{message}</Text>
-          <View style={styles.actions}>
-            <Pressable
-              style={[styles.button, styles.cancelButton]}
-              onPress={onCancel}
-              accessibilityRole="button"
-            >
-              <Text style={[styles.buttonLabel, styles.cancelLabel]}>{cancelLabel}</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.button, styles.confirmButton]}
-              onPress={onConfirm}
-              accessibilityRole="button"
-            >
+    <AppDialog
+      visible={visible}
+      onRequestClose={onCancel}
+      title={title}
+      description={message}
+      tone={tone}
+      dismissOnBackdrop={!processing}
+      accessibilityLabel={`${title}. ${message}`}
+    >
+      <View style={styles.actions}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.button,
+            styles.cancelButton,
+            pressed && !processing && styles.pressed,
+            processing && styles.disabled,
+          ]}
+          onPress={onCancel}
+          disabled={processing}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: processing }}
+        >
+          <Text style={[styles.buttonLabel, styles.cancelLabel]}>{cancelLabel}</Text>
+        </Pressable>
+
+        {tone === 'danger' ? (
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              styles.dangerButton,
+              pressed && !processing && styles.pressed,
+              processing && styles.disabled,
+            ]}
+            onPress={onConfirm}
+            disabled={processing}
+            accessibilityRole="button"
+            accessibilityState={{ busy: processing, disabled: processing }}
+          >
+            {processing ? (
+              <ActivityIndicator size="small" color={theme.prism.colors.text} />
+            ) : (
               <Text style={styles.buttonLabel}>{confirmLabel}</Text>
-            </Pressable>
-          </View>
-        </View>
+            )}
+          </Pressable>
+        ) : (
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              pressed && !processing && styles.pressed,
+              processing && styles.disabled,
+            ]}
+            onPress={onConfirm}
+            disabled={processing}
+            accessibilityRole="button"
+            accessibilityState={{ busy: processing, disabled: processing }}
+          >
+            <LinearGradient
+              colors={theme.prism.gradients.brand}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.gradientButton}
+            >
+              {processing ? (
+                <ActivityIndicator size="small" color={theme.prism.colors.text} />
+              ) : (
+                <Text style={styles.buttonLabel}>{confirmLabel}</Text>
+              )}
+            </LinearGradient>
+          </Pressable>
+        )}
       </View>
-    </Modal>
+    </AppDialog>
   );
 };
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 360,
-    borderRadius: 18,
-    padding: 24,
-    backgroundColor: '#000000',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
-  },
-  message: {
-    color: '#e2e8f0',
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 24,
-  },
   actions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: theme.spacing.sm,
   },
   button: {
     flex: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
+    minHeight: 48,
+    borderRadius: theme.radii.md,
+    borderCurve: 'continuous',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   cancelButton: {
     borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.6)',
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    borderColor: theme.prism.colors.border,
+    backgroundColor: theme.prism.colors.cardDeep,
   },
-  confirmButton: {
-    backgroundColor: '#dc2626',
+  dangerButton: {
+    backgroundColor: theme.prism.colors.danger,
+  },
+  gradientButton: {
+    width: '100%',
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonLabel: {
-    color: '#ffffff',
+    ...theme.typography.label,
+    color: theme.prism.colors.text,
     fontSize: 15,
-    fontWeight: '600',
   },
   cancelLabel: {
-    color: '#cbd5f5',
+    color: theme.prism.colors.textSoft,
+  },
+  pressed: {
+    opacity: 0.78,
+  },
+  disabled: {
+    opacity: 0.55,
   },
 });
 

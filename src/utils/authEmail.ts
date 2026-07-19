@@ -25,6 +25,9 @@ export const getEmailOtpErrorMessage = (error: unknown) => {
   if (message.includes('rate limit') || message.includes('too many requests') || message.includes('too many')) {
     return 'Too many attempts. Please wait a few minutes before trying again.';
   }
+  if (message.includes('timed out') || message.includes('timeout')) {
+    return 'The request took longer than expected. Check your inbox before requesting another code.';
+  }
   if (message.includes('network') || message.includes('fetch')) {
     return 'Unable to connect to authentication service. Please check your internet connection.';
   }

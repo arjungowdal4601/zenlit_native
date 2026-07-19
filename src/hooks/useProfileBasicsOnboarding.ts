@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { resolveOnboardingState, saveProfileBasicsDraft, saveRequiredProfileBasics } from '../services/onboardingService';
 import { getFriendlyOnboardingError, isDuplicateUsernameError } from '../utils/onboardingErrors';
 import { getRouteForOnboardingState } from '../utils/onboardingState';
+import { publishOnboardingState } from '../utils/onboardingStateSync';
 import { canSubmitProfileBasics, EMPTY_PROFILE_BASICS_FORM_ERRORS, getProfileBasicsFormErrors } from '../utils/profileBasicsForm';
 import {
   formatDate,
@@ -166,7 +167,9 @@ export const useProfileBasicsOnboarding = () => {
     try {
       const { data, error } = await saveRequiredProfileBasics(profileData, currentUserId);
       if (error || !data) throw error ?? new Error('Failed to save profile basics');
-      router.replace(getRouteForOnboardingState(data));
+      if (!publishOnboardingState(data)) {
+        router.replace(getRouteForOnboardingState(data));
+      }
     } catch (error) {
       if (isDuplicateUsernameError(error)) {
         setUsernameAvailability(false);

@@ -1,11 +1,14 @@
-export interface Profile {
+export interface PublicProfile {
   id: string;
   display_name: string;
   user_name: string;
+  account_created_at: string;
+}
+
+export interface Profile extends PublicProfile {
   date_of_birth: string | null;
   gender: 'male' | 'female' | 'other' | null;
   email: string;
-  account_created_at: string;
   optional_profile_completed_at?: string | null;
 }
 
@@ -31,7 +34,7 @@ export interface Post {
 }
 
 export interface PostWithAuthor extends Post {
-  author: Profile & { social_links?: SocialLinks };
+  author: PublicProfile & { social_links?: SocialLinks };
 }
 
 export interface Location {
@@ -41,6 +44,10 @@ export interface Location {
   lat_short: number | null;
   long_short: number | null;
   updated_at: string;
+}
+
+export interface LocationPresence {
+  id: string;
 }
 
 export interface NearbyUserData {
@@ -69,7 +76,7 @@ export interface Message {
 
 export interface MessageThread {
   other_user_id: string;
-  other_user: Profile & { social_links?: SocialLinks };
+  other_user: PublicProfile & { social_links?: SocialLinks };
   last_message: Message;
   unread_count: number;
   is_anonymous: boolean;

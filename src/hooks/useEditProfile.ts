@@ -6,11 +6,8 @@ import { useProfile } from '../contexts/ProfileContext';
 import { getCurrentUserProfile } from '../services/profileService';
 import type { CompressedImage } from '../utils/imageCompression';
 import { saveEditProfileChanges } from './saveEditProfileChanges';
+import { useAppToast } from '../components/ui/app-toast';
 
-export type EditProfileToast = {
-  message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
-};
 export type EditProfileUploadType = 'avatar' | 'banner';
 export type EditProfileSocialField = 'instagram' | 'twitter' | 'linkedin';
 
@@ -55,51 +52,16 @@ const emptyPending: EditProfilePendingImages = {
 export const useEditProfile = () => {
   const router = useRouter();
   const { refresh } = useProfile();
+  const { showToast } = useAppToast();
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<EditProfileDraft>(emptyDraft);
   const [original, setOriginal] = useState<EditProfileDraft>(emptyDraft);
   const [pending, setPending] = useState<EditProfilePendingImages>(emptyPending);
-  const [toast, setToast] = useState<EditProfileToast | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showImageUploadDialog, setShowImageUploadDialog] = useState(false);
   const [uploadType, setUploadType] = useState<EditProfileUploadType>('avatar');
   const [activeSocialModal, setActiveSocialModal] = useState<EditProfileSocialField | null>(null);
-  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
-
-  const clearSuccessTimeout = useCallback(() => {
-    if (successTimeoutRef.current) {
-      clearTimeout(successTimeoutRef.current);
-      successTimeoutRef.current = null;
-    }
-  }, []);
-
-  const clearToastTimeout = useCallback(() => {
-    if (toastTimeoutRef.current) {
-      clearTimeout(toastTimeoutRef.current);
-      toastTimeoutRef.current = null;
-    }
-  }, []);
-
-  const showToastMessage = useCallback(
-    (message: string, type: EditProfileToast['type'] = 'info', duration = 2500) => {
-      clearToastTimeout();
-      if (!mountedRef.current) {
-        return;
-      }
-      setToast({ message, type });
-      if (duration > 0) {
-        toastTimeoutRef.current = setTimeout(() => {
-          if (mountedRef.current) {
-            setToast(null);
-            toastTimeoutRef.current = null;
-          }
-        }, duration);
-      }
-    },
-    [clearToastTimeout],
-  );
 
   useEffect(() => {
     mountedRef.current = true;
@@ -137,10 +99,8 @@ export const useEditProfile = () => {
     void loadUserData();
     return () => {
       mountedRef.current = false;
-      clearSuccessTimeout();
-      clearToastTimeout();
     };
-  }, [clearSuccessTimeout, clearToastTimeout]);
+  }, []);
 
   const setDraftField = useCallback(<K extends keyof EditProfileDraft>(
     key: K,
@@ -154,7 +114,6 @@ export const useEditProfile = () => {
       return;
     }
 
-    clearSuccessTimeout();
     setIsSaving(true);
 
     try {
@@ -168,24 +127,23 @@ export const useEditProfile = () => {
       setDraft(nextDraft);
       setOriginal(nextDraft);
       setPending({ ...emptyPending, oldProfileUrl, oldBannerUrl });
-      showToastMessage('Profile updated successfully.', 'success');
       if (warnings.length > 0) {
-        setTimeout(() => mountedRef.current && showToastMessage(warnings.join(' '), 'warning', 4000), 2600);
+        showToast({
+          message: `Profile updated. ${warnings.join(' ')}`,
+          tone: 'warning',
+        });
+      } else {
+        showToast({ message: 'Profile updated successfully.', tone: 'success' });
       }
-      successTimeoutRef.current = setTimeout(() => {
-        if (mountedRef.current) {
-          router.back();
-          successTimeoutRef.current = null;
-        }
-      }, warnings.length > 0 ? 4500 : 1500);
+      router.back();
     } catch (error: any) {
       console.error('Error saving profile:', error);
-      clearSuccessTimeout();
-      showToastMessage(
-        typeof error?.message === 'string' ? error.message : 'Failed to update profile. Please try again.',
-        'error',
-        3500,
-      );
+      showToast({
+        message: typeof error?.message === 'string'
+          ? error.message
+          : 'Failed to update profile. Please try again.',
+        tone: 'error',
+      });
     } finally {
       if (mountedRef.current) {
         setIsSaving(false);
@@ -200,8 +158,6 @@ export const useEditProfile = () => {
       oldBannerUrl: current.oldBannerUrl,
       oldProfileUrl: current.oldProfileUrl,
     }));
-    clearToastTimeout();
-    setToast(null);
     router.back();
   };
 
@@ -215,18 +171,27 @@ export const useEditProfile = () => {
     if (uploadType === 'avatar') {
       setDraftField('profileImage', image?.uri ?? null);
       setPending((current) => ({ ...current, avatarUpload: image, profileRemoval: !hasImage }));
-      showToastMessage(hasImage ? 'New profile picture selected. Save to apply.' : 'Profile picture removed (pending). Save to confirm.', 'info');
+      showToast({
+        message: hasImage
+          ? 'New profile picture selected. Save to apply.'
+          : 'Profile picture removed. Save to confirm.',
+        tone: 'info',
+      });
       return;
     }
     setDraftField('bannerImage', image ? { uri: image.uri } : null);
     setPending((current) => ({ ...current, bannerUpload: image, bannerRemoval: !hasImage }));
-    showToastMessage(hasImage ? 'New banner image selected. Save to apply.' : 'Banner image removed (pending). Save to confirm.', 'info');
+    showToast({
+      message: hasImage
+        ? 'New banner image selected. Save to apply.'
+        : 'Banner image removed. Save to confirm.',
+      tone: 'info',
+    });
   };
 
   return {
     loading,
     draft,
-    toast,
     isSaving,
     uploadType,
     showImageUploadDialog,

@@ -5,13 +5,17 @@ import { isAuthReady, signInWithEmailOtp, verifyEmailOtp } from '../services/aut
 import { logger } from '../utils/logger';
 import { getEmailOtpErrorMessage, getVerifyOtpErrorMessage, maskEmail, normalizeEmail } from '../utils/authEmail';
 import { ROUTES } from '../utils/onboardingState';
+import {
+  clearPendingOtpEmail,
+  readPendingOtpEmail,
+} from '../utils/pendingOtpEmail';
 
 const COOLDOWN_SECONDS = 60;
 
 export const useVerifyOtp = () => {
   const router = useRouter();
   const { email: routeEmail } = useLocalSearchParams<{ email?: string | string[] }>();
-  const email = normalizeEmail(routeEmail);
+  const [email] = useState(() => readPendingOtpEmail() ?? normalizeEmail(routeEmail));
   const [code, setCode] = useState('');
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
@@ -65,6 +69,7 @@ export const useVerifyOtp = () => {
       }
 
       if (user) {
+        clearPendingOtpEmail();
         setStatus('Code verified. Checking setup...');
       } else {
         logger.error('Auth', 'OTP verification returned no user');
@@ -120,7 +125,10 @@ export const useVerifyOtp = () => {
     cooldown,
     email,
     error,
-    handleBack: () => router.replace(ROUTES.auth),
+    handleBack: () => {
+      clearPendingOtpEmail();
+      router.replace(ROUTES.auth);
+    },
     handleCodeChange,
     handleResend,
     handleVerify,

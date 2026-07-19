@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { Location, NearbyUserData, Profile, SocialLinks } from '../lib/types';
+import type { NearbyUserData, PublicProfile, SocialLinks } from '../lib/types';
 
 export async function updateUserLocation(
   latitude: number,
@@ -12,19 +12,10 @@ export async function updateUserLocation(
       return { success: false, error: new Error('Not authenticated') };
     }
 
-    const latShort = Math.round(latitude * 100) / 100;
-    const longShort = Math.round(longitude * 100) / 100;
-
-    const { error } = await supabase
-      .from('locations')
-      .upsert({
-        id: user.id,
-        lat_full: latitude,
-        long_full: longitude,
-        lat_short: latShort,
-        long_short: longShort,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'id' });
+    const { error } = await supabase.rpc('set_my_location', {
+      latitude,
+      longitude,
+    });
 
     if (error) {
       return { success: false, error };
@@ -44,16 +35,10 @@ export async function deleteUserLocation(): Promise<{ success: boolean; error: E
       return { success: false, error: new Error('Not authenticated') };
     }
 
-    const { error } = await supabase
-      .from('locations')
-      .upsert({
-        id: user.id,
-        lat_full: null,
-        long_full: null,
-        lat_short: null,
-        long_short: null,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'id' });
+    const { error } = await supabase.rpc('set_my_location', {
+      latitude: null,
+      longitude: null,
+    });
 
     if (error) {
       return { success: false, error };
@@ -73,39 +58,11 @@ export async function isUserNearby(userId: string): Promise<{ isNearby: boolean;
       return { isNearby: false, error: new Error('Not authenticated') };
     }
 
-    const { data: currentLocation, error: locationError } = await supabase
-      .from('locations')
-      .select('lat_short, long_short')
-      .eq('id', user.id)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc('is_user_nearby', {
+      target_user_id: userId,
+    });
 
-    if (locationError) {
-      return { isNearby: false, error: locationError };
-    }
-
-    if (!currentLocation || currentLocation.lat_short === null || currentLocation.long_short === null) {
-      return { isNearby: false, error: null };
-    }
-
-    const { data: otherLocation, error: otherLocationError } = await supabase
-      .from('locations')
-      .select('lat_short, long_short')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (otherLocationError) {
-      return { isNearby: false, error: otherLocationError };
-    }
-
-    if (!otherLocation || otherLocation.lat_short === null || otherLocation.long_short === null) {
-      return { isNearby: false, error: null };
-    }
-
-    const latDiff = Math.abs(currentLocation.lat_short - otherLocation.lat_short);
-    const longDiff = Math.abs(currentLocation.long_short - otherLocation.long_short);
-    const isNearby = latDiff <= 0.01 && longDiff <= 0.01;
-
-    return { isNearby, error: null };
+    return { isNearby: error ? false : Boolean(data), error };
   } catch (error) {
     return { isNearby: false, error: error as Error };
   }
@@ -119,35 +76,10 @@ export async function getNearbyUsers(): Promise<{ users: NearbyUserData[]; error
       return { users: [], error: new Error('Not authenticated') };
     }
 
-    const { data: currentLocation, error: locationError } = await supabase
-      .from('locations')
-      .select('lat_short, long_short')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (locationError) {
-      return { users: [], error: locationError };
-    }
-
-    if (!currentLocation || currentLocation.lat_short === null || currentLocation.long_short === null) {
-      return { users: [], error: null };
-    }
-
-    const latMin = currentLocation.lat_short - 0.01;
-    const latMax = currentLocation.lat_short + 0.01;
-    const longMin = currentLocation.long_short - 0.01;
-    const longMax = currentLocation.long_short + 0.01;
-
-    const { data: nearbyLocations, error: nearbyError } = await supabase
-      .from('locations')
-      .select('id')
-      .neq('id', user.id)
-      .not('lat_short', 'is', null)
-      .not('long_short', 'is', null)
-      .gte('lat_short', latMin)
-      .lte('lat_short', latMax)
-      .gte('long_short', longMin)
-      .lte('long_short', longMax);
+    const { data: nearbyLocations, error: nearbyError } = await supabase.rpc(
+      'get_nearby_user_ids',
+      { include_self: false },
+    );
 
     if (nearbyError) {
       return { users: [], error: nearbyError };
@@ -157,13 +89,13 @@ export async function getNearbyUsers(): Promise<{ users: NearbyUserData[]; error
       return { users: [], error: null };
     }
 
-    const nearbyUserIds: string[] = (nearbyLocations as Array<{ id: string }>).map(
-      (loc: { id: string }) => loc.id
+    const nearbyUserIds: string[] = (nearbyLocations as Array<{ user_id: string }>).map(
+      (location: { user_id: string }) => location.user_id
     );
 
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, display_name, user_name, account_created_at')
       .in('id', nearbyUserIds);
 
     if (profilesError) {
@@ -175,10 +107,10 @@ export async function getNearbyUsers(): Promise<{ users: NearbyUserData[]; error
       .select('*')
       .in('id', nearbyUserIds);
 
-    const profilesArr: Profile[] = (profiles || []) as Profile[];
+    const profilesArr: PublicProfile[] = (profiles || []) as PublicProfile[];
     const socialArr: SocialLinks[] = (socialLinks || []) as SocialLinks[];
 
-    const profilesMap: Map<string, Profile> = new Map(
+    const profilesMap: Map<string, PublicProfile> = new Map(
       profilesArr.map((p) => [p.id, p])
     );
     const socialLinksMap: Map<string, SocialLinks> = new Map(

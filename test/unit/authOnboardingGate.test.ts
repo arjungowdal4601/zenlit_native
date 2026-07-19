@@ -41,31 +41,37 @@ const onboardedState: OnboardingState = {
 };
 
 describe('auth onboarding route gate', () => {
-  it('keeps first-time signed-out users on Get Started', () => {
+  it('routes signed-out users from root to Auth', () => {
     const decision = getRouteAccessDecision({
-      hasSeenGetStarted: false,
       isAuthenticated: false,
       onboardingState: null,
       pathname: ROUTES.landing,
     });
 
-    expect(decision.targetRoute).toBeNull();
-    expect(decision.canAccessLandingRoute).toBe(true);
+    expect(decision.targetRoute).toBe(ROUTES.auth);
+    expect(decision.returnTo).toBeNull();
     expect(decision.canAccessAuthRoutes).toBe(true);
   });
 
-  it('routes returning signed-out users from root to Auth', () => {
-    expect(getRouteAccessDecision({
-      hasSeenGetStarted: true,
+  it('keeps signed-out users on direct Auth routes', () => {
+    const authDecision = getRouteAccessDecision({
       isAuthenticated: false,
       onboardingState: null,
-      pathname: ROUTES.landing,
-    }).targetRoute).toBe(ROUTES.auth);
+      pathname: ROUTES.auth,
+    });
+    const nestedAuthDecision = getRouteAccessDecision({
+      isAuthenticated: false,
+      onboardingState: null,
+      pathname: '/auth/callback',
+    });
+
+    expect(authDecision.targetRoute).toBeNull();
+    expect(nestedAuthDecision.targetRoute).toBeNull();
+    expect(authDecision.returnTo).toBeNull();
   });
 
   it('stores a safe app return path for signed-out protected deep links', () => {
     const decision = getRouteAccessDecision({
-      hasSeenGetStarted: false,
       isAuthenticated: false,
       onboardingState: null,
       pathname: '/profile/test',
@@ -87,7 +93,6 @@ describe('auth onboarding route gate', () => {
 
   it('routes profile-basics users to Profile Basics', () => {
     const decision = getRouteAccessDecision({
-      hasSeenGetStarted: true,
       isAuthenticated: true,
       onboardingState: basicsRequiredState,
       pathname: ROUTES.home,
@@ -99,7 +104,6 @@ describe('auth onboarding route gate', () => {
 
   it('routes optional-profile users to Complete Profile', () => {
     const decision = getRouteAccessDecision({
-      hasSeenGetStarted: true,
       isAuthenticated: true,
       onboardingState: optionalPendingState,
       pathname: ROUTES.home,
@@ -111,7 +115,6 @@ describe('auth onboarding route gate', () => {
 
   it('keeps recovery users on Recovery instead of guessing Profile Basics', () => {
     const decision = getRouteAccessDecision({
-      hasSeenGetStarted: true,
       isAuthenticated: true,
       onboardingState: recoveryState,
       pathname: ROUTES.home,
@@ -123,14 +126,12 @@ describe('auth onboarding route gate', () => {
 
   it('routes fully onboarded users away from completed auth and onboarding routes', () => {
     expect(getRouteAccessDecision({
-      hasSeenGetStarted: true,
       isAuthenticated: true,
       onboardingState: onboardedState,
       pathname: ROUTES.auth,
     }).targetRoute).toBe(ROUTES.home);
 
     expect(getRouteAccessDecision({
-      hasSeenGetStarted: true,
       isAuthenticated: true,
       onboardingState: onboardedState,
       pathname: ROUTES.onboardingComplete,
@@ -139,7 +140,6 @@ describe('auth onboarding route gate', () => {
 
   it('returns fully onboarded users to a stored protected deep link', () => {
     const decision = getRouteAccessDecision({
-      hasSeenGetStarted: true,
       isAuthenticated: true,
       onboardingState: onboardedState,
       pathname: ROUTES.auth,
@@ -152,14 +152,12 @@ describe('auth onboarding route gate', () => {
 
   it('leaves public and unknown routes alone', () => {
     expect(getRouteAccessDecision({
-      hasSeenGetStarted: true,
       isAuthenticated: false,
       onboardingState: null,
       pathname: '/terms',
     }).targetRoute).toBeNull();
 
     expect(getRouteAccessDecision({
-      hasSeenGetStarted: true,
       isAuthenticated: true,
       onboardingState: onboardedState,
       pathname: '/missing-page',

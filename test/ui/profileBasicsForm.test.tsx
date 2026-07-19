@@ -37,6 +37,15 @@ const makeFormProps = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe('ProfileBasicsForm', () => {
+  it('keeps the setup heading concise', () => {
+    render(<ProfileBasicsForm {...makeFormProps() as any} />);
+
+    expect(screen.getByText('Set up your presence')).toBeTruthy();
+    expect(
+      screen.queryByText('These basics unlock Radar and help nearby people recognize the real you.'),
+    ).toBeNull();
+  });
+
   it('does not show username success while a duplicate username save error is visible', () => {
     render(
       <ProfileBasicsForm

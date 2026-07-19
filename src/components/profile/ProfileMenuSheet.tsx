@@ -1,6 +1,8 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { theme } from '../../styles/theme';
 import { Feather } from '../icons';
+import { AppBottomSheet } from '../ui/app-bottom-sheet';
 
 export type ProfileMenuSheetProps = {
   visible: boolean;
@@ -17,129 +19,100 @@ const ProfileMenuSheet: React.FC<ProfileMenuSheetProps> = ({
   onFeedback,
   onLogout,
 }) => {
-  const translateY = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    Animated.timing(translateY, {
-      toValue: visible ? 0 : 1,
-      duration: 260,
-      useNativeDriver: Platform.OS !== 'web',
-    }).start();
-  }, [translateY, visible]);
+  const runAction = (action: () => void) => {
+    onRequestClose();
+    action();
+  };
 
   return (
-    <Modal transparent visible={visible} animationType="none" onRequestClose={onRequestClose}>
-      <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onRequestClose} />
-        <Animated.View
-          style={[
-            styles.sheet,
-            {
-              transform: [
-                {
-                  translateY: translateY.interpolate({ inputRange: [0, 1], outputRange: [0, 420] }),
-                },
-              ],
-            },
-          ]}
+    <AppBottomSheet
+      visible={visible}
+      onRequestClose={onRequestClose}
+      title="Menu"
+      accessibilityLabel="Profile menu"
+    >
+      <View style={styles.actions}>
+        <Pressable
+          style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          onPress={() => runAction(onEditProfile)}
+          accessibilityRole="button"
+          accessibilityLabel="Edit Profile"
         >
-          <View style={styles.headerRow}>
-            <Text style={styles.title}>Menu</Text>
-            {/* Removed redundant close icon; backdrop tap and menu actions handle closing */}
+          <View style={styles.iconWrap}>
+            <Feather name="edit-3" size={18} color={theme.prism.colors.textSoft} />
           </View>
+          <Text style={styles.rowLabel}>Edit Profile</Text>
+        </Pressable>
 
-          <Pressable style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]} onPress={() => { onRequestClose(); onEditProfile(); }}>
-            <View style={styles.iconWrap}>
-              <Feather name="edit-3" size={18} color="#ffffff" />
-            </View>
-            <Text style={styles.rowLabel}>Edit Profile</Text>
-          </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          onPress={() => runAction(onFeedback)}
+          accessibilityRole="button"
+          accessibilityLabel="Give Feedback"
+        >
+          <View style={styles.iconWrap}>
+            <Feather name="message-square" size={18} color={theme.prism.colors.textSoft} />
+          </View>
+          <Text style={styles.rowLabel}>Give Feedback</Text>
+        </Pressable>
 
-          <Pressable style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]} onPress={() => { onRequestClose(); onFeedback(); }}>
-            <View style={styles.iconWrap}>
-              <Feather name="message-square" size={18} color="#ffffff" />
-            </View>
-            <Text style={styles.rowLabel}>Give Feedback</Text>
-          </Pressable>
-
-          <Pressable style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]} onPress={() => { onRequestClose(); onLogout(); }}>
-            <View style={styles.iconWrap}>
-              <Feather name="log-out" size={18} color="#ffffff" />
-            </View>
-            <Text style={styles.rowLabel}>Logout</Text>
-          </Pressable>
-        </Animated.View>
+        <Pressable
+          style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+          onPress={() => runAction(onLogout)}
+          accessibilityRole="button"
+          accessibilityLabel="Logout"
+        >
+          <View style={[styles.iconWrap, styles.destructiveIcon]}>
+            <Feather name="log-out" size={18} color="#FCA5A5" />
+          </View>
+          <Text style={[styles.rowLabel, styles.destructiveLabel]}>Logout</Text>
+        </Pressable>
       </View>
-    </Modal>
+    </AppBottomSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(2, 6, 23, 0.65)',
-  },
-  sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    backgroundColor: '#000000',
-    borderTopWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 24,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(71, 85, 105, 0.6)',
-  },
-  title: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  iconButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#000000',
+  actions: {
+    gap: 8,
   },
   row: {
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    paddingHorizontal: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.prism.colors.border,
+    backgroundColor: 'rgba(8, 13, 16, 0.68)',
+    paddingHorizontal: 12,
     gap: 12,
   },
   rowPressed: {
-    backgroundColor: 'rgba(30, 41, 59, 0.22)',
+    backgroundColor: 'rgba(37, 99, 235, 0.14)',
+    borderColor: theme.prism.colors.borderStrong,
   },
   iconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: 'rgba(37, 99, 235, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.18)',
   },
   rowLabel: {
-    color: '#ffffff',
+    color: theme.prism.colors.text,
+    fontFamily: theme.typography.fontFamily.system,
     fontSize: 15,
     fontWeight: '600',
+  },
+  destructiveIcon: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.25)',
+  },
+  destructiveLabel: {
+    color: '#FCA5A5',
   },
 });
 

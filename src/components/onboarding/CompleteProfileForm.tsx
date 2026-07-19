@@ -1,12 +1,13 @@
 import React from 'react';
-import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '../icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import ImageUploadDialog from '../ImageUploadDialog';
 import GradientTitle from '../GradientTitle';
-import { SOCIAL_PLATFORMS, extractUsername } from '../../constants/socialPlatforms';
+import { SocialBrandBadge } from '../social-brand-badge';
+import { SocialUsernameDialog } from '../social-username-dialog';
 import { styles } from '../../styles/completeProfile.styles';
 import { prismGradientColors, theme } from '../../styles/theme';
 import type { useCompleteProfileOnboarding } from '../../hooks/useCompleteProfileOnboarding';
@@ -22,7 +23,7 @@ const SOCIAL_LINK_LABELS = {
   },
   twitter: {
     label: 'X',
-    title: 'X (Twitter) Username',
+    title: 'X Username',
     helper: 'x.com',
   },
   linkedin: {
@@ -39,49 +40,39 @@ export const CompleteProfileForm = ({ profile }: { profile: CompleteProfileViewM
       key: 'instagram' as const,
       value: profile.instagram,
       setValue: profile.setInstagram,
-      badgeStyle: styles.instagramBadge,
     },
     {
       key: 'twitter' as const,
       value: profile.twitter,
       setValue: profile.setTwitter,
-      badgeStyle: styles.outlinedBadge,
     },
     {
       key: 'linkedin' as const,
       value: profile.linkedin,
       setValue: profile.setLinkedin,
-      badgeStyle: { backgroundColor: SOCIAL_PLATFORMS.linkedin.style.backgroundColor },
     },
   ];
   const activeSocialItem = socialItems.find((item) => item.key === activeSocial) ?? socialItems[0];
-  const activeSocialLabels = SOCIAL_LINK_LABELS[activeSocialItem.key];
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       <StatusBar barStyle="light-content" backgroundColor={theme.prism.colors.background} />
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.safeArea}>
         <View style={styles.header}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Back to profile basics"
-            onPress={profile.handleBack}
-            style={styles.headerButton}
-          >
-            <Feather name="arrow-left" size={22} color={theme.prism.colors.text} />
-          </Pressable>
+          <View style={{ width: 44 }} />
           <View style={styles.headerTitleContainer}>
             <Text style={styles.stepIndicator}>Step 2 of 2</Text>
-            <GradientTitle text="Complete your profile" style={styles.headerTitle} variant="prism" />
-            <Text style={styles.headerHelper}>
-              Add a photo, bio, and socials so nearby people recognize you. You can skip for now.
-            </Text>
+            <GradientTitle text="Complete your profile" style={styles.headerTitle} numberOfLines={2} variant="prism" />
           </View>
           <View style={{ width: 44 }} />
         </View>
-      </SafeAreaView>
+      </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.bannerWrapper}>
           {profile.bannerImage ? (
             <Image source={{ uri: profile.bannerImage.uri }} style={styles.bannerImage} resizeMode="cover" />
@@ -130,9 +121,7 @@ export const CompleteProfileForm = ({ profile }: { profile: CompleteProfileViewM
 
           {socialItems.map((item) => (
             <View key={item.key} style={styles.socialCard}>
-              <View style={[styles.socialBadge, item.badgeStyle]}>
-                {SOCIAL_PLATFORMS[item.key].renderIcon({ size: 20, color: theme.prism.colors.text })}
-              </View>
+              <SocialBrandBadge platform={item.key} size={44} />
               <View style={styles.socialContent}>
                 <Text style={styles.socialLabel}>{SOCIAL_LINK_LABELS[item.key].label}</Text>
                 <Text style={styles.socialValue}>{item.value || 'No link added'}</Text>
@@ -188,38 +177,13 @@ export const CompleteProfileForm = ({ profile }: { profile: CompleteProfileViewM
         </View>
       </ScrollView>
 
-      <Modal
-        transparent
-        visible={!!activeSocial}
-        animationType="fade"
+      <SocialUsernameDialog
+        visible={activeSocial !== null}
+        platform={activeSocialItem.key}
+        value={activeSocialItem.value}
+        onSave={activeSocialItem.setValue}
         onRequestClose={() => setActiveSocial(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{activeSocialLabels.title}</Text>
-            <TextInput
-              value={activeSocialItem.value}
-              onChangeText={(text) => activeSocialItem.setValue(extractUsername(text))}
-              placeholder="username"
-              placeholderTextColor={theme.prism.colors.mutedDeep}
-              style={styles.modalInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <Text style={styles.modalHelper}>
-              Will link to: {activeSocialLabels.helper}/{activeSocialItem.value || 'username'}
-            </Text>
-            <View style={styles.modalActions}>
-              <Pressable style={[styles.modalBtn, styles.modalCancel]} onPress={() => setActiveSocial(null)}>
-                <Text style={styles.modalBtnLabel}>Cancel</Text>
-              </Pressable>
-              <Pressable style={[styles.modalBtn, styles.modalSave]} onPress={() => setActiveSocial(null)}>
-                <Text style={styles.modalBtnLabel}>Save</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      />
 
       <ImageUploadDialog
         visible={profile.showImageUploadDialog}
@@ -233,7 +197,8 @@ export const CompleteProfileForm = ({ profile }: { profile: CompleteProfileViewM
         }
         onRemove={profile.handleRemoveImage}
         showRemoveOption={true}
+        imageKind={profile.uploadType === 'avatar' ? 'avatar' : 'banner'}
       />
-    </View>
+    </SafeAreaView>
   );
 };

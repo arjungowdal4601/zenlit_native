@@ -3,20 +3,21 @@ import { StyleSheet } from 'react-native';
 import { theme } from './theme';
 
 export const styles = StyleSheet.create({
-  loadingContainer: {
+  appShell: {
     flex: 1,
-    backgroundColor: theme.colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: theme.prism.colors.background,
   },
-  loadingText: {
-    marginTop: 16,
-    color: '#94a3b8',
-    fontSize: 16,
+  routeLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 100,
   },
   errorContainer: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+    backgroundColor: theme.prism.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,

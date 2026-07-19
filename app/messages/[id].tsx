@@ -20,7 +20,7 @@ import DayDivider from '../../src/components/messaging/DayDivider';
 import MessageBubble, { type MessageStatus } from '../../src/components/messaging/MessageBubble';
 import TypingIndicator from '../../src/components/messaging/TypingIndicator';
 import { theme } from '../../src/styles/theme';
-import type { Message, Profile, SocialLinks } from '../../src/lib/types';
+import type { Message, PublicProfile, SocialLinks } from '../../src/lib/types';
 import {
   getMessagesBetweenUsers,
   sendMessage,
@@ -140,7 +140,7 @@ const ChatDetailScreen: React.FC = () => {
     typeof params.id === 'string' ? params.id : Array.isArray(params.id) ? params.id[0] : undefined;
 
   const { markThreadDelivered, markThreadRead, setActiveConversation } = useMessaging();
-  const [otherUser, setOtherUser] = useState<Profile | null>(null);
+  const [otherUser, setOtherUser] = useState<PublicProfile | null>(null);
   const [socialLinks, setSocialLinks] = useState<SocialLinks | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);

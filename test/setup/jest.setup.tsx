@@ -39,10 +39,48 @@ jest.mock('expo-location', () => ({
 }));
 
 jest.mock('expo-image-picker', () => ({
+  getCameraPermissionsAsync: jest.fn(async () => ({ status: 'granted', granted: true, canAskAgain: true })),
+  requestCameraPermissionsAsync: jest.fn(async () => ({ status: 'granted', granted: true, canAskAgain: true })),
   requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ status: 'granted' })),
+  launchCameraAsync: jest.fn(async () => ({ canceled: true, assets: [] })),
   launchImageLibraryAsync: jest.fn(async () => ({ canceled: true, assets: [] })),
   MediaTypeOptions: { Images: 'Images' },
 }));
+
+jest.mock('expo-camera', () => {
+  const ReactRuntime = require('react');
+  const { View } = require('react-native');
+  const permission = {
+    status: 'granted',
+    granted: true,
+    canAskAgain: true,
+    expires: 'never',
+  };
+  const MockCameraView = ReactRuntime.forwardRef(
+    (props: Record<string, unknown>, ref: React.Ref<unknown>) => {
+      ReactRuntime.useImperativeHandle(ref, () => ({
+        takePictureAsync: jest.fn(async () => ({
+          uri: 'data:image/jpeg;base64,Y2FtZXJh',
+          width: 800,
+          height: 800,
+        })),
+      }));
+      ReactRuntime.useEffect(() => {
+        (props.onCameraReady as (() => void) | undefined)?.();
+      }, [props.onCameraReady]);
+      return ReactRuntime.createElement(View, {
+        ...props,
+        accessibilityLabel: props.accessibilityLabel ?? 'Camera preview',
+      });
+    },
+  );
+  MockCameraView.isAvailableAsync = jest.fn(async () => true);
+
+  return {
+    CameraView: MockCameraView,
+    useCameraPermissions: () => [permission, jest.fn(async () => permission), jest.fn(async () => permission)],
+  };
+});
 
 jest.mock('expo-linear-gradient', () => {
   const ReactRuntime = require('react');

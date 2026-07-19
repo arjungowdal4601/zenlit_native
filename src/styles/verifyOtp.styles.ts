@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 
+import { createShadowStyle } from '../utils/shadow';
 import { theme } from './theme';
 
 const prism = theme.prism.colors;
@@ -15,9 +16,9 @@ export const styles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 40,
+    paddingBottom: 56,
     alignItems: 'center',
   },
   topBar: {
@@ -35,13 +36,16 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   brandSection: {
+    width: '100%',
+    maxWidth: 400,
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 28,
   },
   brandTitle: {
     ...theme.typography.title,
-    fontSize: 40,
-    lineHeight: 44,
+    width: '100%',
+    fontSize: 38,
+    lineHeight: 42,
     letterSpacing: 0,
     textAlign: 'center',
   },
@@ -53,17 +57,21 @@ export const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 400,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingHorizontal: 20,
+    paddingVertical: 28,
     borderRadius: 18,
     backgroundColor: 'rgba(20, 24, 32, 0.82)',
     borderWidth: 1,
     borderColor: prism.border,
-    shadowColor: '#000000',
-    shadowOpacity: 0.5,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 12,
+    ...createShadowStyle({
+      native: {
+        shadowColor: '#000000',
+        shadowOpacity: 0.5,
+        shadowRadius: 24,
+        shadowOffset: { width: 0, height: 12 },
+        elevation: 12,
+      },
+    }),
   },
   infoBanner: {
     flexDirection: 'row',
@@ -78,6 +86,8 @@ export const styles = StyleSheet.create({
   },
   infoText: {
     flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
     fontSize: 14,
     color: prism.textSoft,
     lineHeight: 20,
@@ -116,7 +126,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     alignSelf: 'center',
     alignItems: 'center',
-    width: 260,
+    width: '100%',
     maxWidth: 260,
   },
   otpInput: {

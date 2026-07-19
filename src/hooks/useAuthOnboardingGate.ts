@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 
-import { theme } from '../styles/theme';
 import { toError } from '../utils/errorUtils';
 import { logger } from '../utils/logger';
 import { evaluateOnboardingState, type OnboardingState } from '../utils/onboardingState';
+import { subscribeToOnboardingState } from '../utils/onboardingStateSync';
 import { getRouteAccessDecision, getSafeAppReturnTo } from '../utils/authOnboardingGate';
 import { resolveOnboardingState } from '../services/onboardingService';
 import {
@@ -14,7 +14,6 @@ import {
   onAuthChange,
   signOut,
 } from '../services/authService';
-import { persistHasSeenGetStarted, readHasSeenGetStarted } from '../utils/getStartedPreference';
 
 const RETURN_TO_STORAGE_KEY = 'zenlit.returnTo';
 
@@ -38,28 +37,6 @@ const writeStoredReturnTo = (returnTo: string | null) => {
 const useWebShellEffects = (pathname: string) => {
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
-
-    const styleId = 'zenlit-web-typography';
-    if (!document.getElementById(styleId)) {
-      const style = document.createElement('style');
-      style.id = styleId;
-      style.textContent = `
-        @import url('https://api.fontshare.com/v2/css?f[]=satoshi@500,700,900&display=swap');
-        @import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap');
-        html, body, #root, #expo-root {
-          font-family: ${theme.typography.fontFamily.web};
-          text-rendering: optimizeLegibility;
-          -webkit-font-smoothing: antialiased;
-          -moz-osx-font-smoothing: grayscale;
-        }
-        button, input, textarea, select { font-family: inherit; }
-      `;
-      document.head.appendChild(style);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
     window.requestAnimationFrame(() => {
       const activeElement = document.activeElement as HTMLElement | null;
       activeElement?.blur();
@@ -74,7 +51,6 @@ export const useAuthOnboardingGate = () => {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
   const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null);
-  const [hasSeenGetStarted, setHasSeenGetStarted] = useState<boolean | null>(null);
   const [storedReturnTo, setStoredReturnTo] = useState(readStoredReturnTo);
   const routeRefreshKeyRef = useRef<string | null>(null);
   const authConfigStatus = getAuthConfigStatus();
@@ -94,6 +70,18 @@ export const useAuthOnboardingGate = () => {
     }
     finishSignedOut();
   }, [finishSignedOut]);
+
+  useEffect(() => subscribeToOnboardingState((state) => {
+    routeRefreshKeyRef.current = null;
+    if (state.status === 'guest') {
+      finishSignedOut();
+      return;
+    }
+    setIsAuthenticated(true);
+    setIsCheckingAuth(false);
+    setOnboardingState(state);
+    setIsCheckingOnboarding(false);
+  }), [finishSignedOut]);
 
   const refreshOnboardingState = useCallback(async (userId?: string | null) => {
     setIsCheckingOnboarding(true);
@@ -119,10 +107,6 @@ export const useAuthOnboardingGate = () => {
   }, [clearStaleAuthSession, finishSignedOut]);
 
   useWebShellEffects(pathname);
-
-  useEffect(() => {
-    setHasSeenGetStarted(readHasSeenGetStarted());
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -175,27 +159,20 @@ export const useAuthOnboardingGate = () => {
     });
   }, [finishSignedOut, refreshOnboardingState]);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    setHasSeenGetStarted(true);
-    persistHasSeenGetStarted();
-  }, [isAuthenticated]);
-
   const routeAccess = useMemo(() => {
-    if (isAuthenticated === null || hasSeenGetStarted === null) return null;
+    if (isAuthenticated === null) return null;
     return getRouteAccessDecision({
-      hasSeenGetStarted,
       isAuthenticated,
       onboardingState,
       pathname,
       storedReturnTo,
     });
-  }, [hasSeenGetStarted, isAuthenticated, onboardingState, pathname, storedReturnTo]);
+  }, [isAuthenticated, onboardingState, pathname, storedReturnTo]);
 
   const onboardingUserId = onboardingState?.userId ?? null;
 
   useEffect(() => {
-    if (isCheckingAuth || isCheckingOnboarding || isAuthenticated === null || hasSeenGetStarted === null) {
+    if (isCheckingAuth || isCheckingOnboarding || isAuthenticated === null) {
       return;
     }
 
@@ -223,7 +200,7 @@ export const useAuthOnboardingGate = () => {
       routeRefreshKeyRef.current = null;
     }
   }, [
-    hasSeenGetStarted, isAuthenticated, isCheckingAuth, isCheckingOnboarding, onboardingUserId,
+    isAuthenticated, isCheckingAuth, isCheckingOnboarding, onboardingUserId,
     onboardingState, pathname, refreshOnboardingState, routeAccess, router, storedReturnTo,
   ]);
 
@@ -239,7 +216,7 @@ export const useAuthOnboardingGate = () => {
     authConfigStatus,
     authReady: isAuthReady(),
     isLoading: isCheckingAuth || isCheckingOnboarding || isAuthenticated === null ||
-      hasSeenGetStarted === null || (isAuthenticated && !onboardingState),
+      (isAuthenticated && !onboardingState),
     pathname,
     routeAccess,
     shouldShowNav: routeAccess?.shouldShowNav ?? false,

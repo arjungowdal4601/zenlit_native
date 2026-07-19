@@ -1,6 +1,3 @@
-import React, { type ReactElement } from 'react';
-import { Feather } from '../components/icons';
-
 export type SocialPlatformId = 'instagram' | 'linkedin' | 'twitter';
 
 export type SocialLinks = {
@@ -17,54 +14,23 @@ export const getTwitterHandle = (links?: SocialLinks | null) => {
   return links.twitter ?? links.x_twitter ?? null;
 };
 
-type IconRenderer = (props?: { size?: number; color?: string }) => ReactElement;
-
 interface SocialPlatformMeta {
   id: SocialPlatformId;
   label: string;
-  style: {
-    backgroundColor?: string;
-  };
-  renderIcon: IconRenderer;
-  wantsWhiteIcon?: boolean;
 }
 
 export const SOCIAL_PLATFORMS: Record<SocialPlatformId, SocialPlatformMeta> = {
   instagram: {
     id: 'instagram',
     label: 'Instagram',
-    style: {},
-    renderIcon: (props) =>
-      React.createElement(Feather, {
-        name: 'instagram',
-        size: props?.size ?? 16,
-        color: props?.color ?? '#ffffff',
-      }),
-    wantsWhiteIcon: true,
   },
   linkedin: {
     id: 'linkedin',
     label: 'LinkedIn',
-    style: { backgroundColor: '#0077B5' },
-    renderIcon: (props) =>
-      React.createElement(Feather, {
-        name: 'linkedin',
-        size: props?.size ?? 16,
-        color: props?.color ?? '#ffffff',
-      }),
-    wantsWhiteIcon: true,
   },
   twitter: {
     id: 'twitter',
-    label: 'X (Twitter)',
-    style: { backgroundColor: '#000000' },
-    renderIcon: (props) =>
-      React.createElement(Feather, {
-        name: 'twitter',
-        size: props?.size ?? 16,
-        color: props?.color ?? '#ffffff',
-      }),
-    wantsWhiteIcon: true,
+    label: 'X',
   },
 };
 

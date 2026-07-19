@@ -16,6 +16,7 @@ describe('web deployment configuration', () => {
         node?: string;
       };
       scripts: Record<string, string>;
+      dependencies?: Record<string, string>;
     }>('package.json');
     const appJson = readJson<{
       expo: {
@@ -23,6 +24,7 @@ describe('web deployment configuration', () => {
         web?: {
           output?: string;
         };
+        plugins?: Array<string | [string, Record<string, unknown>]>;
       };
     }>('app.json');
     const vercelJson = readJson<{
@@ -44,16 +46,29 @@ describe('web deployment configuration', () => {
       }>;
     }>('vercel.json');
 
-    expect(packageJson.scripts['build:web']).toBe('expo export --platform web');
+    expect(packageJson.scripts['build:web']).toBe(
+      'expo export --platform web && node scripts/postprocess-web-shell.mjs',
+    );
     expect(packageJson.scripts.build).toBe('npm run build:web');
     expect(packageJson.scripts['preview:web']).toBe(
       'npx serve@latest dist --single --listen 8081',
     );
     expect(packageJson.scripts['deploy:vercel']).toBe('npx vercel@latest --prod');
     expect(packageJson.engines?.node).toBe('>=22.13.0');
+    expect(packageJson.dependencies?.['expo-camera']).toBe('~57.0.3');
 
     expect(appJson.expo.platforms).toEqual(['web']);
     expect(appJson.expo.web?.output).toBe('single');
+
+    const cameraPlugin = appJson.expo.plugins?.find(
+      (entry): entry is [string, Record<string, unknown>] =>
+        Array.isArray(entry) && entry[0] === 'expo-camera',
+    );
+    expect(cameraPlugin?.[1]).toMatchObject({
+      microphonePermission: false,
+      recordAudioAndroid: false,
+      barcodeScannerEnabled: false,
+    });
 
     expect(vercelJson).toMatchObject({
       buildCommand: 'npm run build:web',
@@ -64,7 +79,7 @@ describe('web deployment configuration', () => {
       rewrites: [
         {
           source: '/:path*',
-          destination: '/index.html',
+          destination: '/',
         },
       ],
     });
@@ -79,7 +94,7 @@ describe('web deployment configuration', () => {
     expect(headerMap.get('X-Content-Type-Options')).toBe('nosniff');
     expect(headerMap.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin');
     expect(headerMap.get('Permissions-Policy')).toBe(
-      'camera=(), microphone=(), payment=(), usb=(), geolocation=(self)',
+      'camera=(self), microphone=(), payment=(), usb=(), geolocation=(self)',
     );
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain("base-uri 'self'");
@@ -116,5 +131,17 @@ describe('web deployment configuration', () => {
     expect(dockerignore).toContain('node_modules');
     expect(dockerignore).toContain('dist');
     expect(dockerignore).toContain('.env');
+  });
+
+  it('paints the dark mobile shell before React mounts', () => {
+    const globalCss = readText('app/global.css');
+    const postprocessor = readText('scripts/postprocess-web-shell.mjs');
+
+    expect(globalCss).toContain('background: #080d10');
+    expect(globalCss).toContain('overscroll-behavior: none');
+    expect(globalCss).toContain('color-scheme: dark');
+    expect(postprocessor).toContain('viewport-fit=cover');
+    expect(postprocessor).toContain('data-zenlit-shell="true"');
+    expect(postprocessor).toContain('background: #080d10');
   });
 });

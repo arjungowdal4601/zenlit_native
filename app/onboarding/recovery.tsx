@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StatusBar, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StatusBar, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -10,6 +10,7 @@ import { resolveOnboardingState } from '../../src/services/onboardingService';
 import { styles } from '../../src/styles/onboardingRecovery.styles';
 import { prismGradientColors, theme } from '../../src/styles/theme';
 import { getRouteForOnboardingState } from '../../src/utils/onboardingState';
+import { publishOnboardingState } from '../../src/utils/onboardingStateSync';
 
 const OnboardingRecoveryScreen: React.FC = () => {
   const router = useRouter();
@@ -31,7 +32,9 @@ const OnboardingRecoveryScreen: React.FC = () => {
         setError('We still could not confirm your setup. Please try again or sign out.');
         return;
       }
-      router.replace(getRouteForOnboardingState(state));
+      if (!publishOnboardingState(state)) {
+        router.replace(getRouteForOnboardingState(state));
+      }
     } catch {
       setError('We could not check your setup right now. Please try again or sign out.');
     } finally {
@@ -57,7 +60,11 @@ const OnboardingRecoveryScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       <StatusBar barStyle="light-content" backgroundColor={theme.prism.colors.background} />
-      <View style={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.card}>
           <GradientTitle text="Zenlit" style={styles.brandTitle} variant="prism" />
           <Text style={styles.title}>We could not confirm your setup</Text>
@@ -114,7 +121,7 @@ const OnboardingRecoveryScreen: React.FC = () => {
             )}
           </Pressable>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };

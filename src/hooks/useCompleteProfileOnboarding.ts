@@ -7,7 +7,8 @@ import {
 } from '../services/onboardingService';
 import type { CompressedImage } from '../utils/imageCompression';
 import { getFriendlyOnboardingError } from '../utils/onboardingErrors';
-import { getRouteForOnboardingState, ROUTES } from '../utils/onboardingState';
+import { getRouteForOnboardingState } from '../utils/onboardingState';
+import { publishOnboardingState } from '../utils/onboardingStateSync';
 import { uploadProfileImagesWithCleanup } from '../utils/profileImageUploads';
 
 export const useCompleteProfileOnboarding = () => {
@@ -64,7 +65,9 @@ export const useCompleteProfileOnboarding = () => {
           throw result.error ?? new Error('Failed to save optional profile details');
         }
         if (mountedRef.current) {
-          router.replace(getRouteForOnboardingState(result.data));
+          if (!publishOnboardingState(result.data)) {
+            router.replace(getRouteForOnboardingState(result.data));
+          }
         }
       } catch (error) {
         await uploadedImages.cleanupUploadedImages();
@@ -98,7 +101,9 @@ export const useCompleteProfileOnboarding = () => {
 
       if (mountedRef.current) {
         clearDraft();
-        router.replace(getRouteForOnboardingState(data));
+        if (!publishOnboardingState(data)) {
+          router.replace(getRouteForOnboardingState(data));
+        }
       }
     } catch (error) {
       if (mountedRef.current) {
@@ -136,7 +141,6 @@ export const useCompleteProfileOnboarding = () => {
     bannerImage,
     bio,
     errorMessage,
-    handleBack: () => router.replace(ROUTES.onboardingBasic),
     handleImageSelected,
     handleRemoveImage,
     handleSave,

@@ -26,7 +26,7 @@ const VerifyOtpForm = ({
   status,
   verifying,
 }: VerifyOtpFormProps) => (
-  <SafeAreaView style={styles.safeArea} edges={['top']}>
+  <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
     <StatusBar barStyle="light-content" backgroundColor={theme.prism.colors.background} />
     <KeyboardAvoidingView
       behavior={Platform.select({ ios: 'padding', android: undefined })}
@@ -34,6 +34,7 @@ const VerifyOtpForm = ({
     >
       <ScrollView
         contentContainerStyle={styles.scroll}
+        contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >

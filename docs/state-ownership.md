@@ -11,7 +11,6 @@ Zenlit has several state lifetimes: auth session, persisted onboarding data, for
 | OTP email/code | `src/hooks/useVerifyOtp.ts` | OTP screen hook only | OTP can only return to `/auth` |
 | Profile Basics form | `src/hooks/useProfileBasicsOnboarding.ts` | Profile Basics flow only | Can move to `/onboarding/profile/complete` after save |
 | Optional profile draft | `src/contexts/OnboardingProfileDraftContext.tsx` | Complete Profile flow only | No app-wide routing |
-| Get Started seen | `src/utils/getStartedPreference.ts` | Get Started/root gate | Root gate |
 | Profile Basics draft table | `profile_basics_drafts` through `onboardingService` | `onboardingService` only | No direct routing |
 | Route params | Expo Router route files/hooks | Current route only | No app-wide routing |
 | Visibility state | `src/contexts/VisibilityContext.tsx` | Visibility/Radar domain | Not onboarding |

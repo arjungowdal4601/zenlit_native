@@ -1,90 +1,36 @@
-import React, { useEffect } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Feather } from './icons';
+import React, { useEffect, useRef } from 'react';
+import { useAppToast } from './ui/app-toast';
 
 export type SuccessPopupProps = {
   visible: boolean;
   message?: string;
-  duration?: number; // milliseconds
+  duration?: number;
   onDismiss?: () => void;
 };
 
 const SuccessPopup: React.FC<SuccessPopupProps> = ({
   visible,
   message = 'Post created successfully',
-  duration = 2000,
+  duration = 4000,
   onDismiss,
 }) => {
+  const { showToast } = useAppToast();
+  const emittedRef = useRef(false);
+
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      emittedRef.current = false;
+      return;
+    }
 
-    const timer = setTimeout(() => {
-      onDismiss?.();
-    }, duration);
+    if (emittedRef.current) return;
+    emittedRef.current = true;
 
-    return () => clearTimeout(timer);
-  }, [visible, duration, onDismiss]);
+    showToast({ message, tone: 'success', duration });
+    onDismiss?.();
+  }, [duration, message, onDismiss, showToast, visible]);
 
-  return (
-    <Modal
-      transparent
-      animationType="fade"
-      visible={visible}
-      onRequestClose={onDismiss}
-    >
-      <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onDismiss} accessibilityRole="button" />
-        <View style={styles.card}>
-          <View style={styles.iconWrap}>
-            <Feather name="check-circle" size={40} color="#22c55e" />
-          </View>
-          <Text style={styles.message}>{message}</Text>
-        </View>
-      </View>
-    </Modal>
-  );
+  return null;
 };
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    paddingHorizontal: 24,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 360,
-    borderRadius: 18,
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    backgroundColor: '#000000',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(34, 197, 94, 0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.35)',
-    marginBottom: 12,
-  },
-  message: {
-    color: '#e2e8f0',
-    fontSize: 16,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-});
 
 export default SuccessPopup;

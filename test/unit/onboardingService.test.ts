@@ -10,19 +10,24 @@ import {
 const mockSupabase = supabase as unknown as {
   auth: { getUser: jest.Mock };
   from: jest.Mock;
+  rpc: jest.Mock;
 };
 
 type MockSupabaseResult = { data: unknown; error: unknown };
 
-const makeBuilder = (maybeSingleResult: MockSupabaseResult = { data: null, error: null }) => {
+const makeBuilder = (
+  maybeSingleResult: MockSupabaseResult = { data: null, error: null },
+  writeResult: MockSupabaseResult = { data: null, error: null },
+) => {
   const builder: Record<string, jest.Mock> = {};
   Object.assign(builder, {
     delete: jest.fn(() => builder),
     eq: jest.fn(() => builder),
+    insert: jest.fn(() => builder),
     maybeSingle: jest.fn(async () => maybeSingleResult),
     select: jest.fn(() => builder),
     then: jest.fn((resolve: (value: unknown) => unknown) =>
-      Promise.resolve({ data: null, error: null }).then(resolve),
+      Promise.resolve(writeResult).then(resolve),
     ),
     update: jest.fn(() => builder),
     upsert: jest.fn(() => builder),
@@ -106,6 +111,12 @@ describe('onboarding service auth guard', () => {
       error: null,
     });
 
+    const profileBuilder = makeBuilder();
+    const draftBuilder = makeBuilder();
+    mockSupabase.from
+      .mockReturnValueOnce(profileBuilder)
+      .mockReturnValueOnce(draftBuilder);
+
     const result = await saveRequiredProfileBasics(
       {
         display_name: 'Alex Johnson',
@@ -118,10 +129,120 @@ describe('onboarding service auth guard', () => {
 
     expect(result.error).toBeNull();
     expect(result.data?.status).toBe('optional-profile-details');
+    expect(profileBuilder.insert).toHaveBeenCalledWith({
+      id: 'user-1',
+      email: 'alex@example.com',
+      display_name: 'Alex Johnson',
+      user_name: 'alex',
+      date_of_birth: '1998-04-12',
+      gender: 'other',
+    });
+    expect(profileBuilder.upsert).not.toHaveBeenCalled();
     expect(mockSupabase.from.mock.calls.map(([table]) => table)).toEqual([
       'profiles',
       'profile_basics_drafts',
     ]);
+  });
+
+  it('retries a current-user profiles_pkey conflict as an owner-scoped update', async () => {
+    mockSupabase.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: 'user-1', email: 'alex@example.com' } },
+      error: null,
+    });
+
+    const insertBuilder = makeBuilder(
+      { data: null, error: null },
+      {
+        data: null,
+        error: {
+          code: '23505',
+          message: 'duplicate key value violates unique constraint "profiles_pkey"',
+          details: 'Key (id)=(user-1) already exists.',
+        },
+      },
+    );
+    const updateBuilder = makeBuilder();
+    const draftBuilder = makeBuilder();
+    mockSupabase.from
+      .mockReturnValueOnce(insertBuilder)
+      .mockReturnValueOnce(updateBuilder)
+      .mockReturnValueOnce(draftBuilder);
+
+    const result = await saveRequiredProfileBasics(
+      {
+        display_name: 'Alex Johnson',
+        user_name: 'alex',
+        date_of_birth: '1998-04-12',
+        gender: 'other',
+      },
+      'user-1',
+    );
+
+    expect(result.error).toBeNull();
+    expect(updateBuilder.update).toHaveBeenCalledWith({
+      email: 'alex@example.com',
+      display_name: 'Alex Johnson',
+      user_name: 'alex',
+      date_of_birth: '1998-04-12',
+      gender: 'other',
+    });
+    expect(updateBuilder.eq).toHaveBeenCalledWith('id', 'user-1');
+    expect(mockSupabase.from.mock.calls.map(([table]) => table)).toEqual([
+      'profiles',
+      'profiles',
+      'profile_basics_drafts',
+    ]);
+  });
+
+  it.each([
+    {
+      label: 'username',
+      constraint: 'profiles_user_name_key',
+      details: 'Key (user_name)=(alex) already exists.',
+    },
+    {
+      label: 'email',
+      constraint: 'profiles_email_key',
+      details: 'Key (email)=(alex@example.com) already exists.',
+    },
+    {
+      label: 'another profile id',
+      constraint: 'profiles_pkey',
+      details: 'Key (id)=(another-user) already exists.',
+    },
+  ])('does not update for a $label conflict', async ({ constraint, details }) => {
+    mockSupabase.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: 'user-1', email: 'alex@example.com' } },
+      error: null,
+    });
+
+    const insertBuilder = makeBuilder(
+      { data: null, error: null },
+      {
+        data: null,
+        error: {
+          code: '23505',
+          message: `duplicate key value violates unique constraint "${constraint}"`,
+          details,
+        },
+      },
+    );
+    mockSupabase.from.mockReturnValueOnce(insertBuilder);
+
+    const result = await saveRequiredProfileBasics(
+      {
+        display_name: 'Alex Johnson',
+        user_name: 'alex',
+        date_of_birth: '1998-04-12',
+        gender: 'other',
+      },
+      'user-1',
+    );
+
+    expect(result.data).toBeNull();
+    expect(result.error?.message).toContain(constraint);
+    expect(mockSupabase.from).toHaveBeenCalledTimes(1);
+    expect(insertBuilder.update).not.toHaveBeenCalled();
   });
 
   it('marks optional profile complete when skipped', async () => {
@@ -138,9 +259,9 @@ describe('onboarding service auth guard', () => {
     const updateBuilder = makeBuilder();
     const profileBuilder = makeBuilder({ data: onboardedProfile, error: null });
     const draftBuilder = makeBuilder({ data: null, error: null });
+    mockSupabase.rpc.mockReturnValueOnce(profileBuilder);
     mockSupabase.from
       .mockReturnValueOnce(updateBuilder)
-      .mockReturnValueOnce(profileBuilder)
       .mockReturnValueOnce(draftBuilder);
 
     const result = await skipOptionalProfileDetails('user-1');
@@ -152,9 +273,9 @@ describe('onboarding service auth guard', () => {
     });
     expect(mockSupabase.from.mock.calls.map(([table]) => table)).toEqual([
       'profiles',
-      'profiles',
       'profile_basics_drafts',
     ]);
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('get_my_private_profile');
   });
 
   it('saves optional social details before marking optional profile complete', async () => {
@@ -172,10 +293,10 @@ describe('onboarding service auth guard', () => {
     const updateBuilder = makeBuilder();
     const profileBuilder = makeBuilder({ data: onboardedProfile, error: null });
     const draftBuilder = makeBuilder({ data: null, error: null });
+    mockSupabase.rpc.mockReturnValueOnce(profileBuilder);
     mockSupabase.from
       .mockReturnValueOnce(socialBuilder)
       .mockReturnValueOnce(updateBuilder)
-      .mockReturnValueOnce(profileBuilder)
       .mockReturnValueOnce(draftBuilder);
 
     const result = await saveOptionalProfileDetails({
@@ -196,5 +317,6 @@ describe('onboarding service auth guard', () => {
     expect(updateBuilder.update).toHaveBeenCalledWith({
       optional_profile_completed_at: expect.any(String),
     });
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('get_my_private_profile');
   });
 });

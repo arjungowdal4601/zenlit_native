@@ -7,20 +7,19 @@ import {
   Linking,
   Pressable,
   StatusBar,
-  StyleProp,
   StyleSheet,
   Text,
   View,
-  ViewStyle,
   useWindowDimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import AppHeader from '../../src/components/AppHeader';
 import ConfirmDialog from '../../src/components/ConfirmDialog';
 import ProfileMenuSheet from '../../src/components/profile/ProfileMenuSheet';
 import Post from '../../src/components/Post';
+import { SocialBrandBadge } from '../../src/components/social-brand-badge';
+import { useAppToast } from '../../src/components/ui/app-toast';
 import {
   SOCIAL_PLATFORMS,
   ensureSocialUrl,
@@ -40,14 +39,6 @@ const SOCIAL_ORDER: Array<'instagram' | 'linkedin' | 'twitter'> = [
 const FALLBACK_BANNER_URI =
   'https://images.unsplash.com/photo-1519669556878-619358287bf8?auto=format&fit=crop&w=1200&q=80';
 
-const INSTAGRAM_GRADIENT = [
-  '#f09433',
-  '#e6683c',
-  '#dc2743',
-  '#cc2366',
-  '#bc1888',
-] as const;
-
 const formatDate = (value: string) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -62,8 +53,10 @@ const formatDate = (value: string) => {
 
 const ProfileScreen: React.FC = () => {
   const router = useRouter();
+  const { showToast } = useAppToast();
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const [logoutProcessing, setLogoutProcessing] = useState(false);
   const { profile, socialLinks, isRefreshing, error, refresh } = useProfile();
   const [posts, setPosts] = useState<PostType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,18 +133,34 @@ const ProfileScreen: React.FC = () => {
   }, []);
 
   const handleConfirmLogout = useCallback(async () => {
-    setLogoutOpen(false);
+    if (logoutProcessing) {
+      return;
+    }
+    setLogoutProcessing(true);
     try {
-      await signOut('global');
-    } catch {}
-  }, []);
+      const signOutResult = await signOut('global') as { error?: unknown } | null;
+      const signOutError = signOutResult?.error;
+      if (signOutError) {
+        throw signOutError;
+      }
+      setLogoutOpen(false);
+    } catch (error) {
+      console.error('Unable to log out:', error);
+      showToast({ message: 'Unable to log out. Please try again.', tone: 'error' });
+    } finally {
+      setLogoutProcessing(false);
+    }
+  }, [logoutProcessing, showToast]);
 
   const handleDeletePost = useCallback(async (id: string) => {
     const { success } = await deletePostDb(id);
     if (success) {
       setPosts((prev) => prev.filter((p) => p.id !== id));
+      showToast({ message: 'Post deleted.', tone: 'success' });
+      return;
     }
-  }, []);
+    showToast({ message: 'Unable to delete this post. Please try again.', tone: 'error' });
+  }, [showToast]);
 
   const renderPost = useCallback(
     ({ item }: { item: PostType }) => {
@@ -227,9 +236,12 @@ const ProfileScreen: React.FC = () => {
       />
       <ConfirmDialog
         visible={logoutOpen}
-        message="Are you sure you want to log out?"
+        title="Log out of Zenlit?"
+        message="You’ll need a new verification code to sign in again."
         confirmLabel="Log Out"
         cancelLabel="Cancel"
+        tone="danger"
+        processing={logoutProcessing}
         onCancel={handleCancelLogout}
         onConfirm={handleConfirmLogout}
       />
@@ -252,45 +264,6 @@ const ProfileScreen: React.FC = () => {
                     const meta = SOCIAL_PLATFORMS[id];
                     const disabled = !url;
 
-                    if (id === 'instagram') {
-                      return (
-                        <Pressable
-                          key={id}
-                          style={({ pressed }) => [styles.socialButton, pressed ? styles.socialButtonPressed : null]}
-                          accessibilityRole="button"
-                          accessibilityLabel={meta.label}
-                          onPress={() => {
-                            if (url) {
-                              Linking.openURL(url);
-                            } else {
-                              router.push('/edit-profile');
-                            }
-                          }}
-                          android_ripple={{ color: 'rgba(255, 255, 255, 0.12)' }}
-                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                          disabled={false}
-                        >
-                          <LinearGradient
-                            colors={INSTAGRAM_GRADIENT}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={[styles.socialBadge, disabled ? styles.socialDisabled : null]}
-                          >
-                            {meta.renderIcon({ size: 18, color: '#ffffff' })}
-                          </LinearGradient>
-                        </Pressable>
-                      );
-                    }
-
-                    const badgeStyle: StyleProp<ViewStyle> = [
-                      styles.socialBadge,
-                      id === 'twitter' ? styles.outlinedBadge : null,
-                      id !== 'twitter' && meta.style.backgroundColor
-                        ? { backgroundColor: meta.style.backgroundColor }
-                        : null,
-                      disabled ? styles.socialDisabled : null,
-                    ];
-
                     return (
                       <Pressable
                         key={id}
@@ -308,9 +281,7 @@ const ProfileScreen: React.FC = () => {
                         hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                         disabled={false}
                       >
-                        <View style={badgeStyle}>
-                          {meta.renderIcon({ size: 18, color: '#ffffff' })}
-                        </View>
+                        <SocialBrandBadge platform={id} size={32} disabled={disabled} />
                       </Pressable>
                     );
                   })}
@@ -420,22 +391,6 @@ const styles = StyleSheet.create({
   },
   socialButtonPressed: {
     opacity: 0.7,
-  },
-  socialDisabled: {
-    opacity: 0.35,
-  },
-  socialBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#000000',
-  },
-  outlinedBadge: {
-    backgroundColor: '#000000',
-    borderWidth: 0,
-    borderColor: 'transparent',
   },
   identityBlock: {
     marginBottom: 0,

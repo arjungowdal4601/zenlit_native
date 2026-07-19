@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { Profile, SocialLinks } from '../lib/types';
+import type { Profile, PublicProfile, SocialLinks } from '../lib/types';
 import { evaluateUsernameAvailability } from '../utils/usernameAvailability';
 import type { UsernameCheckResult } from '../utils/profileValidation';
 
@@ -12,9 +12,7 @@ export async function getCurrentUserProfile(): Promise<{ profile: Profile | null
     }
 
     const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
+      .rpc('get_my_private_profile')
       .maybeSingle();
 
     if (profileError) {
@@ -37,11 +35,11 @@ export async function getCurrentUserProfile(): Promise<{ profile: Profile | null
   }
 }
 
-export async function getProfileById(userId: string): Promise<{ profile: Profile | null; socialLinks: SocialLinks | null; error: Error | null }> {
+export async function getProfileById(userId: string): Promise<{ profile: PublicProfile | null; socialLinks: SocialLinks | null; error: Error | null }> {
   try {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, display_name, user_name, account_created_at')
       .eq('id', userId)
       .maybeSingle();
 
@@ -56,7 +54,7 @@ export async function getProfileById(userId: string): Promise<{ profile: Profile
       .maybeSingle();
 
     return {
-      profile: profile as Profile | null,
+      profile: profile as PublicProfile | null,
       socialLinks: socialLinks as SocialLinks | null,
       error: socialError
     };

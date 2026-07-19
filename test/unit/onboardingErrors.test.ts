@@ -25,4 +25,13 @@ describe('onboarding error messages', () => {
       'This email is still linked to another profile. Please sign out and try again.',
     );
   });
+
+  it.each([
+    { code: '42501', message: 'permission denied for table profiles' },
+    { message: 'insufficient privilege while saving profile' },
+  ])('turns permission failures into a friendly infrastructure message', (error) => {
+    expect(getFriendlyOnboardingError(error)).toBe(
+      'Zenlit could not save your profile right now. Please try again shortly.',
+    );
+  });
 });

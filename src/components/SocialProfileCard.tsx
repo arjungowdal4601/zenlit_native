@@ -7,10 +7,10 @@ import {
   Text,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { MessageSquare, User } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 
+import { SocialBrandBadge } from './social-brand-badge';
 import type { NearbyUserData } from '../lib/types';
 import {
   DEFAULT_VISIBLE_PLATFORMS,
@@ -23,14 +23,6 @@ import {
 
 const FALLBACK_AVATAR =
   'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png';
-
-const INSTAGRAM_GRADIENT = [
-  '#f09433',
-  '#e6683c',
-  '#dc2743',
-  '#cc2366',
-  '#bc1888',
-] as const;
 
 const MAX_BIO_LENGTH = 120;
 
@@ -148,7 +140,6 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
         <View style={styles.socialRow}>
           {platforms.map(({ id, url }) => {
             const meta = SOCIAL_PLATFORMS[id];
-            const icon = meta.renderIcon({ size: 20, color: meta.wantsWhiteIcon ? '#ffffff' : '#000000' });
 
             return (
               <Pressable
@@ -160,27 +151,7 @@ export const SocialProfileCard: React.FC<SocialProfileCardProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel={meta.label}
               >
-                {id === 'instagram' ? (
-                  <LinearGradient
-                    colors={INSTAGRAM_GRADIENT}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.socialBadge}
-                  >
-                    {icon}
-                  </LinearGradient>
-                ) : (
-                  <View
-                    style={[
-                      styles.socialBadge,
-                      meta.style.backgroundColor
-                        ? { backgroundColor: meta.style.backgroundColor }
-                        : null,
-                    ]}
-                  >
-                    {icon}
-                  </View>
-                )}
+                <SocialBrandBadge platform={id} size={32} />
               </Pressable>
             );
           })}
@@ -273,13 +244,6 @@ const styles = StyleSheet.create({
   },
   socialButtonPressed: {
     opacity: 0.7,
-  },
-  socialBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   actionRow: {
     flexDirection: 'row',

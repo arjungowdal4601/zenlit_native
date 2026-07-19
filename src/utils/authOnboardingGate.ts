@@ -30,14 +30,12 @@ export type RouteAccessDecision = {
   shouldShowNav: boolean;
   canAccessAppRoutes: boolean;
   canAccessAuthRoutes: boolean;
-  canAccessLandingRoute: boolean;
   canAccessProfileBasicsRoute: boolean;
   canAccessCompleteProfileRoute: boolean;
   canAccessRecoveryRoute: boolean;
 };
 
 export type AuthOnboardingGateInput = {
-  hasSeenGetStarted: boolean;
   isAuthenticated: boolean;
   onboardingState: OnboardingState | null;
   pathname: string;
@@ -84,7 +82,6 @@ export const getSafeAppReturnTo = (pathname?: string | null) => {
 };
 
 export const getRouteAccessDecision = ({
-  hasSeenGetStarted,
   isAuthenticated,
   onboardingState,
   pathname,
@@ -103,7 +100,6 @@ export const getRouteAccessDecision = ({
     shouldShowNav: canUseMainApp && isAppRoute(path),
     canAccessAppRoutes: canUseMainApp,
     canAccessAuthRoutes: effectiveSignedOut,
-    canAccessLandingRoute: effectiveSignedOut && !hasSeenGetStarted,
     canAccessProfileBasicsRoute,
     canAccessCompleteProfileRoute,
     canAccessRecoveryRoute,
@@ -114,12 +110,11 @@ export const getRouteAccessDecision = ({
   }
 
   if (effectiveSignedOut) {
-    const firstRunOnLanding = isLandingRoute(path) && !hasSeenGetStarted;
     const alreadyInAuth = isAuthRoute(path);
 
     return {
       ...baseDecision,
-      targetRoute: firstRunOnLanding || alreadyInAuth ? null : ROUTES.auth,
+      targetRoute: alreadyInAuth ? null : ROUTES.auth,
       returnTo: getSafeAppReturnTo(path),
     };
   }

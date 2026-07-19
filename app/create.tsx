@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, StatusBar, StyleSheet, View } from 'react-native';
+import { StatusBar, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { AppHeader } from '../src/components/AppHeader';
 import { PostComposer, PostComposerSharePayload } from '../src/components/PostComposer';
-import SuccessPopup from '../src/components/SuccessPopup';
+import { useAppToast } from '../src/components/ui/app-toast';
 import { theme } from '../src/styles/theme';
 import { createPost } from '../src/services/postService';
 import { getCurrentUserProfile } from '../src/services/profileService';
@@ -12,9 +12,9 @@ import { uploadCompressedImage } from '../src/services/storageService';
 
 const CreateScreen: React.FC = () => {
   const router = useRouter();
+  const { showToast } = useAppToast();
   const [author, setAuthor] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [successVisible, setSuccessVisible] = useState(false);
 
   useEffect(() => {
     loadAuthor();
@@ -37,7 +37,7 @@ const CreateScreen: React.FC = () => {
   const handleShare = useCallback(async ({ content, image }: PostComposerSharePayload) => {
     const trimmed = content.trim();
     if (!trimmed.length) {
-      Alert.alert('Error', 'Please enter some content.');
+      showToast({ message: 'Please enter some content.', tone: 'warning' });
       return false;
     }
 
@@ -46,7 +46,10 @@ const CreateScreen: React.FC = () => {
     if (image) {
       const { url, error } = await uploadCompressedImage(image, 'post-images', 'post');
       if (error || !url) {
-        Alert.alert('Upload Failed', 'We could not upload your image. Please try again.');
+        showToast({
+          message: 'We could not upload your image. Please try again.',
+          tone: 'error',
+        });
         return false;
       }
       uploadedImageUrl = url;
@@ -55,15 +58,15 @@ const CreateScreen: React.FC = () => {
     const { post, error } = await createPost(trimmed, uploadedImageUrl);
 
     if (error || !post) {
-      Alert.alert('Error', 'Failed to create post. Please try again.');
+      showToast({ message: 'Failed to create post. Please try again.', tone: 'error' });
       console.error('Error creating post:', error);
       return false;
     }
 
-    // Show success popup and auto navigate after it dismisses
-    setSuccessVisible(true);
+    showToast({ message: 'Post created successfully.', tone: 'success' });
+    router.replace('/feed');
     return true;
-  }, []);
+  }, [router, showToast]);
 
   if (loading || !author) {
     return (
@@ -83,15 +86,6 @@ const CreateScreen: React.FC = () => {
       <View style={styles.content}>
         <PostComposer author={author} onShare={handleShare} />
       </View>
-
-      <SuccessPopup
-        visible={successVisible}
-        message="Post created successfully"
-        onDismiss={() => {
-          setSuccessVisible(false);
-          router.push('/feed');
-        }}
-      />
 
       {/* Navigation is now rendered in the root layout */}
     </View>

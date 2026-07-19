@@ -10,6 +10,8 @@ export type AppUser = {
 
 type SupabaseAuthResponse = { data: any; error: any };
 
+const EMAIL_OTP_TIMEOUT_MS = 20_000;
+
 const toAppUser = (user: { id: string; email?: string | null } | null | undefined): AppUser | null => {
   if (!user) return null;
   return {
@@ -43,7 +45,7 @@ export const signInWithEmailOtp = async (email: string) => {
     options: {
       shouldCreateUser: true,
     },
-  }), 'Email OTP request');
+  }), 'Email OTP request', EMAIL_OTP_TIMEOUT_MS);
 };
 
 export const verifyEmailOtp = async (email: string, token: string) => {
@@ -55,7 +57,7 @@ export const verifyEmailOtp = async (email: string, token: string) => {
     email,
     token,
     type: 'email',
-  }), 'Email OTP verification');
+  }), 'Email OTP verification', EMAIL_OTP_TIMEOUT_MS);
 
   return {
     user: toAppUser(data?.user),

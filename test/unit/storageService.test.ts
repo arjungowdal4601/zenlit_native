@@ -75,7 +75,7 @@ describe('uploadProfileImage', () => {
     expect(upload).toHaveBeenCalledWith(
       'user-123/avatar-1.jpg',
       expect.any(ArrayBuffer),
-      { contentType: 'image/jpeg', upsert: true },
+      { contentType: 'image/jpeg', upsert: false },
     );
   });
 
@@ -115,7 +115,7 @@ describe('uploadProfileImage', () => {
     expect(upload).toHaveBeenCalledWith(
       'user-123/banner-2.jpg',
       expect.any(ArrayBuffer),
-      { contentType: 'image/jpeg', upsert: true },
+      { contentType: 'image/jpeg', upsert: false },
     );
   });
 

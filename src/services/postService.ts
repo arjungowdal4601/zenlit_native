@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { Post, PostWithAuthor, Profile, SocialLinks } from '../lib/types';
+import type { Post, PostWithAuthor, PublicProfile, SocialLinks } from '../lib/types';
 
 export async function getUserPosts(userId: string): Promise<{ posts: Post[]; error: Error | null }> {
   try {
@@ -27,34 +27,10 @@ export async function getFeedPosts(limit = 50): Promise<{ posts: PostWithAuthor[
       return { posts: [], error: new Error('Not authenticated') };
     }
 
-    const { data: currentLocation, error: locationError } = await supabase
-      .from('locations')
-      .select('lat_short, long_short')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (locationError) {
-      return { posts: [], error: locationError };
-    }
-
-    if (!currentLocation || currentLocation.lat_short === null || currentLocation.long_short === null) {
-      return { posts: [], error: null };
-    }
-
-    const latMin = currentLocation.lat_short - 0.01;
-    const latMax = currentLocation.lat_short + 0.01;
-    const longMin = currentLocation.long_short - 0.01;
-    const longMax = currentLocation.long_short + 0.01;
-
-    const { data: nearbyLocations, error: nearbyError } = await supabase
-      .from('locations')
-      .select('id')
-      .not('lat_short', 'is', null)
-      .not('long_short', 'is', null)
-      .gte('lat_short', latMin)
-      .lte('lat_short', latMax)
-      .gte('long_short', longMin)
-      .lte('long_short', longMax);
+    const { data: nearbyLocations, error: nearbyError } = await supabase.rpc(
+      'get_nearby_user_ids',
+      { include_self: true },
+    );
 
     if (nearbyError) {
       return { posts: [], error: nearbyError };
@@ -64,8 +40,8 @@ export async function getFeedPosts(limit = 50): Promise<{ posts: PostWithAuthor[
       return { posts: [], error: null };
     }
 
-    const nearbyUserIds: string[] = (nearbyLocations as Array<{ id: string }>).map(
-      (loc: { id: string }) => loc.id
+    const nearbyUserIds: string[] = (nearbyLocations as Array<{ user_id: string }>).map(
+      (location: { user_id: string }) => location.user_id
     );
 
     const { data: postsData, error: postsError } = await supabase
@@ -87,7 +63,7 @@ export async function getFeedPosts(limit = 50): Promise<{ posts: PostWithAuthor[
 
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, display_name, user_name, account_created_at')
       .in('id', userIds);
 
     if (profilesError) {
@@ -99,10 +75,10 @@ export async function getFeedPosts(limit = 50): Promise<{ posts: PostWithAuthor[
       .select('*')
       .in('id', userIds);
 
-    const profilesArr: Profile[] = (profiles || []) as Profile[];
+    const profilesArr: PublicProfile[] = (profiles || []) as PublicProfile[];
     const socialArr: SocialLinks[] = (socialLinks || []) as SocialLinks[];
 
-    const profilesMap: Map<string, Profile> = new Map(
+    const profilesMap: Map<string, PublicProfile> = new Map(
       profilesArr.map((p) => [p.id, p])
     );
     const socialLinksMap: Map<string, SocialLinks> = new Map(

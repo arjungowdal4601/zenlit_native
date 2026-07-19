@@ -43,6 +43,20 @@ type ServiceResult<T> = {
 
 type SupabaseReadResponse = { data: any; error: any };
 
+const isCurrentProfilePrimaryKeyConflict = (error: unknown, userId: string) => {
+  if (!error || typeof error !== 'object') return false;
+
+  const { code, message, details, hint } = error as Record<string, unknown>;
+  const context = [message, details, hint]
+    .map((value) => String(value ?? ''))
+    .join(' ')
+    .toLowerCase();
+
+  return String(code ?? '') === '23505'
+    && context.includes('profiles_pkey')
+    && context.includes(userId.toLowerCase());
+};
+
 const getAuthenticatedUser = async (userId?: string | null) => {
   const { data, error } = await withTimeout<SupabaseReadResponse>(supabase.auth.getUser(), 'Authenticated user check');
   if (error || !data.user) {
@@ -92,9 +106,7 @@ export const resolveOnboardingState = async (
     ] = await withTimeout<[SupabaseReadResponse, SupabaseReadResponse]>(
       Promise.all([
         supabase
-          .from('profiles')
-          .select('id, display_name, user_name, date_of_birth, gender, email, optional_profile_completed_at')
-          .eq('id', userId)
+          .rpc('get_my_private_profile')
           .maybeSingle(),
         supabase
           .from('profile_basics_drafts')
@@ -172,13 +184,25 @@ export const saveRequiredProfileBasics = async (
   try {
     const user = await getAuthenticatedUser(userId);
     const profileData = toProfileData(values);
+    const profilePayload = { id: user.id, email: user.email, ...profileData };
 
-    const { error } = await supabase
+    const { error: insertError } = await supabase
       .from('profiles')
-      .upsert({ id: user.id, email: user.email, ...profileData }, { onConflict: 'id' });
+      .insert(profilePayload);
 
-    if (error) {
-      throw error;
+    if (insertError) {
+      if (!isCurrentProfilePrimaryKeyConflict(insertError, user.id)) {
+        throw insertError;
+      }
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ email: user.email, ...profileData })
+        .eq('id', user.id);
+
+      if (updateError) {
+        throw updateError;
+      }
     }
 
     void supabase

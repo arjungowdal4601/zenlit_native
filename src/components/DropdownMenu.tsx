@@ -1,6 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Feather, type IconName } from './icons';
+import { theme } from '../styles/theme';
+import { AppBottomSheet } from './ui/app-bottom-sheet';
 
 export type DropdownItem = {
   label: string;
@@ -17,12 +19,14 @@ export type DropdownMenuProps = {
 };
 
 const DropdownMenu: React.FC<DropdownMenuProps> = ({ visible, items, onClose, style }) => {
-  if (!visible) return null;
-
   return (
-    <View style={[styles.overlay, { pointerEvents: 'box-none' }]}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={[styles.card, style]}>        
+    <AppBottomSheet
+      visible={visible}
+      onRequestClose={onClose}
+      title="Post options"
+      accessibilityLabel="Post options"
+    >
+      <View style={[styles.actions, style]}>
         {items.map((item, idx) => (
           <Pressable
             key={`${item.label}-${idx}`}
@@ -38,8 +42,12 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({ visible, items, onClose, st
             accessibilityLabel={item.label}
           >
             {item.iconName ? (
-              <View style={styles.iconWrap}>
-                <Feather name={item.iconName} size={18} color="#cbd5f5" />
+              <View style={[styles.iconWrap, item.destructive && styles.iconWrapDestructive]}>
+                <Feather
+                  name={item.iconName}
+                  size={18}
+                  color={item.destructive ? '#FCA5A5' : theme.prism.colors.textSoft}
+                />
               </View>
             ) : null}
             <Text style={[styles.rowLabel, item.destructive ? styles.rowLabelDestructive : null]}>
@@ -48,42 +56,32 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({ visible, items, onClose, st
           </Pressable>
         ))}
       </View>
-    </View>
+    </AppBottomSheet>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 32,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-  },
-  card: {
-    position: 'absolute',
-    top: 36,
-    right: 0,
-    minWidth: 160,
-    paddingVertical: 6,
-    borderRadius: 18,
-    backgroundColor: '#020617',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.35)',
+  actions: {
+    gap: 8,
   },
   row: {
-    minHeight: 40,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: 12,
-    borderRadius: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.prism.colors.border,
+    backgroundColor: 'rgba(8, 13, 16, 0.68)',
   },
   rowPressed: {
-    backgroundColor: 'rgba(30, 41, 59, 0.35)',
+    backgroundColor: 'rgba(37, 99, 235, 0.14)',
+    borderColor: theme.prism.colors.borderStrong,
   },
   rowLabel: {
-    color: '#e2e8f0',
+    color: theme.prism.colors.textSoft,
+    fontFamily: theme.typography.fontFamily.system,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -91,12 +89,18 @@ const styles = StyleSheet.create({
     color: '#fca5a5',
   },
   iconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: 'rgba(37, 99, 235, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.18)',
+  },
+  iconWrapDestructive: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.25)',
   },
 });
 

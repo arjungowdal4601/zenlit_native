@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Feather } from './icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -29,6 +29,7 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
   const [showImageDialog, setShowImageDialog] = useState(false);
   const [attachedImage, setAttachedImage] = useState<CompressedImage | null>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
   const avatarSource = useMemo(() => {
     const uri = author.avatar?.trim();
@@ -45,7 +46,7 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
     const trimmed = value.trim();
 
     if (!trimmed.length) {
-      Alert.alert('Add Something', 'Please enter some content before sharing.');
+      setValidationMessage('Please enter some content before sharing.');
       return;
     }
 
@@ -67,6 +68,7 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
       setValue('');
       setInputHeight(MIN_INPUT_HEIGHT);
       setAttachedImage(null);
+      setValidationMessage(null);
     } finally {
       setIsSharing(false);
     }
@@ -74,7 +76,6 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
 
   const handleAttachmentPress = () => {
     if (attachedImage) {
-      Alert.alert('Image Limit', 'You can only upload one image per post.');
       return;
     }
     setShowImageDialog(true);
@@ -145,7 +146,12 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
       <View style={styles.composerBody}>
         <TextInput
           value={value}
-          onChangeText={setValue}
+          onChangeText={(text) => {
+            setValue(text);
+            if (validationMessage) {
+              setValidationMessage(null);
+            }
+          }}
           placeholder={'Share your thoughts with the world!\nWhat\'s on your mind today?'}
           placeholderTextColor={theme.colors.muted}
           multiline
@@ -162,6 +168,17 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
             }
           }}
         />
+
+        {validationMessage ? (
+          <View
+            style={styles.validationNotice}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
+            <Feather name="alert-circle" size={16} color={theme.prism.colors.warning} />
+            <Text selectable style={styles.validationText}>{validationMessage}</Text>
+          </View>
+        ) : null}
 
         {attachedImage && (
           <View style={styles.attachedImageContainer}>
@@ -190,6 +207,7 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
         onRemove={handleRemoveImage}
         showRemoveOption={!!attachedImage}
         title="Attach Image"
+        imageKind="attachment"
       />
     </View>
   );
@@ -271,6 +289,23 @@ const styles = StyleSheet.create({
   composerBody: {
     marginLeft: AVATAR_SIZE + theme.spacing.sm,
     marginRight: theme.spacing.sm,
+  },
+  validationNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.42)',
+    backgroundColor: 'rgba(146, 64, 14, 0.2)',
+  },
+  validationText: {
+    flex: 1,
+    color: '#FDE68A',
+    fontSize: 13,
+    lineHeight: 18,
   },
   input: {
     color: theme.colors.text,

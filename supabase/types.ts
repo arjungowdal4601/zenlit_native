@@ -271,31 +271,51 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-        check_email_available: {
-          Args: { email_to_check: string }
-          Returns: boolean
+        get_nearby_user_ids: {
+          Args: { include_self?: boolean }
+          Returns: { user_id: string }[]
         }
-        check_username_available: {
-          Args: { username_to_check: string }
-          Returns: boolean
-        }
-        generate_username_suggestions: {
-          Args: { base_username: string; max_suggestions?: number }
-          Returns: string[]
-        }
-        get_unread_counts_direct: {
+        get_my_private_profile: {
           Args: Record<PropertyKey, never>
           Returns: {
-            peer_id: string
+            id: string
+            display_name: string
+            user_name: string
+            date_of_birth: string | null
+            gender: string | null
+            email: string
+            account_created_at: string
+            expo_push_token: string | null
+            notification_enabled: boolean | null
+            notification_preferences: Json | null
+            last_token_update: string | null
+            optional_profile_completed_at: string | null
+          }[]
+        }
+        get_unread_message_counts: {
+          Args: Record<PropertyKey, never>
+          Returns: {
+            sender_id: string
             unread_count: number
           }[]
         }
-        mark_direct_delivered: {
-          Args: { peer_id: string }
+        mark_messages_delivered: {
+          Args: { other_user_id: string }
           Returns: undefined
         }
-        mark_direct_read: {
-          Args: { peer_id: string }
+        mark_messages_read: {
+          Args: { other_user_id: string }
+          Returns: undefined
+        }
+        is_user_nearby: {
+          Args: { target_user_id: string }
+          Returns: boolean
+        }
+        set_my_location: {
+          Args: {
+            latitude: number | null
+            longitude: number | null
+          }
           Returns: undefined
         }
       }

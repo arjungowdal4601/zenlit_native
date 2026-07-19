@@ -130,6 +130,44 @@ describe('onboarding navigation ownership', () => {
     expect(mockReplace).toHaveBeenCalledWith('/radar');
   });
 
+  it('does not render a back control to a route disabled after profile basics', async () => {
+    renderCompleteProfile();
+
+    await waitFor(() => expect(screen.getByText('Complete your profile')).toBeTruthy());
+    expect(screen.queryByLabelText('Back to profile basics')).toBeNull();
+  });
+
+  it('keeps the optional profile fields while removing the header helper copy', () => {
+    renderCompleteProfile();
+
+    expect(
+      screen.queryByText(
+        'Add a photo, bio, and socials so nearby people recognize you. You can skip for now.',
+      ),
+    ).toBeNull();
+    expect(screen.getByText('Bio')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Tell about yourself...')).toBeTruthy();
+  });
+
+  it('renders official social badges and uses X as the user-facing platform name', () => {
+    renderCompleteProfile();
+
+    expect(screen.getByTestId('social-brand-badge-instagram')).toBeTruthy();
+    expect(screen.getByTestId('social-brand-badge-twitter')).toBeTruthy();
+    expect(screen.getByTestId('social-brand-badge-linkedin')).toBeTruthy();
+    expect(screen.getByText('Instagram')).toBeTruthy();
+    expect(screen.getByText('X')).toBeTruthy();
+    expect(screen.getByText('LinkedIn')).toBeTruthy();
+    expect(screen.queryByText(/X \(Twitter\)/)).toBeNull();
+    expect(screen.queryByText('Twitter')).toBeNull();
+    expect(screen.queryByText('Linkedin')).toBeNull();
+
+    fireEvent.press(screen.getByLabelText('Edit X username'));
+
+    expect(screen.getByText('X Username')).toBeTruthy();
+    expect(screen.getByText('Will link to: x.com/username')).toBeTruthy();
+  });
+
   it('keeps Complete Profile social URL cleanup local to the form', () => {
     renderCompleteProfile();
 
@@ -139,5 +177,19 @@ describe('onboarding navigation ownership', () => {
     expect(screen.getByText('Will link to: instagram.com/alex')).toBeTruthy();
     fireEvent.press(screen.getByText('Save'));
     expect(screen.getByText('alex')).toBeTruthy();
+  });
+
+  it('discards staged social username edits when the dialog is cancelled', () => {
+    renderCompleteProfile();
+
+    fireEvent.press(screen.getByLabelText('Edit Instagram username'));
+    fireEvent.changeText(screen.getByLabelText('Instagram username'), 'https://instagram.com/not-saved/');
+
+    expect(screen.getByText('Will link to: instagram.com/not-saved')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Cancel username changes' }));
+    fireEvent.press(screen.getByLabelText('Edit Instagram username'));
+
+    expect(screen.getByText('Will link to: instagram.com/username')).toBeTruthy();
+    expect(screen.queryByText('not-saved')).toBeNull();
   });
 });

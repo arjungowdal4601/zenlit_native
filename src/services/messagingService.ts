@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
-import type { Message, MessageThread, Profile, SocialLinks, UserUnreadCount } from '../lib/types';
+import type { Message, MessageThread, PublicProfile, SocialLinks, UserUnreadCount } from '../lib/types';
 import { getNearbyUsers } from './locationDbService';
+import { logger } from '../utils/logger';
 
 export async function getConversationPartnerIds(): Promise<{ partnerIds: string[]; error: Error | null }> {
   try {
@@ -77,7 +78,7 @@ export async function getUserMessageThreads(): Promise<{ threads: MessageThread[
 
     const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
-      .select('*')
+      .select('id, display_name, user_name, account_created_at')
       .in('id', otherUserIds);
 
     if (profilesError) {
@@ -89,10 +90,10 @@ export async function getUserMessageThreads(): Promise<{ threads: MessageThread[
       .select('*')
       .in('id', otherUserIds);
 
-    const profilesArr: Profile[] = (profiles || []) as Profile[];
+    const profilesArr: PublicProfile[] = (profiles || []) as PublicProfile[];
     const socialArr: SocialLinks[] = (socialLinks || []) as SocialLinks[];
 
-    const profilesMap: Map<string, Profile> = new Map(
+    const profilesMap: Map<string, PublicProfile> = new Map(
       profilesArr.map((p) => [p.id, p])
     );
     const socialLinksMap: Map<string, SocialLinks> = new Map(
@@ -123,9 +124,6 @@ export async function getUserMessageThreads(): Promise<{ threads: MessageThread[
           id: profile.id,
           display_name: profile.display_name,
           user_name: profile.user_name,
-          date_of_birth: profile.date_of_birth,
-          gender: profile.gender,
-          email: profile.email,
           account_created_at: profile.account_created_at,
           social_links: social ? {
             id: social.id,
@@ -226,6 +224,18 @@ export async function sendMessage(
 
     if (messageError) {
       return { message: null, error: messageError };
+    }
+
+    try {
+      const { error: notificationError } = await supabase.functions.invoke(
+        'send-push-notification',
+        { body: { messageId: message.id } },
+      );
+      if (notificationError) {
+        logger.warn('Messages', 'Push notification dispatch failed', notificationError);
+      }
+    } catch (notificationError) {
+      logger.warn('Messages', 'Push notification dispatch failed', notificationError);
     }
 
     return { message: message as Message, error: null };

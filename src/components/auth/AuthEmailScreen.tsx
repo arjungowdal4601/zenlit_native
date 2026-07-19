@@ -1,11 +1,12 @@
 import * as React from 'react';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 
 import GradientTitle from '../GradientTitle';
+import { Feather } from '../icons';
 import { styles } from '../../styles/auth.styles';
 import { signInWithEmailOtp } from '../../services/authService';
 import { logger } from '../../utils/logger';
@@ -14,12 +15,14 @@ import {
   maskEmail,
   normalizeEmail,
 } from '../../utils/authEmail';
+import { storePendingOtpEmail } from '../../utils/pendingOtpEmail';
 import { prismGradientColors, theme } from '../../styles/theme';
 
 const AuthEmailScreen: React.FC = () => {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const normalizedEmail = normalizeEmail(email);
   const isValidEmail = Boolean(normalizedEmail);
@@ -29,6 +32,7 @@ const AuthEmailScreen: React.FC = () => {
 
     const maskedEmail = maskEmail(normalizedEmail);
     setEmailLoading(true);
+    setErrorMessage(null);
 
     try {
       const { error } = await signInWithEmailOtp(normalizedEmail);
@@ -41,15 +45,19 @@ const AuthEmailScreen: React.FC = () => {
           errorStatus: (error as any).status,
         });
 
-        Alert.alert('Authentication Error', getEmailOtpErrorMessage(error));
+        setErrorMessage(getEmailOtpErrorMessage(error));
         setEmailLoading(false);
         return;
       }
 
-      router.replace({
-        pathname: '/auth/verify-otp',
-        params: { email: normalizedEmail },
-      });
+      if (!storePendingOtpEmail(normalizedEmail)) {
+        logger.error('Auth', 'Unable to store pending OTP email');
+        setErrorMessage('Unable to continue securely. Please try again.');
+        setEmailLoading(false);
+        return;
+      }
+
+      router.replace('/auth/verify-otp');
     } catch (error: any) {
       logger.error('Auth', 'OTP signin exception', {
         email: maskedEmail,
@@ -57,13 +65,13 @@ const AuthEmailScreen: React.FC = () => {
         stack: error?.stack,
       });
 
-      Alert.alert('Error', getEmailOtpErrorMessage(error));
+      setErrorMessage(getEmailOtpErrorMessage(error));
       setEmailLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar barStyle="light-content" backgroundColor={theme.prism.colors.background} />
       <KeyboardAvoidingView
         behavior={Platform.select({ ios: 'padding', android: undefined })}
@@ -71,12 +79,13 @@ const AuthEmailScreen: React.FC = () => {
       >
         <ScrollView
           contentContainerStyle={styles.scroll}
+          contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.brandSection}>
             <GradientTitle text="Zenlit" style={styles.brandTitle} variant="prism" />
-            <Text style={styles.brandSubtitle}>Connect with people around you</Text>
+            <Text style={styles.brandSubtitle}>Connect with people around you.</Text>
           </View>
 
           <View style={styles.card}>
@@ -87,7 +96,12 @@ const AuthEmailScreen: React.FC = () => {
               <Text style={styles.inputLabel}>Email Address</Text>
               <TextInput
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(value) => {
+                  setEmail(value);
+                  if (errorMessage) {
+                    setErrorMessage(null);
+                  }
+                }}
                 placeholder="Enter your email"
                 placeholderTextColor={theme.prism.colors.muted}
                 keyboardType="email-address"
@@ -96,6 +110,17 @@ const AuthEmailScreen: React.FC = () => {
                 style={styles.input}
               />
             </View>
+
+            {errorMessage ? (
+              <View
+                style={styles.errorNotice}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+              >
+                <Feather name="alert-triangle" size={18} color={theme.prism.colors.danger} />
+                <Text selectable style={styles.errorNoticeText}>{errorMessage}</Text>
+              </View>
+            ) : null}
 
             <Pressable
               accessibilityRole="button"

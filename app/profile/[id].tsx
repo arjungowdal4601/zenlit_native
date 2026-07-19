@@ -6,15 +6,13 @@ import {
   Linking,
   Pressable,
   StatusBar,
-  StyleProp,
   StyleSheet,
   Text,
   View,
-  ViewStyle,
   useWindowDimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '../../src/components/icons';
+import { SocialBrandBadge } from '../../src/components/social-brand-badge';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { MessageSquare } from 'lucide-react-native';
 
@@ -24,7 +22,7 @@ import {
   ensureSocialUrl,
   type SocialPlatformId,
 } from '../../src/constants/socialPlatforms';
-import type { Post as DbPost, Profile, SocialLinks } from '../../src/lib/types';
+import type { Post as DbPost, PublicProfile, SocialLinks } from '../../src/lib/types';
 import { getProfileById } from '../../src/services/profileService';
 import { getUserPosts } from '../../src/services/postService';
 
@@ -32,14 +30,6 @@ const FALLBACK_BANNER =
   'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1600&q=80';
 const FALLBACK_AVATAR =
   'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png';
-
-const INSTAGRAM_GRADIENT = [
-  '#f09433',
-  '#e6683c',
-  '#dc2743',
-  '#cc2366',
-  '#bc1888',
-] as const;
 
 const formatDate = (value: string) => {
   const date = new Date(value);
@@ -72,7 +62,7 @@ const resolveImageSource = (uri?: string | null, fallback?: string): ImageSource
 const UserProfileScreen: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string }>();
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [socialLinks, setSocialLinks] = useState<SocialLinks | null>(null);
   const [posts, setPosts] = useState<DbPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -285,49 +275,6 @@ const UserProfileScreen: React.FC = () => {
                   {socialEntries.map(({ id, url, disabled }) => {
                     const meta = SOCIAL_PLATFORMS[id];
 
-                    if (id === 'instagram') {
-                      return (
-                        <Pressable
-                          key={id}
-                          onPress={() => {
-                            if (disabled || !url) return;
-                          const finalUrl = ensureSocialUrl(id as SocialPlatformId, url);
-                          if (!finalUrl) return;
-                          Linking.openURL(finalUrl).catch(() => {
-                            // no-op; in development builds some schemes may fail
-                          });
-                          }}
-                          disabled={disabled}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          android_ripple={{ color: 'rgba(255,255,255,0.18)', borderless: true }}
-                          style={({ pressed }) => [
-                            styles.socialButton,
-                            pressed ? styles.socialButtonPressed : null,
-                          ]}
-                          accessibilityRole="button"
-                          accessibilityLabel={meta.label}
-                        >
-                          <LinearGradient
-                            colors={INSTAGRAM_GRADIENT}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={[styles.socialBadge, disabled ? styles.socialDisabled : null]}
-                          >
-                            {meta.renderIcon({ size: 18, color: '#ffffff' })}
-                          </LinearGradient>
-                        </Pressable>
-                      );
-                    }
-
-                    const badgeStyle: StyleProp<ViewStyle> = [
-                      styles.socialBadge,
-                      id === 'twitter' ? styles.outlinedBadge : null,
-                      id !== 'twitter' && meta.style.backgroundColor
-                        ? { backgroundColor: meta.style.backgroundColor }
-                        : null,
-                      disabled ? styles.socialDisabled : null,
-                    ];
-
                     return (
                       <Pressable
                         key={id}
@@ -349,9 +296,7 @@ const UserProfileScreen: React.FC = () => {
                         accessibilityRole="button"
                         accessibilityLabel={meta.label}
                       >
-                        <View style={badgeStyle}>
-                          {meta.renderIcon({ size: 18, color: '#ffffff' })}
-                        </View>
+                        <SocialBrandBadge platform={id} size={32} disabled={disabled} />
                       </Pressable>
                     );
                   })}
@@ -467,22 +412,6 @@ const styles = StyleSheet.create({
   },
   socialButtonPressed: {
     opacity: 0.9,
-  },
-  socialBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(30, 41, 59, 0.82)',
-  },
-  outlinedBadge: {
-    backgroundColor: '#000000',
-    borderWidth: 1,
-    borderColor: 'rgba(148, 163, 184, 0.45)',
-  },
-  socialDisabled: {
-    opacity: 0.35,
   },
   identityBlock: {
     // Move name and username up by 10px

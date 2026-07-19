@@ -106,7 +106,7 @@ export async function uploadCompressedImage(
     const { error: uploadError } = await bucket.upload(
       filePath,
       uploadBody as any,
-      { contentType: mimeType, upsert: true },
+      { contentType: mimeType, upsert: false },
     );
 
     if (uploadError) {

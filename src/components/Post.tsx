@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from './icons';
+import { SocialBrandBadge } from './social-brand-badge';
 import ConfirmDialog from './ConfirmDialog';
-import OptionsDialog from './OptionsDialog';
 import DropdownMenu from './DropdownMenu';
 import { getCurrentUser } from '../services/authService';
 
@@ -15,14 +14,6 @@ import {
   getTwitterHandle,
   type SocialPlatformId,
 } from '../constants/socialPlatforms';
-
-const INSTAGRAM_GRADIENT = [
-  '#f09433',
-  '#e6683c',
-  '#dc2743',
-  '#cc2366',
-  '#bc1888',
-] as const;
 
 export type FeedPostAuthorSocialLinks = {
   instagram?: string | null;
@@ -66,7 +57,6 @@ export const Post: React.FC<PostProps> = ({
   const { author, content, image, timestamp } = post;
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [optionsOpen, setOptionsOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
 
@@ -201,7 +191,6 @@ export const Post: React.FC<PostProps> = ({
           <View style={[styles.socialLinksRow, { right: showMenu ? 44 : 0 }]}>
             {socialEntries.map(({ id, url }) => {
               const meta = SOCIAL_PLATFORMS[id];
-              const icon = meta.renderIcon({ size: 18, color: '#ffffff' });
 
               return (
                 <Pressable
@@ -212,27 +201,7 @@ export const Post: React.FC<PostProps> = ({
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={styles.socialButton}
                 >
-                  {id === 'instagram' ? (
-                    <LinearGradient
-                      colors={INSTAGRAM_GRADIENT}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                      style={styles.socialBadge}
-                    >
-                      {icon}
-                    </LinearGradient>
-                  ) : (
-                    <View
-                      style={[
-                        styles.socialBadge,
-                        meta.style.backgroundColor
-                          ? { backgroundColor: meta.style.backgroundColor }
-                          : null,
-                      ]}
-                    >
-                      {icon}
-                    </View>
-                  )}
+                  <SocialBrandBadge platform={id} size={32} />
                 </Pressable>
               );
             })}
@@ -300,9 +269,11 @@ export const Post: React.FC<PostProps> = ({
 
       <ConfirmDialog
         visible={confirmOpen}
-        message={'Are you sure you want to delete this post?'}
+        title="Delete this post?"
+        message="This post will be permanently removed from Zenlit."
         confirmLabel={'Delete'}
         cancelLabel={'Cancel'}
+        tone="danger"
         onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmOpen(false)}
       />
@@ -344,13 +315,6 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     // Improve web UX: show pointer cursor on hover
     cursor: 'pointer',
-  },
-  socialBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   contentRow: {
     flexDirection: 'row',

@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { logger } from './logger';
 import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
-import type { Location, Message } from '../lib/types';
+import type { LocationPresence, Message } from '../lib/types';
 
 type ChannelStatus = 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR';
 
@@ -231,7 +231,7 @@ export class RealtimeManager {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'locations',
+          table: 'location_presence',
           filter: `id=eq.${otherUserId}`,
         },
         (payload: RealtimePostgresChangesPayload<any>) => {
@@ -244,7 +244,7 @@ export class RealtimeManager {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'locations',
+          table: 'location_presence',
           filter: `id=eq.${currentUserId}`,
         },
         (payload: RealtimePostgresChangesPayload<any>) => {
@@ -472,7 +472,7 @@ export function subscribeToMessageListUpdates(
 
 export function subscribeToMessagePartnerLocationUpdates(
   partnerIds: string[],
-  onUpdate: (event: RealtimeChange<Location>) => void,
+  onUpdate: (event: RealtimeChange<LocationPresence>) => void,
   onStatus?: (status: string) => void,
 ): RealtimeUnsubscribe {
   const partnerIdSet = new Set(partnerIds);
@@ -480,13 +480,13 @@ export function subscribeToMessagePartnerLocationUpdates(
     .channel('messages-location-updates')
     .on(
       'postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'locations' },
+      { event: 'UPDATE', schema: 'public', table: 'location_presence' },
       (payload: RealtimePostgresChangesPayload<any>) => {
-        const location = payload.new as Location | null;
+        const location = payload.new as LocationPresence | null;
         if (!location || !partnerIdSet.has(location.id)) {
           return;
         }
-        onUpdate(toRealtimeChange<Location>(payload));
+        onUpdate(toRealtimeChange<LocationPresence>(payload));
       },
     )
     .subscribe((status: string) => {
@@ -497,11 +497,11 @@ export function subscribeToMessagePartnerLocationUpdates(
 }
 
 export function subscribeToRadarLocationUpdates(
-  onChange: (event: RealtimeChange<Location>) => void,
+  onChange: (event: RealtimeChange<LocationPresence>) => void,
   onStatus?: (status: string) => void,
 ): RealtimeUnsubscribe {
   const handleChange = (payload: RealtimePostgresChangesPayload<any>) => {
-    onChange(toRealtimeChange<Location>(payload));
+    onChange(toRealtimeChange<LocationPresence>(payload));
   };
 
   const channel = supabase
@@ -511,7 +511,7 @@ export function subscribeToRadarLocationUpdates(
       {
         event: 'INSERT',
         schema: 'public',
-        table: 'locations',
+        table: 'location_presence',
       },
       handleChange,
     )
@@ -520,7 +520,7 @@ export function subscribeToRadarLocationUpdates(
       {
         event: 'UPDATE',
         schema: 'public',
-        table: 'locations',
+        table: 'location_presence',
       },
       handleChange,
     )

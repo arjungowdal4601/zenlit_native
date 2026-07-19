@@ -35,9 +35,7 @@ export const getNotificationSettings = async (): Promise<{
     }
 
     const { data, error } = await supabase
-      .from('profiles')
-      .select('notification_enabled, notification_preferences')
-      .eq('id', userId)
+      .rpc('get_my_private_profile')
       .single();
 
     if (error) {

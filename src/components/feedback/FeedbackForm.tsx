@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Alert,
   Image,
   Pressable,
   StyleSheet,
@@ -12,30 +11,18 @@ import { Feather } from '../icons';
 import { submitFeedback } from '../../services/feedbackService';
 import type { CompressedImage } from '../../utils/imageCompression';
 import ImageUploadDialog from '../ImageUploadDialog';
+import { useAppToast } from '../ui/app-toast';
 
 const MAX_LENGTH = 1000;
 const MIN_LENGTH = 10;
 
 const FeedbackForm: React.FC = () => {
+  const { showToast } = useAppToast();
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attachedImage, setAttachedImage] = useState<CompressedImage | null>(null);
   const [showImageUploadDialog, setShowImageUploadDialog] = useState(false);
-
-  const mountedRef = useRef(true);
-  const successTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      if (successTimeoutRef.current) {
-        clearTimeout(successTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const remaining = useMemo(() => `${message.length}/${MAX_LENGTH} characters`, [message.length]);
 
@@ -73,26 +60,17 @@ const FeedbackForm: React.FC = () => {
         throw insertError;
       }
 
-      if (mountedRef.current) {
-        setShowSuccess(true);
-        setMessage('');
-        setAttachedImage(null);
-
-        successTimeoutRef.current = setTimeout(() => {
-          if (mountedRef.current) {
-            setShowSuccess(false);
-          }
-        }, 3000);
-      }
+      setMessage('');
+      setAttachedImage(null);
+      showToast({
+        message: 'Thank you! Your feedback has been submitted successfully.',
+        tone: 'success',
+      });
     } catch (error: any) {
       console.error('Error submitting feedback:', error);
-      if (mountedRef.current) {
-        setError('Failed to submit feedback. Please try again.');
-      }
+      showToast({ message: 'Failed to submit feedback. Please try again.', tone: 'error' });
     } finally {
-      if (mountedRef.current) {
-        setIsSubmitting(false);
-      }
+      setIsSubmitting(false);
     }
   };
 
@@ -138,21 +116,14 @@ const FeedbackForm: React.FC = () => {
       ) : null}
       <Text style={styles.charCount}>{remaining}</Text>
 
-      {showSuccess ? (
-        <View style={styles.successBanner}>
-          <Feather name="check" size={16} color="#4ade80" />
-          <Text style={styles.successText}>Thank you! Your feedback has been submitted successfully.</Text>
-        </View>
-      ) : null}
-
       <Pressable
-        style={[styles.submitButton, (isSubmitting || showSuccess || message.trim().length === 0) ? styles.submitDisabled : null]}
+        style={[styles.submitButton, (isSubmitting || message.trim().length === 0) ? styles.submitDisabled : null]}
         onPress={handleSubmit}
-        disabled={isSubmitting || showSuccess || message.trim().length === 0}
+        disabled={isSubmitting || message.trim().length === 0}
         accessibilityRole="button"
       >
         <Text style={styles.submitLabel}>
-          {isSubmitting ? 'Submitting...' : showSuccess ? 'Submitted!' : 'Submit Feedback'}
+          {isSubmitting ? 'Submitting...' : 'Submit Feedback'}
         </Text>
       </Pressable>
 
@@ -164,6 +135,7 @@ const FeedbackForm: React.FC = () => {
         currentImage={attachedImage?.uri}
         onRemove={handleRemoveImage}
         showRemoveOption={!!attachedImage}
+        imageKind="attachment"
       />
     </View>
   );
@@ -253,22 +225,6 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     fontSize: 12,
     textAlign: 'right',
-  },
-  successBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.45)',
-    backgroundColor: 'rgba(22, 101, 52, 0.35)',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  successText: {
-    color: '#bbf7d0',
-    fontSize: 13,
-    flex: 1,
   },
   submitButton: {
     marginTop: 8,

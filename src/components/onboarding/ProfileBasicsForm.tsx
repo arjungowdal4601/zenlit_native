@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import GradientTitle from '../GradientTitle';
+import { AppLoadingScreen } from '../app-loading-screen';
 import { Feather } from '../icons';
 import UsernameSuggestions from '../UsernameSuggestions';
 import { styles } from '../../styles/profileBasics.styles';
@@ -30,12 +31,9 @@ const WEB_DATE_INPUT_OVERLAY_STYLE: CSSProperties = {
 };
 
 export const ProfileBasicsLoading = () => (
-  <SafeAreaView style={styles.safeArea} edges={['top']}>
+  <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
     <StatusBar barStyle="light-content" backgroundColor={theme.prism.colors.background} />
-    <View style={styles.loadingContainer}>
-      <ActivityIndicator size="large" color={theme.prism.colors.accent} />
-      <Text style={styles.loadingText}>Checking setup...</Text>
-    </View>
+    <AppLoadingScreen />
   </SafeAreaView>
 );
 
@@ -48,15 +46,13 @@ export const ProfileBasicsForm = (form: ProfileBasicsFormProps) => (
     >
       <ScrollView
         contentContainerStyle={styles.scroll}
+        contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.brandSection}>
           <Text style={styles.brandSubtitle}>Step 1 of 2</Text>
-          <GradientTitle text="Set up your presence" style={styles.brandTitle} variant="prism" />
-          <Text style={styles.onboardingSubtitle}>
-            These basics unlock Radar and help nearby people recognize the real you.
-          </Text>
+          <GradientTitle text="Set up your presence" style={styles.brandTitle} numberOfLines={2} variant="prism" />
         </View>
 
         <View style={styles.card}>

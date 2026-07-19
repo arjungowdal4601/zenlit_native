@@ -17,6 +17,7 @@ jest.mock('../../src/services/onboardingService', () => ({
 }));
 
 import OnboardingRecoveryScreen from '../../app/onboarding/recovery';
+import { subscribeToOnboardingState } from '../../src/utils/onboardingStateSync';
 
 describe('Onboarding recovery screen', () => {
   beforeEach(() => {
@@ -56,6 +57,34 @@ describe('Onboarding recovery screen', () => {
 
     expect(mockResolveOnboardingState).toHaveBeenCalledTimes(1);
     expect(mockReplace).toHaveBeenCalledWith('/radar');
+  });
+
+  it('publishes recovered state when the root gate is listening', async () => {
+    const recoveredState = {
+      status: 'fully-onboarded' as const,
+      userId: 'user-1',
+      prefill: {
+        display_name: 'Alex',
+        user_name: 'alex',
+        date_of_birth: '1998-04-12',
+        gender: 'other',
+      },
+      missingFields: [],
+    };
+    const listener = jest.fn();
+    const unsubscribe = subscribeToOnboardingState(listener);
+    mockResolveOnboardingState.mockResolvedValueOnce(recoveredState);
+
+    render(<OnboardingRecoveryScreen />);
+
+    await act(async () => {
+      fireEvent.press(screen.getByRole('button', { name: 'Continue setup' }));
+      await Promise.resolve();
+    });
+
+    expect(listener).toHaveBeenCalledWith(recoveredState);
+    expect(mockReplace).not.toHaveBeenCalled();
+    unsubscribe();
   });
 
   it('stays on recovery and shows a retry message while state is still recovery', async () => {

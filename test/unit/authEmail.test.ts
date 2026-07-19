@@ -8,5 +8,8 @@ describe('auth email helpers', () => {
     expect(getEmailOtpErrorMessage(new Error('Network request failed'))).toBe(
       'Unable to connect to authentication service. Please check your internet connection.',
     );
+    expect(getEmailOtpErrorMessage(new Error('Email OTP request timed out'))).toBe(
+      'The request took longer than expected. Check your inbox before requesting another code.',
+    );
   });
 });

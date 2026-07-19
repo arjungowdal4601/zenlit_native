@@ -34,5 +34,13 @@ export const getFriendlyOnboardingError = (error: unknown) => {
     return 'Your session expired. Please sign in again.';
   }
 
+  if (
+    message.includes('42501')
+    || lowerMessage.includes('permission denied')
+    || lowerMessage.includes('insufficient privilege')
+  ) {
+    return 'Zenlit could not save your profile right now. Please try again shortly.';
+  }
+
   return 'Something went wrong. Please try again.';
 };

@@ -1,14 +1,14 @@
-import { Feather, type IconName } from '../icons';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
+import { Feather } from '../icons';
+import { ActivityIndicator, Pressable, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import GradientTitle from '../GradientTitle';
 import ImageUploadDialog from '../ImageUploadDialog';
-import { SOCIAL_PLATFORMS, extractUsername } from '../../constants/socialPlatforms';
+import { SocialBrandBadge } from '../social-brand-badge';
+import { SocialUsernameDialog } from '../social-username-dialog';
 import type {
   EditProfileController,
   EditProfileSocialField,
-  EditProfileToast,
 } from '../../hooks/useEditProfile';
 import { ProfileImageEditor } from './ProfileImageEditor';
 import { styles } from './editProfile.styles';
@@ -16,12 +16,10 @@ import { styles } from './editProfile.styles';
 const socialItems: Array<{
   key: EditProfileSocialField;
   label: string;
-  title: string;
-  helperPrefix: string;
 }> = [
-  { key: 'instagram', label: 'Instagram', title: 'Instagram Username', helperPrefix: 'instagram.com/' },
-  { key: 'twitter', label: 'X', title: 'X (Twitter) Username', helperPrefix: 'x.com/' },
-  { key: 'linkedin', label: 'LinkedIn', title: 'LinkedIn Username', helperPrefix: 'linkedin.com/in/' },
+  { key: 'instagram', label: 'Instagram' },
+  { key: 'twitter', label: 'X' },
+  { key: 'linkedin', label: 'LinkedIn' },
 ];
 
 const Header = ({ onBack }: { onBack: () => void }) => (
@@ -41,32 +39,6 @@ const Header = ({ onBack }: { onBack: () => void }) => (
   </SafeAreaView>
 );
 
-const ToastBar = ({ toast }: { toast: EditProfileToast }) => {
-  const style =
-    toast.type === 'success'
-      ? styles.toastSuccess
-      : toast.type === 'error'
-        ? styles.toastError
-        : toast.type === 'warning'
-          ? styles.toastWarning
-          : styles.toastInfo;
-  const icon: IconName =
-    toast.type === 'success'
-      ? 'check-circle'
-      : toast.type === 'error'
-        ? 'alert-triangle'
-        : toast.type === 'warning'
-          ? 'alert-circle'
-          : 'info';
-
-  return (
-    <View style={[styles.toastBar, style]}>
-      <Feather name={icon} size={18} color="#ffffff" />
-      <Text style={styles.toastText}>{toast.message}</Text>
-    </View>
-  );
-};
-
 const SocialRow = ({
   item,
   value,
@@ -76,70 +48,24 @@ const SocialRow = ({
   value: string;
   onPress: () => void;
 }) => {
-  const platformKey = item.key === 'twitter' ? 'twitter' : item.key;
-  const badgeStyle =
-    item.key === 'instagram'
-      ? styles.instagramBadge
-      : item.key === 'twitter'
-        ? styles.outlinedBadge
-        : { backgroundColor: SOCIAL_PLATFORMS.linkedin.style.backgroundColor };
-
   return (
     <View style={styles.socialCard}>
-      <View style={[styles.socialBadge, badgeStyle]}>
-        {SOCIAL_PLATFORMS[platformKey].renderIcon({ size: 20, color: '#ffffff' })}
-      </View>
+      <SocialBrandBadge platform={item.key} size={44} />
       <View style={styles.socialContent}>
         <Text style={styles.socialLabel}>{item.label}</Text>
         <Text style={styles.socialValue}>{value || 'No link added'}</Text>
       </View>
-      <Pressable style={styles.editButton} onPress={onPress}>
+      <Pressable
+        style={styles.editButton}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`Edit ${item.label} username`}
+      >
         <Feather name="edit-3" size={16} color="#ffffff" />
       </Pressable>
     </View>
   );
 };
-
-const SocialUsernameModal = ({
-  item,
-  value,
-  onChange,
-  onClose,
-}: {
-  item: (typeof socialItems)[number];
-  value: string;
-  onChange: (value: string) => void;
-  onClose: () => void;
-}) => (
-  <Modal transparent visible animationType="fade" onRequestClose={onClose}>
-    <View style={styles.modalOverlay}>
-      <View style={styles.modalCard}>
-        <Text style={styles.modalTitle}>{item.title}</Text>
-        <TextInput
-          value={value}
-          onChangeText={(text) => onChange(extractUsername(text))}
-          placeholder="username"
-          placeholderTextColor="#64748b"
-          style={styles.modalInput}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <Text style={styles.modalHelper}>
-          Will link to: {item.helperPrefix}
-          {value || 'username'}
-        </Text>
-        <View style={styles.modalActions}>
-          <Pressable style={[styles.modalBtn, styles.modalCancel]} onPress={onClose}>
-            <Text style={styles.modalBtnLabel}>Cancel</Text>
-          </Pressable>
-          <Pressable style={[styles.modalBtn, styles.modalSave]} onPress={onClose}>
-            <Text style={styles.modalBtnLabel}>Save</Text>
-          </Pressable>
-        </View>
-      </View>
-    </View>
-  </Modal>
-);
 
 export const EditProfileForm = ({ profile }: { profile: EditProfileController }) => {
   const { draft } = profile;
@@ -163,7 +89,6 @@ export const EditProfileForm = ({ profile }: { profile: EditProfileController })
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#000000" />
       <Header onBack={profile.handleBack} />
-      {profile.toast ? <ToastBar toast={profile.toast} /> : null}
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <ProfileImageEditor
@@ -225,11 +150,12 @@ export const EditProfileForm = ({ profile }: { profile: EditProfileController })
       </ScrollView>
 
       {activeModal ? (
-        <SocialUsernameModal
-          item={activeModal}
+        <SocialUsernameDialog
+          visible
+          platform={activeModal.key}
           value={draft[activeModal.key]}
-          onChange={(value) => profile.setDraftField(activeModal.key, value)}
-          onClose={profile.closeSocialModal}
+          onSave={(value) => profile.setDraftField(activeModal.key, value)}
+          onRequestClose={profile.closeSocialModal}
         />
       ) : null}
 
@@ -241,6 +167,7 @@ export const EditProfileForm = ({ profile }: { profile: EditProfileController })
         currentImage={profile.uploadType === 'avatar' ? draft.profileImage : bannerUri}
         onRemove={profile.handleImageRemove}
         showRemoveOption={true}
+        imageKind={profile.uploadType === 'avatar' ? 'avatar' : 'banner'}
       />
     </View>
   );

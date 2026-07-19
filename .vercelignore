@@ -1,1 +1,3 @@
 backups/user-data-backups/
+.pnpm-store/
+qa-runs/

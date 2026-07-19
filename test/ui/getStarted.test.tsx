@@ -1,38 +1,19 @@
-import { fireEvent, render, screen } from '../utils/render';
+import { render, screen } from '../utils/render';
 
-const mockReplace = jest.fn();
-const mockPersistHasSeenGetStarted = jest.fn();
+import IndexScreen from '../../app/index';
 
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace }),
-}));
+describe('root launch fallback', () => {
+  it('shows one non-interactive, accessible loading state without the wordmark', () => {
+    render(<IndexScreen />);
 
-jest.mock('../../src/utils/getStartedPreference', () => ({
-  persistHasSeenGetStarted: () => mockPersistHasSeenGetStarted(),
-}));
-
-import GetStartedScreen from '../../app/index';
-
-describe('Get Started screen', () => {
-  beforeEach(() => {
-    mockReplace.mockClear();
-    mockPersistHasSeenGetStarted.mockClear();
-  });
-
-  it('shows the minimal Zenlit entry copy and CTA', () => {
-    render(<GetStartedScreen />);
-
-    expect(screen.getByText('Zenlit')).toBeTruthy();
-    expect(screen.getByText('Connect with people around you.')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Get Started' })).toBeTruthy();
-  });
-
-  it('persists the entry state and routes to auth when CTA is pressed', () => {
-    render(<GetStartedScreen />);
-
-    fireEvent.press(screen.getByRole('button', { name: 'Get Started' }));
-
-    expect(mockPersistHasSeenGetStarted).toHaveBeenCalledTimes(1);
-    expect(mockReplace).toHaveBeenCalledWith('/auth');
+    expect(screen.getByText('Getting things ready…')).toBeTruthy();
+    expect(screen.getByText('We’ll take you to your page as soon as everything is ready.')).toBeTruthy();
+    expect(
+      screen.getByLabelText(
+        'Getting things ready… We’ll take you to your page as soon as everything is ready.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText('Zenlit')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
   });
 });
