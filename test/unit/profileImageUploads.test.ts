@@ -1,87 +1,50 @@
-import { deleteImageFromStorage, uploadProfileImage } from '../../src/services/storageService';
+import { deleteStoredImage } from '../../src/services/storageService';
 import { uploadProfileImagesWithCleanup } from '../../src/utils/profileImageUploads';
-import type { CompressedImage } from '../../src/utils/imageCompression';
+import type { StoredImage } from '../../src/types/stored-image';
 
 jest.mock('../../src/services/storageService', () => ({
-  deleteImageFromStorage: jest.fn(),
-  uploadProfileImage: jest.fn(),
+  deleteStoredImage: jest.fn(),
 }));
 
-const mockDeleteImageFromStorage = deleteImageFromStorage as jest.MockedFunction<typeof deleteImageFromStorage>;
-const mockUploadProfileImage = uploadProfileImage as jest.MockedFunction<typeof uploadProfileImage>;
+const mockDeleteStoredImage = deleteStoredImage as jest.MockedFunction<typeof deleteStoredImage>;
 
-const makeImage = (uri: string): CompressedImage => ({
-  uri,
+const makeImage = (kind: 'avatar' | 'banner'): StoredImage => ({
+  uploadId: `upload-${kind}`,
+  publicUrl: `https://cdn.example.com/profile-images/user-1/${kind}.jpg`,
+  bucket: 'profile-images',
+  objectPath: `user-1/${kind}.jpg`,
   width: 100,
   height: 100,
-  base64: 'abc123',
   size: 123,
   mimeType: 'image/jpeg',
-  metadata: {
-    originalSize: 123,
-    compressedSize: 123,
-    compressionRatio: 1,
-    iterations: 0,
-    quality: 0.92,
-    resized: false,
-    targetBytes: 550 * 1024,
-  },
 });
 
 describe('uploadProfileImagesWithCleanup', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockDeleteImageFromStorage.mockResolvedValue({ success: true, error: null });
+    mockDeleteStoredImage.mockResolvedValue({ success: true, error: null });
   });
 
-  it('cleans up an uploaded avatar when the banner upload fails', async () => {
-    mockUploadProfileImage
-      .mockResolvedValueOnce({
-        url: 'https://cdn.example.com/profile-images/user-1/avatar.jpg',
-        error: null,
-      })
-      .mockResolvedValueOnce({
-        url: null,
-        error: new Error('banner upload failed'),
-      });
+  it('uses the already-uploaded public URLs without a second upload', async () => {
+    const avatarImage = makeImage('avatar');
+    const bannerImage = makeImage('banner');
+    const result = await uploadProfileImagesWithCleanup({ avatarImage, bannerImage });
 
-    await expect(
-      uploadProfileImagesWithCleanup({
-        avatarImage: makeImage('file://avatar.jpg'),
-        bannerImage: makeImage('file://banner.jpg'),
-      }),
-    ).rejects.toThrow('Failed to upload the new banner image. Please try again.');
-
-    expect(mockDeleteImageFromStorage).toHaveBeenCalledWith(
-      'https://cdn.example.com/profile-images/user-1/avatar.jpg',
-      'profile-images',
-    );
+    expect(result.avatarUrl).toBe(avatarImage.publicUrl);
+    expect(result.bannerUrl).toBe(bannerImage.publicUrl);
+    expect(mockDeleteStoredImage).not.toHaveBeenCalled();
   });
 
-  it('exposes cleanup for callers when a later database save fails', async () => {
-    mockUploadProfileImage
-      .mockResolvedValueOnce({
-        url: 'https://cdn.example.com/profile-images/user-1/avatar.jpg',
-        error: null,
-      })
-      .mockResolvedValueOnce({
-        url: 'https://cdn.example.com/profile-images/user-1/banner.jpg',
-        error: null,
-      });
-
+  it('exposes Storage API cleanup for uncommitted images', async () => {
+    const avatarImage = makeImage('avatar');
+    const bannerImage = makeImage('banner');
     const result = await uploadProfileImagesWithCleanup({
-      avatarImage: makeImage('file://avatar.jpg'),
-      bannerImage: makeImage('file://banner.jpg'),
+      avatarImage,
+      bannerImage,
     });
     await result.cleanupUploadedImages();
 
-    expect(mockDeleteImageFromStorage).toHaveBeenCalledWith(
-      'https://cdn.example.com/profile-images/user-1/avatar.jpg',
-      'profile-images',
-    );
-    expect(mockDeleteImageFromStorage).toHaveBeenCalledWith(
-      'https://cdn.example.com/profile-images/user-1/banner.jpg',
-      'profile-images',
-    );
+    expect(mockDeleteStoredImage).toHaveBeenNthCalledWith(1, avatarImage);
+    expect(mockDeleteStoredImage).toHaveBeenNthCalledWith(2, bannerImage);
   });
 });

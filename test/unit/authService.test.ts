@@ -6,6 +6,11 @@ import {
   signOut,
   verifyEmailOtp,
 } from '../../src/services/authService';
+import { cleanupPendingUploadsBeforeLogout } from '../../src/services/pendingUploadLedger';
+
+jest.mock('../../src/services/pendingUploadLedger', () => ({
+  cleanupPendingUploadsBeforeLogout: jest.fn(async () => ({ deleted: 0, failed: 0 })),
+}));
 
 const mockSupabase = supabase as unknown as {
   auth: {
@@ -16,6 +21,10 @@ const mockSupabase = supabase as unknown as {
     onAuthStateChange: jest.Mock;
   };
 };
+
+const mockCleanupBeforeLogout = cleanupPendingUploadsBeforeLogout as jest.MockedFunction<
+  typeof cleanupPendingUploadsBeforeLogout
+>;
 
 describe('authService', () => {
   beforeEach(() => {
@@ -76,5 +85,37 @@ describe('authService', () => {
     expect(seen).toEqual([{ event: 'SIGNED_IN', userId: 'user-4' }]);
     expect(unsubscribe).toHaveBeenCalled();
     expect(mockSupabase.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+  });
+
+  it('deletes active pending uploads before a global sign out', async () => {
+    const order: string[] = [];
+    mockSupabase.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: 'user-logout', email: 'logout@example.com' } },
+      error: null,
+    });
+    mockCleanupBeforeLogout.mockImplementationOnce(async () => {
+      order.push('cleanup');
+      return { deleted: 1, failed: 0 };
+    });
+    mockSupabase.auth.signOut.mockImplementationOnce(async () => {
+      order.push('sign-out');
+      return { error: null };
+    });
+
+    await signOut('global');
+
+    expect(mockCleanupBeforeLogout).toHaveBeenCalledWith('user-logout');
+    expect(order).toEqual(['cleanup', 'sign-out']);
+  });
+
+  it('also cleans active pending uploads before a local session clear', async () => {
+    mockSupabase.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: 'user-local', email: 'local@example.com' } },
+      error: null,
+    });
+
+    await signOut('local');
+
+    expect(mockCleanupBeforeLogout).toHaveBeenCalledWith('user-local');
   });
 });

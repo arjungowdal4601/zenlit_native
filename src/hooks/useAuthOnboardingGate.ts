@@ -220,5 +220,6 @@ export const useAuthOnboardingGate = () => {
     pathname,
     routeAccess,
     shouldShowNav: routeAccess?.shouldShowNav ?? false,
+    userId: onboardingUserId,
   };
 };

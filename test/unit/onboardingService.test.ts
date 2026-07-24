@@ -302,6 +302,10 @@ describe('onboarding service auth guard', () => {
     const result = await saveOptionalProfileDetails({
       bio: 'Hello Radar',
       instagram: 'alex',
+      profile_pic_url:
+        'https://example.supabase.co/storage/v1/object/public/profile-images/user-1/avatar.jpg',
+      banner_url:
+        'https://example.supabase.co/storage/v1/object/public/profile-images/user-1/banner.jpg',
     }, 'user-1');
 
     expect(result.error).toBeNull();
@@ -311,6 +315,10 @@ describe('onboarding service auth guard', () => {
         id: 'user-1',
         bio: 'Hello Radar',
         instagram: 'alex',
+        profile_pic_url:
+          'https://example.supabase.co/storage/v1/object/public/profile-images/user-1/avatar.jpg',
+        banner_url:
+          'https://example.supabase.co/storage/v1/object/public/profile-images/user-1/banner.jpg',
       }),
       { onConflict: 'id' },
     );

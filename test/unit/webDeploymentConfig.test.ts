@@ -87,6 +87,10 @@ describe('web deployment configuration', () => {
     const appHeaders = vercelJson.headers?.find((entry) => entry.source === '/(.*)')?.headers ?? [];
     const headerMap = new Map(appHeaders.map(({ key, value }) => [key, value]));
     const csp = headerMap.get('Content-Security-Policy') ?? '';
+    const connectSrc = csp
+      .split(';')
+      .map((directive) => directive.trim())
+      .find((directive) => directive.startsWith('connect-src ')) ?? '';
 
     expect(headerMap.get('Strict-Transport-Security')).toBe(
       'max-age=31536000; includeSubDomains; preload',
@@ -101,6 +105,12 @@ describe('web deployment configuration', () => {
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("script-src 'self' https://va.vercel-scripts.com");
+    // Expo Camera returns a data URL on web and ImageManipulator returns a
+    // temporary Blob URL. compressImage() reads both through fetch(), so they
+    // must be allowed by connect-src (img-src alone is not sufficient).
+    expect(connectSrc.split(/\s+/)).toEqual(
+      expect.arrayContaining(["'self'", 'data:', 'blob:']),
+    );
     expect(csp).toContain('https://*.supabase.co');
     expect(csp).toContain('https://*.supabase.com');
     expect(csp).toContain('https://*.supabase.in');

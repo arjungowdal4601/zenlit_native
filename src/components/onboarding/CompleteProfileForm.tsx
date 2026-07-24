@@ -11,6 +11,7 @@ import { SocialUsernameDialog } from '../social-username-dialog';
 import { styles } from '../../styles/completeProfile.styles';
 import { prismGradientColors, theme } from '../../styles/theme';
 import type { useCompleteProfileOnboarding } from '../../hooks/useCompleteProfileOnboarding';
+import type { ImageUploadTarget } from '../../types/stored-image';
 
 type CompleteProfileViewModel = ReturnType<typeof useCompleteProfileOnboarding>;
 type SocialLinkKey = 'instagram' | 'twitter' | 'linkedin';
@@ -32,6 +33,11 @@ const SOCIAL_LINK_LABELS = {
     helper: 'linkedin.com/in',
   },
 } as const;
+
+const PROFILE_UPLOAD_TARGETS = {
+  avatar: { bucket: 'profile-images', prefix: 'avatar' },
+  banner: { bucket: 'profile-images', prefix: 'banner' },
+} as const satisfies Record<'avatar' | 'banner', ImageUploadTarget>;
 
 export const CompleteProfileForm = ({ profile }: { profile: CompleteProfileViewModel }) => {
   const [activeSocial, setActiveSocial] = React.useState<SocialLinkKey | null>(null);
@@ -75,15 +81,17 @@ export const CompleteProfileForm = ({ profile }: { profile: CompleteProfileViewM
       >
         <View style={styles.bannerWrapper}>
           {profile.bannerImage ? (
-            <Image source={{ uri: profile.bannerImage.uri }} style={styles.bannerImage} resizeMode="cover" />
+            <Image source={{ uri: profile.bannerImage.publicUrl }} style={styles.bannerImage} resizeMode="cover" />
           ) : (
             <View style={[styles.bannerImage, styles.bannerFallback]} />
           )}
           <Pressable
             style={styles.bannerOverlay}
             onPress={profile.openBannerMenu}
+            disabled={profile.isSaving}
             accessibilityRole="button"
             accessibilityLabel="Add banner photo"
+            accessibilityState={{ disabled: profile.isSaving }}
           >
             <View style={styles.overlayCircle}>
               <Feather name="camera" size={18} color={theme.prism.colors.text} />
@@ -92,12 +100,14 @@ export const CompleteProfileForm = ({ profile }: { profile: CompleteProfileViewM
           <View style={styles.avatarWrapper}>
             <Pressable
               onPress={profile.openProfileMenu}
+              disabled={profile.isSaving}
               style={styles.avatarButton}
               accessibilityRole="button"
               accessibilityLabel="Add profile photo"
+              accessibilityState={{ disabled: profile.isSaving }}
             >
               {profile.profileImage ? (
-                <Image source={{ uri: profile.profileImage.uri }} style={styles.avatar} />
+                <Image source={{ uri: profile.profileImage.publicUrl }} style={styles.avatar} />
               ) : (
                 <View style={[styles.avatar, styles.avatarPlaceholder]}>
                   <Feather name="user" size={44} color={theme.prism.colors.mutedDeep} />
@@ -122,6 +132,7 @@ export const CompleteProfileForm = ({ profile }: { profile: CompleteProfileViewM
             style={[styles.input, styles.textarea]}
             multiline
             maxLength={500}
+            editable={!profile.isSaving}
           />
           <Text style={styles.charCount}>{profile.bio.length}/500</Text>
         </View>
@@ -141,6 +152,8 @@ export const CompleteProfileForm = ({ profile }: { profile: CompleteProfileViewM
                 accessibilityLabel={`Edit ${SOCIAL_LINK_LABELS[item.key].label} username`}
                 style={styles.editButton}
                 onPress={() => setActiveSocial(item.key)}
+                disabled={profile.isSaving}
+                accessibilityState={{ disabled: profile.isSaving }}
               >
                 <Feather name="edit-3" size={16} color={theme.prism.colors.text} />
               </Pressable>
@@ -188,7 +201,7 @@ export const CompleteProfileForm = ({ profile }: { profile: CompleteProfileViewM
       </ScrollView>
 
       <SocialUsernameDialog
-        visible={activeSocial !== null}
+        visible={activeSocial !== null && !profile.isSaving}
         platform={activeSocialItem.key}
         value={activeSocialItem.value}
         onSave={activeSocialItem.setValue}
@@ -196,14 +209,15 @@ export const CompleteProfileForm = ({ profile }: { profile: CompleteProfileViewM
       />
 
       <ImageUploadDialog
-        visible={profile.showImageUploadDialog}
+        visible={profile.showImageUploadDialog && !profile.isSaving}
         onClose={() => profile.setShowImageUploadDialog(false)}
-        onImageSelected={profile.handleImageSelected}
+        onImageUploaded={profile.handleImageUploaded}
+        uploadTarget={PROFILE_UPLOAD_TARGETS[profile.uploadType]}
         title={profile.uploadType === 'avatar' ? 'Profile Picture' : 'Banner Image'}
         currentImage={
           profile.uploadType === 'avatar'
-            ? profile.profileImage?.uri
-            : profile.bannerImage?.uri
+            ? profile.profileImage?.publicUrl
+            : profile.bannerImage?.publicUrl
         }
         onRemove={profile.handleRemoveImage}
         showRemoveOption={true}

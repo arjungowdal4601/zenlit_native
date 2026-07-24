@@ -1,4 +1,3 @@
-import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 const DEFAULT_MAX_SIZE_KB = 550;
@@ -21,14 +20,18 @@ export interface CompressionMetadata {
   targetBytes: number;
 }
 
-export interface CompressedImage {
-  uri: string;
+export interface PreparedImage {
+  blob: Blob;
   width: number;
   height: number;
-  base64?: string;
   size: number;
-  mimeType: string;
+  mimeType: 'image/jpeg';
   metadata: CompressionMetadata;
+  cleanup: () => void;
+}
+
+export interface CompressedImage extends PreparedImage {
+  uri: string;
 }
 
 export interface ImageCompressionOptions {
@@ -38,246 +41,99 @@ export interface ImageCompressionOptions {
   minResizeWidth?: number;
 }
 
-type PreparedSource = {
-  uri: string;
-  mimeType: string;
-  cleanup?: () => Promise<void>;
-  embeddedBase64?: string;
-};
+export interface CameraCapturePreparationOptions extends ImageCompressionOptions {
+  width: number;
+  height: number;
+  quality?: number;
+}
 
-const isDataUri = (value: string) => value.startsWith('data:');
 const isBlobUri = (value: string) => value.startsWith('blob:');
-const isHttpUri = (value: string) => /^https?:\/\//i.test(value);
 
-const stripDataUriPrefix = (value: string): { mimeType: string; base64: string } => {
-  const match = value.match(/^data:(.*?);base64,(.+)$/);
-  if (!match || !match[2]) {
-    throw new Error('Invalid data URI supplied');
+const revokeBlobUri = (uri: string) => {
+  if (!isBlobUri(uri) || typeof URL === 'undefined' || typeof URL.revokeObjectURL !== 'function') {
+    return;
   }
-  return {
-    mimeType: match[1] || 'image/jpeg',
-    base64: match[2].replace(/\s/g, ''),
-  };
+
+  URL.revokeObjectURL(uri);
 };
 
-const inferMimeFromPath = (uri: string): string => {
-  const extensionMatch = uri.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
-  const extension = extensionMatch?.[1]?.toLowerCase();
-
-  switch (extension) {
-    case 'png':
-      return 'image/png';
-    case 'webp':
-      return 'image/webp';
-    case 'gif':
-      return 'image/gif';
-    case 'heic':
-    case 'heif':
-      return 'image/heic';
-    default:
-      return 'image/jpeg';
+const fetchBlob = async (uri: string): Promise<Blob> => {
+  const response = await fetch(uri);
+  if ('ok' in response && !response.ok) {
+    throw new Error('Failed to read image data');
   }
+
+  return response.blob();
 };
 
-const mimeToExtension = (mime: string): string => {
-  if (mime.includes('png')) return 'png';
-  if (mime.includes('webp')) return 'webp';
-  if (mime.includes('gif')) return 'gif';
-  if (mime.includes('heic') || mime.includes('heif')) return 'heic';
-  return 'jpg';
+const JPEG_DATA_URI_PREFIX = /^data:image\/(?:jpeg|jpg);base64,/i;
+
+const isJpegBlob = (blob: Blob) =>
+  blob.type.toLowerCase() === 'image/jpeg' || blob.type.toLowerCase() === 'image/jpg';
+
+const hasJpegSignature = (bytes: Uint8Array) =>
+  bytes.length >= 4 &&
+  bytes[0] === 0xff &&
+  bytes[1] === 0xd8 &&
+  bytes[2] === 0xff &&
+  bytes[bytes.length - 2] === 0xff &&
+  bytes[bytes.length - 1] === 0xd9;
+
+const readBlobBytes = async (blob: Blob): Promise<Uint8Array> => {
+  if (typeof blob.arrayBuffer === 'function') {
+    return new Uint8Array(await blob.arrayBuffer());
+  }
+
+  if (typeof FileReader === 'undefined') {
+    throw new Error('This device cannot read the camera capture');
+  }
+
+  return new Promise<Uint8Array>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
+    reader.onerror = () => reject(reader.error ?? new Error('Failed to read camera capture'));
+    reader.readAsArrayBuffer(blob);
+  });
 };
 
-// Map extension back to a proper image MIME (used for web fallbacks)
-const extensionToMime = (ext: string): string => {
-  const e = ext.toLowerCase();
-  switch (e) {
-    case 'png':
-      return 'image/png';
-    case 'webp':
-      return 'image/webp';
-    case 'gif':
-      return 'image/gif';
-    case 'heic':
-    case 'heif':
-      return 'image/heic';
-    case 'jpeg':
-    case 'jpg':
-    default:
-      return 'image/jpeg';
-  }
-};
-
-const base64SizeInBytes = (base64: string): number => {
-  const cleaned = base64.replace(/=+$/, '');
-  return Math.floor((cleaned.length * 3) / 4);
-};
-
-export const base64ToUint8Array = (value: string): Uint8Array => {
-  const base64Value = value.startsWith('data:')
-    ? value.slice(value.indexOf(',') + 1)
-    : value;
-
-  const base64Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-  const sanitized = base64Value.replace(/[^A-Za-z0-9+/=]/g, '');
-  let bufferLength = (sanitized.length * 3) / 4;
-
-  if (sanitized.endsWith('==')) {
-    bufferLength -= 2;
-  } else if (sanitized.endsWith('=')) {
-    bufferLength -= 1;
+const decodeCameraJpegDataUri = (uri: string): Blob => {
+  const prefix = uri.match(JPEG_DATA_URI_PREFIX)?.[0];
+  if (!prefix) {
+    throw new Error('Camera capture was not a JPEG data URI');
   }
 
-  const bytes = new Uint8Array(bufferLength | 0);
-  let bufferIndex = 0;
-
-  for (let i = 0; i < sanitized.length; i += 4) {
-    const encoded1 = base64Chars.indexOf(sanitized[i]);
-    const encoded2 = base64Chars.indexOf(sanitized[i + 1]);
-    const encoded3 = base64Chars.indexOf(sanitized[i + 2]);
-    const encoded4 = base64Chars.indexOf(sanitized[i + 3]);
-
-    const triplet = (encoded1 << 18) | (encoded2 << 12) | ((encoded3 & 63) << 6) | (encoded4 & 63);
-
-    if (sanitized[i + 2] === '=') {
-      bytes[bufferIndex++] = (triplet >> 16) & 0xff;
-    } else if (sanitized[i + 3] === '=') {
-      bytes[bufferIndex++] = (triplet >> 16) & 0xff;
-      bytes[bufferIndex++] = (triplet >> 8) & 0xff;
-    } else {
-      bytes[bufferIndex++] = (triplet >> 16) & 0xff;
-      bytes[bufferIndex++] = (triplet >> 8) & 0xff;
-      bytes[bufferIndex++] = triplet & 0xff;
-    }
+  if (typeof globalThis.atob !== 'function') {
+    throw new Error('This device cannot decode the camera capture');
   }
 
-  return bytes;
-};
-
-const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
-  if (typeof (globalThis as any).Buffer !== 'undefined') {
-    return (globalThis as any).Buffer.from(buffer).toString('base64');
-  }
-
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    const slice = bytes.subarray(offset, offset + chunkSize);
-    binary += String.fromCharCode(...slice);
-  }
-
-  if (typeof globalThis.btoa === 'function') {
-    return globalThis.btoa(binary);
-  }
-
-  throw new Error('No base64 encoder available in this environment');
-};
-
-const writeBase64ToCache = async (base64: string, extension: string): Promise<string> => {
-  const directory = (FileSystem as any).cacheDirectory ?? (FileSystem as any).documentDirectory;
-  // On web, FileSystem directories are unavailable. Fall back to a data URI.
-  if (!directory) {
-    const mime = extensionToMime(extension);
-    return `data:${mime};base64,${base64}`;
-  }
-  const uniqueName = `img-${Date.now()}-${Math.random().toString(16).slice(2)}.${extension}`;
-  const fileUri = `${directory}${uniqueName}`;
-  await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: 'base64' });
-  return fileUri;
-};
-
-const safelyDelete = async (uri: string | undefined) => {
-  if (!uri) return;
+  let binary: string;
   try {
-    await FileSystem.deleteAsync(uri, { idempotent: true });
-    // Example using new API if/when you migrate:
-    // const file = new File(uri);
-    // return file.delete();
+    binary = globalThis.atob(uri.slice(prefix.length));
   } catch {
-    // Ignore cleanup failures – they are non-blocking.
-  }
-};
-
-const prepareInputUri = async (uri: string): Promise<PreparedSource> => {
-  if (isDataUri(uri)) {
-    const { mimeType, base64 } = stripDataUriPrefix(uri);
-    const tempUri = await writeBase64ToCache(base64, mimeToExtension(mimeType));
-    return {
-      uri: tempUri,
-      mimeType,
-      embeddedBase64: base64,
-      cleanup: () => safelyDelete(tempUri),
-    };
+    throw new Error('Camera capture contained invalid JPEG data');
   }
 
-  if (isBlobUri(uri) || isHttpUri(uri)) {
-    const response = await fetch(uri);
-    if (!response.ok) {
-      throw new Error('Failed to fetch image for compression');
-    }
-    const blob = await response.blob();
-    const arrayBuffer = await blob.arrayBuffer();
-    const base64 = arrayBufferToBase64(arrayBuffer);
-    const mimeType = blob.type || inferMimeFromPath(uri);
-    const tempUri = await writeBase64ToCache(base64, mimeToExtension(mimeType));
-    return {
-      uri: tempUri,
-      mimeType,
-      embeddedBase64: base64,
-      cleanup: () => safelyDelete(tempUri),
-    };
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
   }
 
-  return {
-    uri,
-    mimeType: inferMimeFromPath(uri),
-  };
-};
-
-const getResourceSize = async (uri: string, inlineBase64?: string): Promise<number> => {
-  if (isDataUri(uri)) {
-    const { base64 } = stripDataUriPrefix(uri);
-    return base64SizeInBytes(base64);
+  if (!hasJpegSignature(bytes)) {
+    throw new Error('Camera capture did not contain a valid JPEG');
   }
 
-  if (inlineBase64) {
-    return base64SizeInBytes(inlineBase64);
-  }
-
-  try {
-    const info = await FileSystem.getInfoAsync(uri);
-    if (info.exists && typeof info.size === 'number') {
-      return info.size;
-    }
-  } catch {
-    // Swallow errors; we'll fall back to other strategies.
-  }
-
-  if (isBlobUri(uri) || isHttpUri(uri)) {
-    try {
-      const response = await fetch(uri, { method: 'HEAD' });
-      const contentLength = response.headers.get('content-length');
-      if (contentLength) {
-        return Number.parseInt(contentLength, 10);
-      }
-    } catch {
-      // Ignore failures.
-    }
-  }
-
-  return 0;
-};
-
-const computeResultSize = async (result: ImageManipulator.ImageResult): Promise<number> => {
-  if (result.base64) {
-    return base64SizeInBytes(result.base64);
-  }
-  return getResourceSize(result.uri);
+  return new Blob([bytes], { type: 'image/jpeg' });
 };
 
 const clampQuality = (value: number, min: number) => Math.max(Math.min(value, 1), min);
 
+/**
+ * Converts an Expo image URI into a compressed JPEG Blob.
+ *
+ * Gallery images, native file URIs, and oversized web camera captures pass
+ * through ImageManipulator, become a binary JPEG Blob, and are never persisted
+ * as Base64. Normal Expo web camera data URIs use prepareCameraCapture instead.
+ */
 export async function compressImage(
   uri: string,
   options: ImageCompressionOptions = {},
@@ -287,117 +143,181 @@ export async function compressImage(
   const minResizeWidth = options.minResizeWidth ?? DEFAULT_MIN_RESIZE_WIDTH;
   const initialQuality = clampQuality(options.initialQuality ?? 0.92, minQuality);
 
-  const prepared = await prepareInputUri(uri);
-  const originalSize = await getResourceSize(uri, prepared.embeddedBase64);
+  let originalSize = 0;
+  try {
+    originalSize = (await fetchBlob(uri)).size;
+  } catch {
+    // ImageManipulator may still be able to read a native file URI. In that
+    // case, use the final JPEG size as the original-size fallback.
+  }
 
   let quality = initialQuality;
   let iterations = 0;
   let resized = false;
+  let currentResultUri: string | null = null;
 
   const performManipulation = async (
     resizeWidth?: number,
     forcedQuality?: number,
-  ): Promise<ImageManipulator.ImageResult> => {
+  ): Promise<{ result: ImageManipulator.ImageResult; blob: Blob }> => {
     const actions = resizeWidth ? [{ resize: { width: resizeWidth } }] : [];
-    return ImageManipulator.manipulateAsync(
-      prepared.uri,
-      actions,
-      {
-        compress: clampQuality(forcedQuality ?? quality, FALLBACK_MIN_QUALITY),
-        format: ImageManipulator.SaveFormat.JPEG,
-        base64: true,
-      },
-    );
+    const previousResultUri = currentResultUri;
+    const result = await ImageManipulator.manipulateAsync(uri, actions, {
+      compress: clampQuality(forcedQuality ?? quality, FALLBACK_MIN_QUALITY),
+      format: ImageManipulator.SaveFormat.JPEG,
+      base64: false,
+    });
+    const blob = await fetchBlob(result.uri);
+    if (!isJpegBlob(blob)) {
+      throw new Error(`Image conversion returned ${blob.type || 'an unknown format'} instead of JPEG`);
+    }
+
+    if (previousResultUri && previousResultUri !== result.uri && previousResultUri !== uri) {
+      revokeBlobUri(previousResultUri);
+    }
+
+    currentResultUri = result.uri;
+    return { result, blob };
   };
 
-  let result = await performManipulation();
-  let size = await computeResultSize(result);
+  try {
+    let manipulated = await performManipulation();
+    let result = manipulated.result;
+    let size = manipulated.blob.size;
 
-  if (size <= targetBytes && originalSize > 0 && originalSize <= targetBytes) {
-    await prepared.cleanup?.();
+    while (size > targetBytes && quality > minQuality + 0.001) {
+      iterations += 1;
+      quality = clampQuality(quality - QUALITY_STEP, minQuality);
+      manipulated = await performManipulation(undefined, quality);
+      result = manipulated.result;
+      size = manipulated.blob.size;
+    }
+
+    if (size > targetBytes) {
+      resized = true;
+      let currentWidth = result.width;
+      let guard = 0;
+
+      while (size > targetBytes && guard < 12) {
+        guard += 1;
+        iterations += 1;
+
+        const nextWidthCandidate = Math.floor(currentWidth * RESIZE_STEP);
+        const nextWidth = Math.max(
+          nextWidthCandidate < currentWidth ? nextWidthCandidate : currentWidth - 40,
+          Math.min(minResizeWidth, currentWidth),
+          ABSOLUTE_MIN_RESIZE_WIDTH,
+          320,
+        );
+
+        if (nextWidth >= currentWidth) {
+          break;
+        }
+
+        currentWidth = nextWidth;
+        manipulated = await performManipulation(currentWidth, quality);
+        result = manipulated.result;
+        size = manipulated.blob.size;
+      }
+
+      while (size > targetBytes && quality > FALLBACK_MIN_QUALITY + 0.001) {
+        iterations += 1;
+        quality = clampQuality(quality - QUALITY_STEP, FALLBACK_MIN_QUALITY);
+        manipulated = await performManipulation(currentWidth, quality);
+        result = manipulated.result;
+        size = manipulated.blob.size;
+      }
+    }
+
+    if (!currentResultUri) {
+      throw new Error('Image compression did not produce a JPEG');
+    }
+
+    const blob = manipulated.blob;
+    const resultUri = currentResultUri;
+    const finalSize = blob.size;
+    const measuredOriginalSize = originalSize > 0 ? originalSize : finalSize;
+    let cleanedUp = false;
+
     return {
-      uri: result.uri,
+      uri: resultUri,
+      blob,
       width: result.width,
       height: result.height,
-      base64: result.base64,
-      size,
+      size: finalSize,
       mimeType: 'image/jpeg',
       metadata: {
-        originalSize,
-        compressedSize: size,
-        compressionRatio: originalSize > 0 ? size / originalSize : 1,
+        originalSize: measuredOriginalSize,
+        compressedSize: finalSize,
+        compressionRatio: measuredOriginalSize > 0 ? finalSize / measuredOriginalSize : 1,
         iterations,
         quality,
         resized,
         targetBytes,
       },
+      cleanup: () => {
+        if (cleanedUp) return;
+        cleanedUp = true;
+        if (resultUri !== uri) {
+          revokeBlobUri(resultUri);
+        }
+      },
     };
-  }
-
-  while (size > targetBytes && quality > minQuality + 0.001) {
-    iterations += 1;
-    quality = clampQuality(quality - QUALITY_STEP, minQuality);
-    result = await performManipulation(undefined, quality);
-    size = await computeResultSize(result);
-  }
-
-  if (size > targetBytes) {
-    resized = true;
-    let currentWidth = result.width;
-    let guard = 0;
-
-    while (size > targetBytes && guard < 12) {
-      guard += 1;
-      iterations += 1;
-
-      const nextWidthCandidate = Math.floor(currentWidth * RESIZE_STEP);
-      const nextWidth = Math.max(
-        nextWidthCandidate < currentWidth ? nextWidthCandidate : currentWidth - 40,
-        Math.min(minResizeWidth, currentWidth),
-        ABSOLUTE_MIN_RESIZE_WIDTH,
-        320,
-      );
-
-      if (nextWidth >= currentWidth) {
-        break;
-      }
-
-      currentWidth = nextWidth;
-
-      result = await performManipulation(currentWidth, quality);
-      size = await computeResultSize(result);
+  } catch (error) {
+    if (currentResultUri && currentResultUri !== uri) {
+      revokeBlobUri(currentResultUri);
     }
+    throw error;
+  }
+}
 
-    if (size > targetBytes && quality > FALLBACK_MIN_QUALITY) {
-      while (size > targetBytes && quality > FALLBACK_MIN_QUALITY + 0.001) {
-        iterations += 1;
-        quality = clampQuality(quality - QUALITY_STEP, FALLBACK_MIN_QUALITY);
-        result = await performManipulation(currentWidth, quality);
-        size = await computeResultSize(result);
-      }
-    }
+/**
+ * Expo Camera encodes web captures as JPEG data URIs or temporary Blob URLs.
+ * Read either result directly into validated binary instead of sending it
+ * through ImageManipulator's second browser Image/canvas/Blob-URL pipeline.
+ *
+ * Native camera URIs and oversized web captures still use compressImage so
+ * every upload remains within the Storage bucket limit.
+ */
+export async function prepareCameraCapture(
+  uri: string,
+  options: CameraCapturePreparationOptions,
+): Promise<PreparedImage> {
+  const isJpegDataUri = JPEG_DATA_URI_PREFIX.test(uri);
+  if (!isJpegDataUri && !isBlobUri(uri)) {
+    return compressImage(uri, options);
   }
 
-  await prepared.cleanup?.();
+  let blob = isJpegDataUri ? decodeCameraJpegDataUri(uri) : await fetchBlob(uri);
+  if (!isJpegBlob(blob) || !hasJpegSignature(await readBlobBytes(blob))) {
+    throw new Error('Camera capture did not contain a valid JPEG');
+  }
 
-  const finalSize = size;
-  const ratio = originalSize > 0 ? finalSize / originalSize : 1;
+  if (blob.type.toLowerCase() !== 'image/jpeg') {
+    blob = new Blob([blob], { type: 'image/jpeg' });
+  }
 
+  const targetBytes = options.maxBytes ?? MAX_IMAGE_SIZE_BYTES;
+  if (blob.size > targetBytes) {
+    return compressImage(uri, options);
+  }
+
+  const quality = clampQuality(options.quality ?? 0.9, FALLBACK_MIN_QUALITY);
   return {
-    uri: result.uri,
-    width: result.width,
-    height: result.height,
-    base64: result.base64,
-    size: finalSize,
+    blob,
+    width: Number.isFinite(options.width) && options.width > 0 ? options.width : 0,
+    height: Number.isFinite(options.height) && options.height > 0 ? options.height : 0,
+    size: blob.size,
     mimeType: 'image/jpeg',
     metadata: {
-      originalSize: originalSize > 0 ? originalSize : finalSize,
-      compressedSize: finalSize,
-      compressionRatio: ratio,
-      iterations,
+      originalSize: blob.size,
+      compressedSize: blob.size,
+      compressionRatio: 1,
+      iterations: 0,
       quality,
-      resized,
+      resized: false,
       targetBytes,
     },
+    cleanup: () => undefined,
   };
 }

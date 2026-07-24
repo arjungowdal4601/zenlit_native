@@ -8,7 +8,6 @@ import { useAppToast } from '../src/components/ui/app-toast';
 import { theme } from '../src/styles/theme';
 import { createPost } from '../src/services/postService';
 import { getCurrentUserProfile } from '../src/services/profileService';
-import { uploadCompressedImage } from '../src/services/storageService';
 
 const CreateScreen: React.FC = () => {
   const router = useRouter();
@@ -17,22 +16,33 @@ const CreateScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadAuthor();
-  }, []);
+    let cancelled = false;
 
-  const loadAuthor = async () => {
-    const { profile, socialLinks } = await getCurrentUserProfile();
+    const loadAuthor = async () => {
+      try {
+        const { profile, socialLinks } = await getCurrentUserProfile();
+        if (!cancelled && profile) {
+          setAuthor({
+            name: profile.display_name,
+            username: profile.user_name,
+            avatar: socialLinks?.profile_pic_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.display_name)}&background=random&color=fff&size=128`,
+          });
+        }
+      } catch (error) {
+        console.error('Unable to load the post author:', error);
+        if (!cancelled) {
+          showToast({ message: 'Unable to load your profile. Please try again.', tone: 'error' });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
 
-    if (profile) {
-      setAuthor({
-        name: profile.display_name,
-        username: profile.user_name,
-        avatar: socialLinks?.profile_pic_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.display_name)}&background=random&color=fff&size=128`,
-      });
-    }
-
-    setLoading(false);
-  };
+    void loadAuthor();
+    return () => {
+      cancelled = true;
+    };
+  }, [showToast]);
 
   const handleShare = useCallback(async ({ content, image }: PostComposerSharePayload) => {
     const trimmed = content.trim();
@@ -41,21 +51,7 @@ const CreateScreen: React.FC = () => {
       return false;
     }
 
-    let uploadedImageUrl: string | undefined;
-
-    if (image) {
-      const { url, error } = await uploadCompressedImage(image, 'post-images', 'post');
-      if (error || !url) {
-        showToast({
-          message: 'We could not upload your image. Please try again.',
-          tone: 'error',
-        });
-        return false;
-      }
-      uploadedImageUrl = url;
-    }
-
-    const { post, error } = await createPost(trimmed, uploadedImageUrl);
+    const { post, error } = await createPost(trimmed, image?.publicUrl);
 
     if (error || !post) {
       showToast({ message: 'Failed to create post. Please try again.', tone: 'error' });
@@ -63,9 +59,12 @@ const CreateScreen: React.FC = () => {
       return false;
     }
 
+    return true;
+  }, [showToast]);
+
+  const handleShareComplete = useCallback(() => {
     showToast({ message: 'Post created successfully.', tone: 'success' });
     router.replace('/feed');
-    return true;
   }, [router, showToast]);
 
   if (loading || !author) {
@@ -84,7 +83,11 @@ const CreateScreen: React.FC = () => {
       <AppHeader title="Create Post" />
 
       <View style={styles.content}>
-        <PostComposer author={author} onShare={handleShare} />
+        <PostComposer
+          author={author}
+          onShare={handleShare}
+          onShareComplete={handleShareComplete}
+        />
       </View>
 
       {/* Navigation is now rendered in the root layout */}

@@ -17,6 +17,8 @@ expo-env.d.ts
 *.jks
 *.p8
 *.p12
+*.pfx
+*.pkcs12
 *.key
 *.pem
 *.mobileprovision
@@ -25,6 +27,7 @@ expo-env.d.ts
 .metro-health-check*
 
 # debug
+*.log
 npm-debug.*
 yarn-debug.*
 yarn-error.*
@@ -32,6 +35,10 @@ yarn-error.*
 # generated QA/reports
 qa-runs/
 auth_onboarding_report.html
+coverage/
+test-results/
+playwright-report/
+.eslintcache
 
 # macOS
 .DS_Store
@@ -43,6 +50,12 @@ auth_onboarding_report.html
 !.env.template
 .envrc
 .direnv/
+.npmrc
+
+# local editor and assistant state
+.trae/
+.idea/
+.vscode/
 
 # credential files
 credentials*.json
@@ -61,6 +74,22 @@ GoogleService-Info.plist
 *.enc
 *.encrypted
 *.gpg
+
+# local databases and data dumps
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.realm
+*.realm.*
+*.bak
+*.backup
+*.dump
+*.sql.gz
+dump*.sql
+backup*.sql
+*_dump.sql
+*_backup.sql
 
 # typescript
 *.tsbuildinfo

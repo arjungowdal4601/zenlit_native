@@ -87,4 +87,4 @@ export interface UserUnreadCount {
   unread_count: number;
 }
 
-export type StorageBucket = 'profile-images' | 'post-images' | 'feedback-images';
+export type { StorageBucket } from '../types/stored-image';

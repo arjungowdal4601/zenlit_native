@@ -16,8 +16,10 @@ import {
   View,
 } from 'react-native';
 
+import { deleteStoredImage, uploadImageFromUri } from '../services/storageService';
 import { theme } from '../styles/theme';
-import { compressImage, type CompressedImage } from '../utils/imageCompression';
+import type { ImageUploadTarget, StoredImage } from '../types/stored-image';
+import { getCameraSwitchAvailability } from '../utils/camera-switch-availability';
 import { Feather } from './icons';
 import AppDialog from './ui/app-dialog';
 
@@ -26,16 +28,23 @@ export type ImageKind = 'avatar' | 'banner' | 'attachment';
 export type ImageUploadDialogProps = {
   visible: boolean;
   onClose: () => void;
-  onImageSelected: (image: CompressedImage | null) => void;
+  onImageUploaded: (image: StoredImage) => void | Promise<void>;
   imageKind: ImageKind;
+  uploadTarget: ImageUploadTarget;
   title?: string;
   currentImage?: string | null;
   onRemove?: () => void;
   showRemoveOption?: boolean;
 };
 
-type DialogStep = 'source' | 'permission' | 'camera' | 'preview' | 'remove';
-type SelectedSource = 'gallery' | 'camera';
+type DialogStep =
+  | 'source'
+  | 'permission'
+  | 'camera'
+  | 'preview'
+  | 'processing'
+  | 'capture-failure'
+  | 'remove';
 type IssueKind =
   | 'gallery-permission'
   | 'gallery'
@@ -43,7 +52,8 @@ type IssueKind =
   | 'camera-unavailable'
   | 'camera-mount'
   | 'camera-capture'
-  | 'processing';
+  | 'processing'
+  | 'upload';
 
 type InlineIssue = {
   kind: IssueKind;
@@ -52,12 +62,13 @@ type InlineIssue = {
 };
 
 type SelectedImage = {
-  displayUri: string;
-  uploadUri: string;
-  source: SelectedSource;
+  uri: string;
   width: number;
   height: number;
+  source: 'camera' | 'gallery';
 };
+
+type ProcessingPhase = 'preparing' | 'uploading';
 
 const CAMERA_PERMISSION_COPY =
   'Allow camera access to take a photo. Zenlit never requests microphone access.';
@@ -70,11 +81,38 @@ const getPickerOptions = (imageKind: ImageKind): ImagePicker.ImagePickerOptions 
   allowsEditing: imageKind === 'avatar',
   ...(imageKind === 'avatar' ? { aspect: [1, 1] as [number, number] } : {}),
   quality: 0.9,
-  base64: true,
+  base64: false,
 });
 
-const getDataUri = (base64: string | null | undefined, mimeType = 'image/jpeg') =>
-  base64 ? `data:${mimeType};base64,${base64}` : null;
+const releaseTemporaryUri = (uri: string | null | undefined) => {
+  if (!uri?.startsWith('blob:')) {
+    return;
+  }
+
+  try {
+    globalThis.URL?.revokeObjectURL?.(uri);
+  } catch {
+    // Object URL cleanup is best effort and should never interrupt dismissal.
+  }
+};
+
+const makePreviewSafeUri = async (uri: string): Promise<string> => {
+  if (!uri.startsWith('data:')) {
+    return uri;
+  }
+
+  const response = await fetch(uri);
+  if (!response.ok) {
+    throw new Error('Failed to read selected image');
+  }
+
+  const createObjectURL = globalThis.URL?.createObjectURL;
+  if (typeof createObjectURL !== 'function') {
+    throw new Error('This device cannot prepare the selected image');
+  }
+
+  return createObjectURL(await response.blob());
+};
 
 const getSelectedImageAspectRatio = (image: SelectedImage | null) =>
   image &&
@@ -88,8 +126,9 @@ const getSelectedImageAspectRatio = (image: SelectedImage | null) =>
 const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
   visible,
   onClose,
-  onImageSelected,
+  onImageUploaded,
   imageKind,
+  uploadTarget,
   title = 'Add a photo',
   currentImage,
   onRemove,
@@ -102,25 +141,32 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
   const sessionRef = useRef(0);
   const operationSessionRef = useRef<number | null>(null);
   const completedRef = useRef(false);
+  const selectedImageRef = useRef<SelectedImage | null>(null);
 
   const [step, setStep] = useState<DialogStep>('source');
   const [selectedImage, setSelectedImage] = useState<SelectedImage | null>(null);
   const [facing, setFacing] = useState<CameraType>(() => getDefaultFacing(imageKind));
   const [cameraAttempt, setCameraAttempt] = useState(0);
+  const [canSwitchCamera, setCanSwitchCamera] = useState(false);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingPhase, setProcessingPhase] = useState<ProcessingPhase>('preparing');
   const [issue, setIssue] = useState<InlineIssue | null>(null);
 
   const resetDialogState = () => {
     cameraRef.current = null;
+    releaseTemporaryUri(selectedImageRef.current?.uri);
+    selectedImageRef.current = null;
     setStep('source');
     setSelectedImage(null);
     setFacing(getDefaultFacing(imageKind));
     setCameraAttempt(0);
+    setCanSwitchCamera(false);
     setIsCameraReady(false);
     setIsBusy(false);
     setIsProcessing(false);
+    setProcessingPhase('preparing');
     setIssue(null);
   };
 
@@ -143,6 +189,8 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
       sessionRef.current += 1;
       operationSessionRef.current = null;
       cameraRef.current = null;
+      releaseTemporaryUri(selectedImageRef.current?.uri);
+      selectedImageRef.current = null;
     };
   }, []);
 
@@ -165,7 +213,107 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
     }
   };
 
-  const finishDialog = (beforeClose?: () => void) => {
+  const replaceSelectedImage = (next: SelectedImage | null) => {
+    const previous = selectedImageRef.current;
+    if (previous?.uri !== next?.uri) {
+      releaseTemporaryUri(previous?.uri);
+    }
+    selectedImageRef.current = next;
+    setSelectedImage(next);
+  };
+
+  const removeLateUpload = async (image: StoredImage) => {
+    try {
+      const result = await deleteStoredImage(image);
+      if (result && 'error' in result && result.error) {
+        console.error('Late image upload cleanup failed:', result.error);
+      }
+    } catch (error) {
+      console.error('Late image upload cleanup failed:', error);
+    }
+  };
+
+  const processAndUpload = async (
+    uri: string,
+    width: number,
+    height: number,
+    source: 'camera' | 'gallery',
+    session: number,
+    failureStep: 'preview' | 'capture-failure',
+  ) => {
+    const progress = { phase: 'preparing' as ProcessingPhase };
+
+    setIssue(null);
+    setProcessingPhase('preparing');
+    setIsProcessing(true);
+
+    try {
+      const { image, error } = await uploadImageFromUri(uri, uploadTarget, {
+        width,
+        height,
+        source,
+        onProgress: (phase) => {
+          progress.phase = phase;
+          if (isActiveSession(session)) {
+            setProcessingPhase(phase);
+          }
+        },
+      });
+
+      if (image) {
+        if (!isActiveSession(session)) {
+          await removeLateUpload(image);
+          return;
+        }
+
+        finishDialog(async () => {
+          try {
+            await onImageUploaded(image);
+          } catch (callbackError) {
+            await removeLateUpload(image);
+            throw callbackError;
+          }
+        });
+        return;
+      }
+
+      if (!isActiveSession(session)) {
+        return;
+      }
+
+      const failedDuringUpload = progress.phase === 'uploading';
+      setStep(failureStep);
+      setIssue({
+        kind: failedDuringUpload ? 'upload' : 'processing',
+        canRetry: true,
+        message: failedDuringUpload
+          ? 'We couldn’t upload this photo. Please try again or choose another photo.'
+          : 'We couldn’t prepare this photo. Please try again or choose another photo.',
+      });
+      if (error) {
+        console.error('Image upload failed:', error);
+      }
+    } catch (error) {
+      console.error('Image upload failed:', error);
+      if (isActiveSession(session)) {
+        const failedDuringUpload = progress.phase === 'uploading';
+        setStep(failureStep);
+        setIssue({
+          kind: failedDuringUpload ? 'upload' : 'processing',
+          canRetry: true,
+          message: failedDuringUpload
+            ? 'We couldn’t upload this photo. Please try again or choose another photo.'
+            : 'We couldn’t prepare this photo. Please try again or choose another photo.',
+        });
+      }
+    } finally {
+      if (isActiveSession(session)) {
+        setIsProcessing(false);
+      }
+    }
+  };
+
+  const finishDialog = (beforeClose?: () => void | Promise<void>) => {
     if (completedRef.current) {
       return;
     }
@@ -174,13 +322,26 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
     visibleRef.current = false;
     sessionRef.current += 1;
     operationSessionRef.current = null;
-    resetDialogState();
 
     try {
-      beforeClose?.();
-    } finally {
-      onClose();
+      const result = beforeClose?.();
+      if (result && typeof result.then === 'function') {
+        void Promise.resolve(result)
+          .catch((error) => {
+            console.error('Image selection callback failed:', error);
+          })
+          .finally(() => {
+            resetDialogState();
+            onClose();
+          });
+        return;
+      }
+    } catch (error) {
+      console.error('Image selection callback failed:', error);
     }
+
+    resetDialogState();
+    onClose();
   };
 
   const handleClose = () => {
@@ -230,13 +391,17 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
       }
 
       const asset = result.assets[0];
-      const encodedUri = getDataUri(asset.base64, asset.mimeType ?? 'image/jpeg');
-      setSelectedImage({
-        displayUri: asset.uri,
-        uploadUri: encodedUri ?? asset.uri,
-        source: 'gallery',
+      const previewUri = await makePreviewSafeUri(asset.uri);
+      if (!isActiveSession(session)) {
+        releaseTemporaryUri(previewUri);
+        return;
+      }
+
+      replaceSelectedImage({
+        uri: previewUri,
         width: asset.width,
         height: asset.height,
+        source: 'gallery',
       });
       setStep('preview');
     } catch (error) {
@@ -304,8 +469,20 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
       }
 
       setFacing(getDefaultFacing(imageKind));
+      setCanSwitchCamera(false);
       setCameraAttempt((attempt) => attempt + 1);
       setStep('camera');
+      void getCameraSwitchAvailability()
+        .then((switchAvailable) => {
+          if (isActiveSession(session)) {
+            setCanSwitchCamera(switchAvailable);
+          }
+        })
+        .catch(() => {
+          if (isActiveSession(session)) {
+            setCanSwitchCamera(false);
+          }
+        });
     } catch (error) {
       console.error('Camera permission or availability check failed:', error);
       if (isActiveSession(session)) {
@@ -348,8 +525,8 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
     });
   };
 
-  const handleFlipCamera = () => {
-    if (isBusy || isProcessing) {
+  const handleSwitchCamera = () => {
+    if (isBusy || isProcessing || !canSwitchCamera) {
       return;
     }
     setIssue(null);
@@ -358,7 +535,8 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
   };
 
   const handleCapture = async () => {
-    if (!cameraRef.current || !isCameraReady) {
+    const camera = cameraRef.current;
+    if (!camera || !isCameraReady) {
       return;
     }
 
@@ -369,39 +547,69 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
 
     setIssue(null);
     setIsBusy(true);
+    let captureCompleted = false;
 
     try {
-      const picture = await cameraRef.current.takePictureAsync({
+      const picture = await camera.takePictureAsync({
         quality: 0.9,
-        base64: true,
+        imageType: 'jpg',
+        isImageMirror: imageKind === 'avatar' && facing === 'front',
       });
       if (!isActiveSession(session) || !picture?.uri) {
+        releaseTemporaryUri(picture?.uri);
         return;
       }
 
-      const encodedUri = getDataUri(picture.base64);
+      captureCompleted = true;
       cameraRef.current = null;
-      setSelectedImage({
-        displayUri: encodedUri ?? picture.uri,
-        uploadUri: encodedUri ?? picture.uri,
-        source: 'camera',
-        width: picture.width,
-        height: picture.height,
-      });
       setIsCameraReady(false);
-      setStep('preview');
+      setStep('processing');
+      setIsBusy(false);
+      setIsProcessing(true);
+      setProcessingPhase('preparing');
+
+      const previewUri = await makePreviewSafeUri(picture.uri);
+      if (!isActiveSession(session)) {
+        releaseTemporaryUri(previewUri);
+        return;
+      }
+
+      try {
+        replaceSelectedImage({
+          uri: previewUri,
+          width: picture.width,
+          height: picture.height,
+          source: 'camera',
+        });
+        setStep('preview');
+      } finally {
+        if (previewUri !== picture.uri) {
+          releaseTemporaryUri(picture.uri);
+        }
+      }
     } catch (error) {
-      console.error('Camera capture failed:', error);
+      console.error(
+        captureCompleted ? 'Camera preview preparation failed:' : 'Camera capture failed:',
+        error,
+      );
       if (isActiveSession(session)) {
+        if (captureCompleted) {
+          cameraRef.current = null;
+          setIsCameraReady(false);
+          setStep('capture-failure');
+        }
         setIssue({
-          kind: 'camera-capture',
+          kind: captureCompleted ? 'processing' : 'camera-capture',
           canRetry: true,
-          message: 'We couldn’t take that photo. Keep the camera open and try again.',
+          message: captureCompleted
+            ? 'We couldn’t prepare this photo. Please retake it or choose another photo.'
+            : 'We couldn’t take that photo. Keep the camera open and try again.',
         });
       }
     } finally {
       if (isActiveSession(session)) {
         setIsBusy(false);
+        setIsProcessing(false);
       }
       finishOperation(session);
     }
@@ -413,15 +621,20 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
     }
 
     setIssue(null);
-    if (selectedImage.source === 'camera') {
-      setSelectedImage(null);
-      setIsCameraReady(false);
-      setCameraAttempt((attempt) => attempt + 1);
-      setStep('camera');
+    void chooseFromGallery();
+  };
+
+  const handleRetake = () => {
+    if (isBusy || isProcessing) {
       return;
     }
 
-    void chooseFromGallery();
+    replaceSelectedImage(null);
+    setIssue(null);
+    setProcessingPhase('preparing');
+    setIsCameraReady(false);
+    setCameraAttempt((attempt) => attempt + 1);
+    setStep('camera');
   };
 
   const handleUsePhoto = async () => {
@@ -435,28 +648,19 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
     }
 
     setIssue(null);
+    setStep('processing');
     setIsProcessing(true);
 
     try {
-      const compressed = await compressImage(selectedImage.uploadUri);
-      if (!isActiveSession(session)) {
-        return;
-      }
-      finishDialog(() => onImageSelected(compressed));
-    } catch (error) {
-      console.error('Image compression failed:', error);
-      if (isActiveSession(session)) {
-        setIssue({
-          kind: 'processing',
-          canRetry: true,
-          message:
-            'We couldn’t optimise this image. Please try again or choose a different photo.',
-        });
-      }
+      await processAndUpload(
+        selectedImage.uri,
+        selectedImage.width,
+        selectedImage.height,
+        selectedImage.source,
+        session,
+        'preview',
+      );
     } finally {
-      if (isActiveSession(session)) {
-        setIsProcessing(false);
-      }
       finishOperation(session);
     }
   };
@@ -474,22 +678,24 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
       return;
     }
     finishDialog(() => {
-      if (onRemove) {
-        onRemove();
-      } else {
-        onImageSelected(null);
-      }
+      onRemove?.();
     });
   };
 
   const dialogTitle =
-    step === 'preview'
-      ? 'Preview photo'
-      : step === 'remove'
-        ? 'Remove photo?'
-        : step === 'permission' || step === 'camera'
-          ? 'Take a photo'
-          : title;
+    step === 'processing'
+      ? processingPhase === 'uploading'
+        ? 'Uploading photo'
+        : 'Preparing photo'
+      : step === 'capture-failure'
+        ? 'Photo not uploaded'
+        : step === 'preview'
+          ? 'Preview photo'
+          : step === 'remove'
+            ? 'Remove photo?'
+            : step === 'permission' || step === 'camera'
+              ? 'Take a photo'
+              : title;
 
   const dialogDescription =
     step === 'source'
@@ -676,20 +882,29 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
               )}
             </Pressable>
 
-            <Pressable
-              onPress={handleFlipCamera}
-              disabled={isBusy}
-              style={({ pressed }) => [
-                styles.cameraSideButton,
-                pressed && !isBusy ? styles.pressed : null,
-                isBusy ? styles.disabled : null,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Flip camera"
-            >
-              <Text style={styles.flipGlyph} accessibilityElementsHidden>↻</Text>
-              <Text style={styles.cameraSideLabel}>Flip</Text>
-            </Pressable>
+            {canSwitchCamera ? (
+              <Pressable
+                onPress={handleSwitchCamera}
+                disabled={isBusy}
+                style={({ pressed }) => [
+                  styles.cameraSideButton,
+                  pressed && !isBusy ? styles.pressed : null,
+                  isBusy ? styles.disabled : null,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Switch camera"
+              >
+                <Text style={styles.switchGlyph} accessibilityElementsHidden>↻</Text>
+                <Text style={styles.cameraSideLabel}>Switch</Text>
+              </Pressable>
+            ) : (
+              <View
+                testID="camera-switch-placeholder"
+                style={styles.cameraSideButton}
+                pointerEvents="none"
+                accessible={false}
+              />
+            )}
           </View>
 
           {issue?.kind === 'camera-capture' ? (
@@ -720,7 +935,7 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
       >
         {selectedImage ? (
           <Image
-            source={{ uri: selectedImage.displayUri }}
+            source={{ uri: selectedImage.uri }}
             style={StyleSheet.absoluteFill}
             resizeMode={imageKind === 'attachment' ? 'contain' : 'cover'}
             accessibilityLabel="Selected image preview"
@@ -733,25 +948,54 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
       <View style={styles.previewActions}>
         <SecondaryButton
           label={selectedImage?.source === 'camera' ? 'Retake' : 'Choose another'}
-          onPress={handleChooseAnother}
+          onPress={selectedImage?.source === 'camera' ? handleRetake : handleChooseAnother}
           disabled={isProcessing}
           compact
         />
         <GradientButton
-          label={isProcessing ? 'Optimising…' : 'Use photo'}
+          label={
+            issue?.kind === 'upload' || issue?.kind === 'processing'
+              ? selectedImage?.source === 'camera'
+                ? 'Try upload again'
+                : 'Try again'
+              : selectedImage?.source === 'camera'
+                ? 'Upload photo'
+                : 'Use photo'
+          }
           onPress={() => void handleUsePhoto()}
           disabled={isProcessing || !selectedImage}
           busy={isProcessing}
         />
       </View>
-      {issue?.kind === 'processing' && selectedImage?.source === 'camera' ? (
-        <SecondaryButton
-          label="Choose from gallery"
-          onPress={() => void chooseFromGallery()}
-          disabled={isProcessing}
-        />
-      ) : null}
       <TertiaryButton label="Cancel" onPress={handleClose} disabled={isProcessing} />
+    </View>
+  );
+
+  const renderProcessing = () => (
+    <View style={styles.processingContent} accessibilityLiveRegion="polite">
+      <View style={styles.permissionGraphic}>
+        <ActivityIndicator color={theme.prism.colors.accent} size="small" />
+      </View>
+      <Text style={styles.processingTitle}>
+        {processingPhase === 'uploading' ? 'Uploading photo…' : 'Preparing photo…'}
+      </Text>
+      <Text style={styles.processingDescription}>
+        {processingPhase === 'uploading'
+          ? 'Securely saving your photo to Zenlit.'
+          : 'Optimising your photo for a clear, fast preview.'}
+      </Text>
+    </View>
+  );
+
+  const renderCaptureFailure = () => (
+    <View style={styles.content}>
+      <View style={styles.permissionGraphic}>
+        <Feather name="alert-circle" size={25} color={theme.prism.colors.warning} />
+      </View>
+      {renderIssue()}
+      <SecondaryButton label="Retake" onPress={handleRetake} />
+      <SecondaryButton label="Choose from gallery" onPress={() => void chooseFromGallery()} />
+      <TertiaryButton label="Cancel" onPress={handleClose} />
     </View>
   );
 
@@ -800,7 +1044,11 @@ const ImageUploadDialog: React.FC<ImageUploadDialogProps> = ({
             ? renderCamera()
             : step === 'preview'
               ? renderPreview()
-              : renderRemoveConfirmation()}
+              : step === 'processing'
+                ? renderProcessing()
+                : step === 'capture-failure'
+                  ? renderCaptureFailure()
+                  : renderRemoveConfirmation()}
     </AppDialog>
   );
 };
@@ -939,6 +1187,29 @@ const GradientButton: React.FC<ButtonProps> = ({
 const styles = StyleSheet.create({
   content: {
     gap: 12,
+  },
+  processingContent: {
+    minHeight: 190,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+  },
+  processingTitle: {
+    color: theme.prism.colors.text,
+    fontFamily: theme.typography.fontFamily.web,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: theme.typography.weight.semibold,
+    textAlign: 'center',
+  },
+  processingDescription: {
+    color: theme.prism.colors.muted,
+    fontFamily: theme.typography.fontFamily.web,
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
   },
   sourceAction: {
     minHeight: 68,
@@ -1094,7 +1365,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: theme.typography.weight.semibold,
   },
-  flipGlyph: {
+  switchGlyph: {
     color: theme.prism.colors.textSoft,
     fontSize: 24,
     lineHeight: 24,

@@ -4,8 +4,9 @@ import { useRouter } from 'expo-router';
 
 import { useProfile } from '../contexts/ProfileContext';
 import { getCurrentUserProfile } from '../services/profileService';
-import type { CompressedImage } from '../utils/imageCompression';
+import type { StoredImage } from '../types/stored-image';
 import { saveEditProfileChanges } from './saveEditProfileChanges';
+import { usePendingUpload } from './usePendingUpload';
 import { useAppToast } from '../components/ui/app-toast';
 
 export type EditProfileUploadType = 'avatar' | 'banner';
@@ -24,8 +25,8 @@ export type EditProfileDraft = {
 export type EditProfilePendingImages = {
   bannerRemoval: boolean;
   profileRemoval: boolean;
-  bannerUpload: CompressedImage | null;
-  avatarUpload: CompressedImage | null;
+  bannerUpload: StoredImage | null;
+  avatarUpload: StoredImage | null;
   oldBannerUrl: string | null;
   oldProfileUrl: string | null;
 };
@@ -61,6 +62,8 @@ export const useEditProfile = () => {
   const [showImageUploadDialog, setShowImageUploadDialog] = useState(false);
   const [uploadType, setUploadType] = useState<EditProfileUploadType>('avatar');
   const [activeSocialModal, setActiveSocialModal] = useState<EditProfileSocialField | null>(null);
+  const avatarUpload = usePendingUpload();
+  const bannerUpload = usePendingUpload();
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -106,8 +109,9 @@ export const useEditProfile = () => {
     key: K,
     value: EditProfileDraft[K],
   ) => {
+    if (isSaving) return;
     setDraft((current) => ({ ...current, [key]: value }));
-  }, []);
+  }, [isSaving]);
 
   const handleSave = async () => {
     if (isSaving) {
@@ -115,43 +119,61 @@ export const useEditProfile = () => {
     }
 
     setIsSaving(true);
+    const releaseAvatarPersistence = avatarUpload.beginPersistence();
+    const releaseBannerPersistence = bannerUpload.beginPersistence();
 
     try {
       const { nextDraft, oldProfileUrl, oldBannerUrl, warnings } = await saveEditProfileChanges({
         draft,
         originalDisplayName: original.displayName,
-        pending,
+        pending: {
+          ...pending,
+          avatarUpload: avatarUpload.image,
+          bannerUpload: bannerUpload.image,
+        },
+        commitPendingImages: () => {
+          avatarUpload.commit();
+          bannerUpload.commit();
+        },
         refresh,
       });
 
-      setDraft(nextDraft);
-      setOriginal(nextDraft);
-      setPending({ ...emptyPending, oldProfileUrl, oldBannerUrl });
-      if (warnings.length > 0) {
-        showToast({
-          message: `Profile updated. ${warnings.join(' ')}`,
-          tone: 'warning',
-        });
-      } else {
-        showToast({ message: 'Profile updated successfully.', tone: 'success' });
+      if (mountedRef.current) {
+        setDraft(nextDraft);
+        setOriginal(nextDraft);
+        setPending({ ...emptyPending, oldProfileUrl, oldBannerUrl });
+        if (warnings.length > 0) {
+          showToast({
+            message: `Profile updated. ${warnings.join(' ')}`,
+            tone: 'warning',
+          });
+        } else {
+          showToast({ message: 'Profile updated successfully.', tone: 'success' });
+        }
+        router.back();
       }
-      router.back();
     } catch (error: any) {
       console.error('Error saving profile:', error);
-      showToast({
-        message: typeof error?.message === 'string'
-          ? error.message
-          : 'Failed to update profile. Please try again.',
-        tone: 'error',
-      });
+      if (mountedRef.current) {
+        showToast({
+          message: typeof error?.message === 'string'
+            ? error.message
+            : 'Failed to update profile. Please try again.',
+          tone: 'error',
+        });
+      }
     } finally {
+      releaseAvatarPersistence();
+      releaseBannerPersistence();
       if (mountedRef.current) {
         setIsSaving(false);
       }
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
+    if (isSaving) return;
+    await Promise.all([avatarUpload.discard(), bannerUpload.discard()]);
     setDraft(original);
     setPending((current) => ({
       ...emptyPending,
@@ -162,31 +184,45 @@ export const useEditProfile = () => {
   };
 
   const openImageDialog = (type: EditProfileUploadType) => {
+    if (isSaving) return;
     setUploadType(type);
     setShowImageUploadDialog(true);
   };
 
-  const handleImageSelected = (image: CompressedImage | null) => {
-    const hasImage = Boolean(image);
+  const handleImageUploaded = async (image: StoredImage) => {
     if (uploadType === 'avatar') {
-      setDraftField('profileImage', image?.uri ?? null);
-      setPending((current) => ({ ...current, avatarUpload: image, profileRemoval: !hasImage }));
+      await avatarUpload.replace(image);
+      setDraftField('profileImage', image.publicUrl);
+      setPending((current) => ({ ...current, avatarUpload: null, profileRemoval: false }));
       showToast({
-        message: hasImage
-          ? 'New profile picture selected. Save to apply.'
-          : 'Profile picture removed. Save to confirm.',
+        message: 'New profile picture uploaded. Save to apply.',
         tone: 'info',
       });
       return;
     }
-    setDraftField('bannerImage', image ? { uri: image.uri } : null);
-    setPending((current) => ({ ...current, bannerUpload: image, bannerRemoval: !hasImage }));
+    await bannerUpload.replace(image);
+    setDraftField('bannerImage', { uri: image.publicUrl });
+    setPending((current) => ({ ...current, bannerUpload: null, bannerRemoval: false }));
     showToast({
-      message: hasImage
-        ? 'New banner image selected. Save to apply.'
-        : 'Banner image removed. Save to confirm.',
+      message: 'New banner image uploaded. Save to apply.',
       tone: 'info',
     });
+  };
+
+  const handleImageRemove = async () => {
+    if (isSaving) return;
+    if (uploadType === 'avatar') {
+      await avatarUpload.discard();
+      setDraftField('profileImage', null);
+      setPending((current) => ({ ...current, avatarUpload: null, profileRemoval: true }));
+      showToast({ message: 'Profile picture removed. Save to confirm.', tone: 'info' });
+      return;
+    }
+
+    await bannerUpload.discard();
+    setDraftField('bannerImage', null);
+    setPending((current) => ({ ...current, bannerUpload: null, bannerRemoval: true }));
+    showToast({ message: 'Banner image removed. Save to confirm.', tone: 'info' });
   };
 
   return {
@@ -202,11 +238,13 @@ export const useEditProfile = () => {
     handleBack: handleCancel,
     openBannerMenu: () => openImageDialog('banner'),
     openProfileMenu: () => openImageDialog('avatar'),
-    openSocialModal: setActiveSocialModal,
+    openSocialModal: (field: EditProfileSocialField) => {
+      if (!isSaving) setActiveSocialModal(field);
+    },
     closeSocialModal: () => setActiveSocialModal(null),
     closeImageUploadDialog: () => setShowImageUploadDialog(false),
-    handleImageSelected,
-    handleImageRemove: () => handleImageSelected(null),
+    handleImageUploaded,
+    handleImageRemove,
   };
 };
 

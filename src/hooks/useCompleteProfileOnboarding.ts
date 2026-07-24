@@ -5,17 +5,17 @@ import {
   saveOptionalProfileDetails,
   skipOptionalProfileDetails,
 } from '../services/onboardingService';
-import type { CompressedImage } from '../utils/imageCompression';
+import type { StoredImage } from '../types/stored-image';
 import { getFriendlyOnboardingError } from '../utils/onboardingErrors';
 import { getRouteForOnboardingState } from '../utils/onboardingState';
 import { publishOnboardingState } from '../utils/onboardingStateSync';
-import { uploadProfileImagesWithCleanup } from '../utils/profileImageUploads';
+import { usePendingUpload } from './usePendingUpload';
 
 export const useCompleteProfileOnboarding = () => {
   const router = useRouter();
   const [bio, setBio] = useState('');
-  const [bannerImage, setBannerImage] = useState<CompressedImage | null>(null);
-  const [profileImage, setProfileImage] = useState<CompressedImage | null>(null);
+  const bannerUpload = usePendingUpload();
+  const profileUpload = usePendingUpload();
   const [instagram, setInstagram] = useState('');
   const [twitter, setTwitter] = useState('');
   const [linkedin, setLinkedin] = useState('');
@@ -34,8 +34,6 @@ export const useCompleteProfileOnboarding = () => {
 
   const clearDraft = () => {
     setBio('');
-    setBannerImage(null);
-    setProfileImage(null);
     setInstagram('');
     setTwitter('');
     setLinkedin('');
@@ -45,43 +43,37 @@ export const useCompleteProfileOnboarding = () => {
     if (isSaving) return;
     setIsSaving(true);
     setErrorMessage('');
+    const releaseProfilePersistence = profileUpload.beginPersistence();
+    const releaseBannerPersistence = bannerUpload.beginPersistence();
 
     try {
-      const uploadedImages = await uploadProfileImagesWithCleanup({
-        avatarImage: profileImage,
-        bannerImage,
+      const result = await saveOptionalProfileDetails({
+        bio: bio.trim() || null,
+        instagram: instagram.trim() || null,
+        x_twitter: twitter.trim() || null,
+        linkedin: linkedin.trim() || null,
+        profile_pic_url: profileUpload.image?.publicUrl ?? null,
+        banner_url: bannerUpload.image?.publicUrl ?? null,
       });
-
-      try {
-        const result = await saveOptionalProfileDetails({
-          bio: bio.trim() || null,
-          instagram: instagram.trim() || null,
-          x_twitter: twitter.trim() || null,
-          linkedin: linkedin.trim() || null,
-          profile_pic_url: uploadedImages.avatarUrl ?? null,
-          banner_url: uploadedImages.bannerUrl ?? null,
-        });
-        if (result.error || !result.data) {
-          throw result.error ?? new Error('Failed to save optional profile details');
-        }
-        if (mountedRef.current) {
-          if (!publishOnboardingState(result.data)) {
-            router.replace(getRouteForOnboardingState(result.data));
-          }
-        }
-      } catch (error) {
-        await uploadedImages.cleanupUploadedImages();
-        throw error;
+      if (result.error || !result.data) {
+        throw result.error ?? new Error('Failed to save optional profile details');
       }
 
+      profileUpload.commit();
+      bannerUpload.commit();
       if (mountedRef.current) {
         clearDraft();
+        if (!publishOnboardingState(result.data)) {
+          router.replace(getRouteForOnboardingState(result.data));
+        }
       }
     } catch (error) {
       if (mountedRef.current) {
         setErrorMessage(getFriendlyOnboardingError(error));
       }
     } finally {
+      releaseProfilePersistence();
+      releaseBannerPersistence();
       if (mountedRef.current) {
         setIsSaving(false);
       }
@@ -99,6 +91,7 @@ export const useCompleteProfileOnboarding = () => {
         throw error ?? new Error('Failed to skip optional details');
       }
 
+      await Promise.all([profileUpload.discard(), bannerUpload.discard()]);
       if (mountedRef.current) {
         clearDraft();
         if (!publishOnboardingState(data)) {
@@ -116,32 +109,34 @@ export const useCompleteProfileOnboarding = () => {
     }
   };
 
-  const handleImageSelected = (image: CompressedImage | null) => {
+  const handleImageUploaded = async (image: StoredImage) => {
     if (uploadType === 'avatar') {
-      setProfileImage(image);
+      await profileUpload.replace(image);
     } else {
-      setBannerImage(image);
+      await bannerUpload.replace(image);
     }
   };
 
-  const handleRemoveImage = () => {
+  const handleRemoveImage = async () => {
+    if (isSaving) return;
     if (uploadType === 'avatar') {
-      setProfileImage(null);
+      await profileUpload.discard();
     } else {
-      setBannerImage(null);
+      await bannerUpload.discard();
     }
   };
 
   const openImageDialog = (type: 'avatar' | 'banner') => {
+    if (isSaving) return;
     setUploadType(type);
     setShowImageUploadDialog(true);
   };
 
   return {
-    bannerImage,
+    bannerImage: bannerUpload.image,
     bio,
     errorMessage,
-    handleImageSelected,
+    handleImageUploaded,
     handleRemoveImage,
     handleSave,
     handleSkip,
@@ -150,7 +145,7 @@ export const useCompleteProfileOnboarding = () => {
     linkedin,
     openBannerMenu: () => openImageDialog('banner'),
     openProfileMenu: () => openImageDialog('avatar'),
-    profileImage,
+    profileImage: profileUpload.image,
     setBio,
     setInstagram,
     setLinkedin,

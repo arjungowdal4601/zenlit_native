@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -9,34 +9,50 @@ import {
 } from 'react-native';
 import { Feather } from '../icons';
 import { submitFeedback } from '../../services/feedbackService';
-import type { CompressedImage } from '../../utils/imageCompression';
+import { usePendingUpload } from '../../hooks/usePendingUpload';
+import type { ImageUploadTarget, StoredImage } from '../../types/stored-image';
 import ImageUploadDialog from '../ImageUploadDialog';
 import { useAppToast } from '../ui/app-toast';
 
 const MAX_LENGTH = 1000;
 const MIN_LENGTH = 10;
+const FEEDBACK_UPLOAD_TARGET = {
+  bucket: 'feedback-images',
+  prefix: 'feedback',
+} as const satisfies ImageUploadTarget;
 
 const FeedbackForm: React.FC = () => {
   const { showToast } = useAppToast();
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [attachedImage, setAttachedImage] = useState<CompressedImage | null>(null);
+  const attachedUpload = usePendingUpload();
+  const attachedImage = attachedUpload.image;
   const [showImageUploadDialog, setShowImageUploadDialog] = useState(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const remaining = useMemo(() => `${message.length}/${MAX_LENGTH} characters`, [message.length]);
 
   const handleAttachPress = () => {
+    if (isSubmitting) return;
     setShowImageUploadDialog(true);
   };
 
-  const handleImageSelected = (image: CompressedImage | null) => {
-    setAttachedImage(image);
+  const handleImageUploaded = async (image: StoredImage) => {
+    await attachedUpload.replace(image);
     setShowImageUploadDialog(false);
   };
 
-  const handleRemoveImage = () => {
-    setAttachedImage(null);
+  const handleRemoveImage = async () => {
+    if (isSubmitting) return;
+    await attachedUpload.discard();
   };
 
   const handleSubmit = async () => {
@@ -52,6 +68,7 @@ const FeedbackForm: React.FC = () => {
 
     setIsSubmitting(true);
     setError(null);
+    const releasePersistence = attachedUpload.beginPersistence();
 
     try {
       const { error: insertError } = await submitFeedback(trimmed, attachedImage);
@@ -60,17 +77,22 @@ const FeedbackForm: React.FC = () => {
         throw insertError;
       }
 
-      setMessage('');
-      setAttachedImage(null);
-      showToast({
-        message: 'Thank you! Your feedback has been submitted successfully.',
-        tone: 'success',
-      });
+      attachedUpload.commit();
+      if (mountedRef.current) {
+        setMessage('');
+        showToast({
+          message: 'Thank you! Your feedback has been submitted successfully.',
+          tone: 'success',
+        });
+      }
     } catch (error: any) {
       console.error('Error submitting feedback:', error);
-      showToast({ message: 'Failed to submit feedback. Please try again.', tone: 'error' });
+      if (mountedRef.current) {
+        showToast({ message: 'Failed to submit feedback. Please try again.', tone: 'error' });
+      }
     } finally {
-      setIsSubmitting(false);
+      releasePersistence();
+      if (mountedRef.current) setIsSubmitting(false);
     }
   };
 
@@ -78,7 +100,14 @@ const FeedbackForm: React.FC = () => {
     <View style={styles.card}>
       <View style={styles.headerRow}>
         <Text style={styles.label}>Your Feedback<Text style={styles.required}> *</Text></Text>
-        <Pressable style={styles.attachButton} onPress={handleAttachPress} accessibilityRole="button">
+        <Pressable
+          style={[styles.attachButton, isSubmitting && styles.submitDisabled]}
+          onPress={handleAttachPress}
+          disabled={isSubmitting}
+          accessibilityRole="button"
+          accessibilityLabel="Attach image"
+          accessibilityState={{ disabled: isSubmitting }}
+        >
           <Feather name="paperclip" size={16} color="#ffffff" />
           <Text style={styles.attachLabel}>Attach</Text>
         </Pressable>
@@ -99,18 +128,34 @@ const FeedbackForm: React.FC = () => {
         placeholder="Tell us what you think about Zenlit. What features do you love? What could be improved? Any bugs or issues you've encountered?"
         placeholderTextColor="#94a3b8"
         textAlignVertical="top"
+        editable={!isSubmitting}
       />
 
       {attachedImage && (
         <View style={styles.imagePreviewContainer}>
-          <Image source={{ uri: attachedImage.uri }} style={styles.imagePreview} resizeMode="cover" />
-          <Pressable style={styles.removeImageButton} onPress={handleRemoveImage}>
+          <Image source={{ uri: attachedImage.publicUrl }} style={styles.imagePreview} resizeMode="cover" />
+          <Pressable
+            style={styles.removeImageButton}
+            onPress={handleRemoveImage}
+            disabled={isSubmitting}
+            accessibilityRole="button"
+            accessibilityLabel="Remove image"
+            accessibilityState={{ disabled: isSubmitting }}
+          >
             <Feather name="x" size={16} color="#ffffff" />
           </Pressable>
         </View>
       )}
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {error ? (
+        <Text
+          style={styles.errorText}
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+        >
+          {error}
+        </Text>
+      ) : null}
       {!error && message.trim().length > 0 && message.trim().length < MIN_LENGTH ? (
         <Text style={styles.hintText}>Enter at least 10 characters.</Text>
       ) : null}
@@ -128,11 +173,12 @@ const FeedbackForm: React.FC = () => {
       </Pressable>
 
       <ImageUploadDialog
-        visible={showImageUploadDialog}
+        visible={showImageUploadDialog && !isSubmitting}
         onClose={() => setShowImageUploadDialog(false)}
-        onImageSelected={handleImageSelected}
+        onImageUploaded={handleImageUploaded}
+        uploadTarget={FEEDBACK_UPLOAD_TARGET}
         title="Attach Image"
-        currentImage={attachedImage?.uri}
+        currentImage={attachedImage?.publicUrl}
         onRemove={handleRemoveImage}
         showRemoveOption={!!attachedImage}
         imageKind="attachment"

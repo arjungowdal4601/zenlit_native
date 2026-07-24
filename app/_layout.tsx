@@ -1,7 +1,7 @@
 import '../src/polyfills';
 import './global.css';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Platform, Text, View } from 'react-native';
@@ -18,6 +18,7 @@ import Navigation from '../src/components/Navigation';
 import { theme } from '../src/styles/theme';
 import { styles } from '../src/styles/rootLayout.styles';
 import { useAuthOnboardingGate } from '../src/hooks/useAuthOnboardingGate';
+import { startPendingUploadLifecycle } from '../src/services/pendingUploadLedger';
 
 const ROOT_STACK_SCREEN_OPTIONS = {
   headerShown: false,
@@ -26,6 +27,14 @@ const ROOT_STACK_SCREEN_OPTIONS = {
 
 const RootLayout: React.FC = () => {
   const shell = useAuthOnboardingGate();
+
+  useEffect(() => {
+    if (!shell.userId) {
+      return undefined;
+    }
+
+    return startPendingUploadLifecycle(shell.userId);
+  }, [shell.userId]);
 
   if (!shell.authReady) {
     return (

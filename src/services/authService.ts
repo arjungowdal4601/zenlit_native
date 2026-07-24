@@ -2,6 +2,7 @@ import type { SupabaseConfigStatus } from '../lib/supabase';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase, supabaseConfigStatus, supabaseReady } from '../lib/supabase';
 import { withTimeout } from '../utils/async';
+import { cleanupPendingUploadsBeforeLogout } from './pendingUploadLedger';
 
 export type AppUser = {
   id: string;
@@ -67,6 +68,17 @@ export const verifyEmailOtp = async (email: string, token: string) => {
 
 export const signOut = async (scope: 'local' | 'global' = 'global') => {
   if (!supabaseReady) return { error: null };
+
+  const user = await getCurrentUser();
+  if (user) {
+    try {
+      const cleanup = cleanupPendingUploadsBeforeLogout(user.id);
+      await withTimeout(cleanup, 'Pending image cleanup before sign out', 5000);
+    } catch (error) {
+      console.warn('Pending image cleanup did not finish before sign out:', error);
+    }
+  }
+
   return withTimeout(supabase.auth.signOut({ scope }), 'Sign out');
 };
 

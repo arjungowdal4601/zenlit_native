@@ -9,6 +9,7 @@ type ProfileImageEditorProps = {
   profileImage: string | null;
   onEditBanner: () => void;
   onEditProfile: () => void;
+  disabled?: boolean;
 };
 
 export const ProfileImageEditor = ({
@@ -16,6 +17,7 @@ export const ProfileImageEditor = ({
   profileImage,
   onEditBanner,
   onEditProfile,
+  disabled = false,
 }: ProfileImageEditorProps) => (
   <View style={styles.bannerWrapper}>
     {bannerImage ? (
@@ -26,8 +28,10 @@ export const ProfileImageEditor = ({
     <Pressable
       style={styles.bannerOverlay}
       onPress={onEditBanner}
+      disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel="Edit banner photo"
+      accessibilityState={{ disabled }}
     >
       <View style={styles.overlayCircle}>
         <Feather name="camera" size={18} color="#ffffff" />
@@ -36,9 +40,11 @@ export const ProfileImageEditor = ({
     <View style={styles.avatarWrapper}>
       <Pressable
         onPress={onEditProfile}
+        disabled={disabled}
         style={styles.avatarButton}
         accessibilityRole="button"
         accessibilityLabel="Edit profile photo"
+        accessibilityState={{ disabled }}
       >
         {profileImage ? (
           <Image source={{ uri: profileImage }} style={styles.avatar} />

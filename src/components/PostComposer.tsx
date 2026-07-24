@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Feather } from './icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import type { CompressedImage } from '../utils/imageCompression';
+import type { ImageUploadTarget, StoredImage } from '../types/stored-image';
+import { usePendingUpload } from '../hooks/usePendingUpload';
 import { theme } from '../styles/theme';
 import ImageUploadDialog from './ImageUploadDialog';
 import type { FeedPostAuthor } from './Post';
@@ -12,24 +13,38 @@ const AVATAR_SIZE = 48;
 const LINE_HEIGHT = 22;
 const MIN_INPUT_HEIGHT = LINE_HEIGHT * 3;
 const MAX_INPUT_HEIGHT = LINE_HEIGHT * 5;
+const POST_UPLOAD_TARGET = {
+  bucket: 'post-images',
+  prefix: 'post',
+} as const satisfies ImageUploadTarget;
 
 export type PostComposerSharePayload = {
   content: string;
-  image?: CompressedImage | null;
+  image?: StoredImage | null;
 };
 
 export type PostComposerProps = {
   author: FeedPostAuthor;
   onShare?: (payload: PostComposerSharePayload) => Promise<boolean> | boolean;
+  onShareComplete?: () => void;
 };
 
-export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) => {
+export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare, onShareComplete }) => {
   const [value, setValue] = useState('');
   const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
   const [showImageDialog, setShowImageDialog] = useState(false);
-  const [attachedImage, setAttachedImage] = useState<CompressedImage | null>(null);
+  const attachedUpload = usePendingUpload();
+  const attachedImage = attachedUpload.image;
   const [isSharing, setIsSharing] = useState(false);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const avatarSource = useMemo(() => {
     const uri = author.avatar?.trim();
@@ -54,6 +69,7 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
       return;
     }
 
+    const releasePersistence = attachedUpload.beginPersistence();
     try {
       setIsSharing(true);
       const result = await onShare?.({
@@ -65,29 +81,34 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
         return;
       }
 
-      setValue('');
-      setInputHeight(MIN_INPUT_HEIGHT);
-      setAttachedImage(null);
-      setValidationMessage(null);
+      attachedUpload.commit();
+      if (mountedRef.current) {
+        setValue('');
+        setInputHeight(MIN_INPUT_HEIGHT);
+        setValidationMessage(null);
+        onShareComplete?.();
+      }
     } finally {
-      setIsSharing(false);
+      releasePersistence();
+      if (mountedRef.current) setIsSharing(false);
     }
   };
 
   const handleAttachmentPress = () => {
-    if (attachedImage) {
+    if (attachedImage || isSharing) {
       return;
     }
     setShowImageDialog(true);
   };
 
-  const handleImageSelected = (image: CompressedImage | null) => {
-    setAttachedImage(image);
+  const handleImageUploaded = async (image: StoredImage) => {
+    await attachedUpload.replace(image);
     setShowImageDialog(false);
   };
 
-  const handleRemoveImage = () => {
-    setAttachedImage(null);
+  const handleRemoveImage = async () => {
+    if (isSharing) return;
+    await attachedUpload.discard();
   };
 
   return (
@@ -105,18 +126,19 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
           <Pressable
             style={({ pressed }) => [
               styles.iconButton,
-              attachedImage ? styles.iconButtonDisabled : null,
-              pressed && !attachedImage ? styles.iconPressed : null,
+              attachedImage || isSharing ? styles.iconButtonDisabled : null,
+              pressed && !attachedImage && !isSharing ? styles.iconPressed : null,
             ]}
             accessibilityRole="button"
             accessibilityLabel="Attach media"
             onPress={handleAttachmentPress}
-            disabled={!!attachedImage}
+            disabled={!!attachedImage || isSharing}
+            accessibilityState={{ disabled: !!attachedImage || isSharing }}
           >
             <Feather
               name="paperclip"
               size={18}
-              color={attachedImage ? theme.colors.iconInactive : theme.colors.icon}
+              color={attachedImage || isSharing ? theme.colors.iconInactive : theme.colors.icon}
             />
           </Pressable>
 
@@ -183,15 +205,17 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
         {attachedImage && (
           <View style={styles.attachedImageContainer}>
             <Image
-              source={{ uri: attachedImage.uri }}
+              source={{ uri: attachedImage.publicUrl }}
               style={styles.attachedImage}
               resizeMode="contain"
             />
             <Pressable
               style={styles.removeImageButton}
               onPress={handleRemoveImage}
+              disabled={isSharing}
               accessibilityRole="button"
               accessibilityLabel="Remove image"
+              accessibilityState={{ disabled: isSharing }}
             >
               <Feather name="x" size={16} color="#ffffff" />
             </Pressable>
@@ -200,10 +224,11 @@ export const PostComposer: React.FC<PostComposerProps> = ({ author, onShare }) =
       </View>
 
       <ImageUploadDialog
-        visible={showImageDialog}
+        visible={showImageDialog && !isSharing}
         onClose={() => setShowImageDialog(false)}
-        onImageSelected={handleImageSelected}
-        currentImage={attachedImage?.uri}
+        onImageUploaded={handleImageUploaded}
+        uploadTarget={POST_UPLOAD_TARGET}
+        currentImage={attachedImage?.publicUrl}
         onRemove={handleRemoveImage}
         showRemoveOption={!!attachedImage}
         title="Attach Image"

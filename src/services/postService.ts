@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { Post, PostWithAuthor, PublicProfile, SocialLinks } from '../lib/types';
+import { deleteImageFromStorage } from './storageService';
 
 export async function getUserPosts(userId: string): Promise<{ posts: Post[]; error: Error | null }> {
   try {
@@ -184,13 +185,23 @@ export async function updatePost(
 
 export async function deletePost(postId: string): Promise<{ success: boolean; error: Error | null }> {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('posts')
       .delete()
-      .eq('id', postId);
+      .eq('id', postId)
+      .select('image_url')
+      .maybeSingle();
 
     if (error) {
       return { success: false, error };
+    }
+
+    const deletedImageUrl = (data as Pick<Post, 'image_url'> | null)?.image_url ?? null;
+    if (deletedImageUrl) {
+      const cleanup = await deleteImageFromStorage(deletedImageUrl, 'post-images');
+      if (!cleanup.success) {
+        console.error('Post deleted, but its stored image cleanup will be retried:', cleanup.error);
+      }
     }
 
     return { success: true, error: null };
